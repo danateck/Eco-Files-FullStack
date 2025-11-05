@@ -849,7 +849,7 @@ function handleLogout() {
   console.log("✅ Logout complete, redirecting to login...");
   
   // Go to login
-  window.location.replace("../forms/eco-wellness/index.html");
+  window.location.replace("forms/eco-wellness/index.html");
 }
 
 
@@ -2115,7 +2115,7 @@ const currentUser = getCurrentUser();
   if (!currentUser) {
     // אם אין משתמש שמור, redirect to login
     console.warn("⚠️ No user logged in, redirecting to login...");
-    window.location.href = "../forms/eco-wellness/index.html";
+    window.location.href = "./";
     return; // Stop execution
   }
 
