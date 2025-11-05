@@ -1,54 +1,57 @@
-// JS/authCheck.js  — same logic, base-aware redirects (no ../ needed)
+// JS/authCheck.js — same logic, base-aware, and guarded (no redirect loops)
 
-// Helper: resolve a path against <base href="..."> and avoid history loops
+let __redirecting = false;
 function go(path) {
+  if (__redirecting) return;            // stop spam redirects
+  __redirecting = true;
   location.replace(new URL(path, document.baseURI).href);
 }
 
-// Check if user is logged in (unchanged)
+// Your original helpers (unchanged)
 function isUserLoggedIn() {
   const currentUser = sessionStorage.getItem("docArchiveCurrentUser");
   console.log("Checking login status. Current user:", currentUser);
   return currentUser !== null && currentUser !== "";
 }
-
-// Get current logged in user email (unchanged)
 function getCurrentUserEmail() {
   return sessionStorage.getItem("docArchiveCurrentUser");
 }
-
-// Logout (only change: base-aware redirect)
 function logoutUser() {
   sessionStorage.removeItem("docArchiveCurrentUser");
   sessionStorage.removeItem("loginSuccess");
   console.log("User logged out");
-  // go to login page under forms/eco-wellness
   go("forms/eco-wellness/index.html");
 }
 
-// LOGIN PAGE: if already logged in → go home (only change: path)
+// Page detection (so we only redirect from the *right* page)
+const BASE = "/Eco-Files-FullStack/";
+const p = location.pathname;
+const isDashboard = p.endsWith(BASE) || p.endsWith(BASE + "index.html");
+const isLogin     = p.startsWith(BASE + "forms/eco-wellness/") &&
+                    (p.endsWith("/") || p.endsWith("/index.html"));
+
+// Keep your original intent, but scoped per page
 function redirectIfLoggedIn() {
   const loginSuccess = sessionStorage.getItem("loginSuccess");
-  if (isUserLoggedIn() && loginSuccess === "true") {
+  if (isLogin && isUserLoggedIn() && loginSuccess === "true") {
     console.log("User already logged in, redirecting to home...");
-    sessionStorage.removeItem("loginSuccess"); // Clear the flag
+    sessionStorage.removeItem("loginSuccess");
     go("index.html");
     return true;
   }
   return false;
 }
-
-// HOME PAGE: if NOT logged in → go to login (only change: path)
 function requireLogin() {
   console.log("requireLogin called");
-  if (!isUserLoggedIn()) {
+  if (isDashboard && !isUserLoggedIn()) {
     console.log("User not logged in, redirecting to login page...");
     go("forms/eco-wellness/index.html");
     return false;
   }
-  // Clear the login success flag once we're on home page
-  sessionStorage.removeItem("loginSuccess");
-  console.log("User is logged in:", getCurrentUserEmail());
+  if (isDashboard) {
+    sessionStorage.removeItem("loginSuccess"); // clear flag only on home
+    console.log("User is logged in:", getCurrentUserEmail());
+  }
   return true;
 }
 
