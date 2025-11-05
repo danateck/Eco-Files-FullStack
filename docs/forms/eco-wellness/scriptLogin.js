@@ -421,7 +421,8 @@ class EcoWellnessLoginForm {
                 console.log("Current URL:", window.location.href);
                 
                 // Path from forms/eco-wellness/login.html to project/index.html
-                const redirectPath = "../../index.html";
+
+                const redirectPath = "../../../index.html";
                 console.log("Redirecting to:", redirectPath);
                 
                 window.location.replace(redirectPath);
@@ -479,8 +480,8 @@ class EcoWellnessLoginForm {
 
                 this.showHarmonySuccess();
                 setTimeout(() => {
-                    console.log("Google login redirect to: ../../index.html");
-                    window.location.replace("../../index.html");
+                    console.log("Google login redirect to: ../../../index.html");
+                    window.location.replace("../../../index.html");
                 }, 1500);
 
             } catch (err) {
