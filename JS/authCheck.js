@@ -65,7 +65,7 @@ if (!window.__authCheckInit) {
     console.log("requireLogin called");
     if (isDashboard && !window.isUserLoggedIn()) {
       console.log("User not logged in, redirecting to login page...");
-      window.go("forms/eco-wellness/index.html");
+      //window.go("forms/eco-wellness/index.html");
       return false;
     }
     if (isDashboard) {
