@@ -44,10 +44,12 @@ function redirectIfLoggedIn() {
 // For HOME PAGE (Dashboard): Redirect to login if NOT logged in
 // ONLY checks once on page load
 function requireLogin() {
-    // Only check if we're on the dashboard page
-    if (window.location.pathname.endsWith("index.html") && 
-        !window.location.pathname.includes("eco-wellness")) {
-        
+    const path = window.location.pathname;
+    const isDashboard = path.endsWith("/index.html") || path === "/" || path === "/index.html";
+    const isLoginPage = path.includes("eco-wellness");
+    
+    // Only check auth on the dashboard page, not login page
+    if (isDashboard && !isLoginPage) {
         if (!isUserLoggedIn()) {
             console.log("❌ User not logged in, redirecting to login...");
             window.location.replace("./forms/eco-wellness/index.html");
@@ -56,7 +58,7 @@ function requireLogin() {
         
         // Clear the login success flag once on dashboard
         sessionStorage.removeItem("loginSuccess");
-        console.log("✅ User authenticated:", getCurrentUserEmail());
+        console.log("✅ User authenticated on dashboard:", getCurrentUserEmail());
         return true;
     }
     return true;
