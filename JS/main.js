@@ -2115,6 +2115,7 @@ const currentUser = getCurrentUser();
   if (!currentUser) {
     // אם אין משתמש שמור, redirect to login
     console.warn("⚠️ No user logged in, redirecting to login...");
+    window.location.href = "./";
     return; // Stop execution
   }
 

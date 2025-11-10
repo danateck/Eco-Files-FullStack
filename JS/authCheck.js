@@ -1,79 +1,65 @@
-// JS/authCheck.js — idempotent, base-aware, and guarded (no redirect loops)
+// authCheck.js
+// FIXED: Prevents infinite redirect loops
 
-// ---- single-load guard ----
-if (!window.__authCheckInit) {
-  window.__authCheckInit = true;
+// Check if user is logged in
+function isUserLoggedIn() {
+    const currentUser = sessionStorage.getItem("docArchiveCurrentUser");
+    return currentUser !== null && currentUser !== "";
+}
 
-  // one-time redirect guard
-  if (typeof window.__redirecting === 'undefined') window.__redirecting = false;
+// Get current logged in user email
+function getCurrentUserEmail() {
+    return sessionStorage.getItem("docArchiveCurrentUser");
+}
 
-  // base-aware navigation helper (safe if called many times)
-  if (typeof window.go !== 'function') {
-    window.go = function (path) {
-      if (window.__redirecting) return;      // stop spam redirects
-      window.__redirecting = true;
-      location.replace(new URL(path, document.baseURI).href);
-    };
-  }
+// Logout function
+function logoutUser() {
+    console.log("🚪 Logging out user:", getCurrentUserEmail());
+    sessionStorage.removeItem("docArchiveCurrentUser");
+    sessionStorage.removeItem("loginSuccess");
+    // Redirect to login page
+    window.location.replace("./forms/eco-wellness/index.html");
+}
 
-  // ---- your original helpers (preserved) ----
-  if (typeof window.isUserLoggedIn !== 'function') {
-    window.isUserLoggedIn = function () {
-      const currentUser = sessionStorage.getItem("docArchiveCurrentUser");
-      console.log("Checking login status. Current user:", currentUser);
-      return currentUser !== null && currentUser !== "";
-    };
-  }
-
-  if (typeof window.getCurrentUserEmail !== 'function') {
-    window.getCurrentUserEmail = function () {
-      return sessionStorage.getItem("docArchiveCurrentUser");
-    };
-  }
-
-  if (typeof window.logoutUser !== 'function') {
-    window.logoutUser = function () {
-      sessionStorage.removeItem("docArchiveCurrentUser");
-      sessionStorage.removeItem("loginSuccess");
-      console.log("User logged out");
-      window.go("forms/eco-wellness/index.html");
-    };
-  }
-
-  // page detection (so we redirect only from the right page)
-  const BASE = "/Eco-Files-FullStack/";
-  const p = location.pathname;
-  const isDashboard =
-    p.endsWith(BASE) || p.endsWith(BASE + "index.html");
-  const isLogin =
-    p.startsWith(BASE + "forms/eco-wellness/") &&
-    (p.endsWith("/") || p.endsWith("/index.html"));
-
-  // keep your intent, but scoped per page
-  window.redirectIfLoggedIn = function () {
-    const loginSuccess = sessionStorage.getItem("loginSuccess");
-    if (isLogin && window.isUserLoggedIn() && loginSuccess === "true") {
-      console.log("User already logged in, redirecting to home...");
-      sessionStorage.removeItem("loginSuccess");
-      window.go("index.html");
-      return true;
+// For LOGIN PAGE: Redirect to home if already logged in
+// ONLY checks once on page load, won't loop
+function redirectIfLoggedIn() {
+    // Prevent checking during active login attempt
+    if (window.location.href.includes("index.html") && 
+        document.getElementById("loginForm")) {
+        
+        const loginSuccess = sessionStorage.getItem("loginSuccess");
+        
+        // Only redirect if user is logged in AND login was successful
+        if (isUserLoggedIn() && loginSuccess === "true") {
+            console.log("✅ User already logged in, redirecting to dashboard...");
+            sessionStorage.removeItem("loginSuccess"); // Clear flag
+            window.location.replace("../../index.html");
+            return true;
+        }
     }
     return false;
-  };
+}
 
-  window.requireLogin = function () {
-    console.log("requireLogin called");
-    if (isDashboard && !window.isUserLoggedIn()) {
-      console.log("User not logged in, redirecting to login page...");
-      //window.go("forms/eco-wellness/index.html");
-      return false;
-    }
-    if (isDashboard) {
-      sessionStorage.removeItem("loginSuccess"); // clear flag only on home
-      console.log("User is logged in:", window.getCurrentUserEmail());
+// For HOME PAGE (Dashboard): Redirect to login if NOT logged in
+// ONLY checks once on page load
+function requireLogin() {
+    // Only check if we're on the dashboard page
+    if (window.location.pathname.endsWith("index.html") && 
+        !window.location.pathname.includes("eco-wellness")) {
+        
+        if (!isUserLoggedIn()) {
+            console.log("❌ User not logged in, redirecting to login...");
+            window.location.replace("./forms/eco-wellness/index.html");
+            return false;
+        }
+        
+        // Clear the login success flag once on dashboard
+        sessionStorage.removeItem("loginSuccess");
+        console.log("✅ User authenticated:", getCurrentUserEmail());
+        return true;
     }
     return true;
-  };
-
-  console.log("authCheck.js loaded. Current user:", window.getCurrentUserEmail());
 }
+
+console.log("✅ authCheck.js loaded");
