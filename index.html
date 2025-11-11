@@ -1,23 +1,25 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-
-
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>EcoDocs Dashboard</title>
-
-
-
   <base href="/Eco-Files-FullStack/">
   
-
-  
-  <!-- פונט -->
+  <!-- Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600&display=swap" rel="stylesheet" />
 
-  <!-- ה-CSS שלך -->
-
+  <!-- CRITICAL: Import Map MUST come before any module scripts -->
+  <script type="importmap">
+  {
+    "imports": {
+      "firebase/app": "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js",
+      "firebase/auth": "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js",
+      "firebase/firestore": "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js",
+      "firebase/storage": "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js"
+    }
+  }
+  </script>
   <style>
 
 
@@ -1816,154 +1818,140 @@ element.style {
 
 
 
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  // Elements
-  const settingsBtn = document.querySelector('.menu-item[data-view="settings"]');
-  const panel = document.getElementById("settingsPanel");
-  const modal = panel?.querySelector(".modal");
-
-  // Theme inputs
-  const themeLight = document.getElementById("themeLight");
-  const themeDark = document.getElementById("themeDark");
-  
-  // Other inputs
-  const elCompact = document.getElementById("toggleCompact");
-  const elReduce = document.getElementById("toggleReduceMotion");
-  const elConfirm = document.getElementById("toggleConfirmDelete");
-  const elStart = document.getElementById("selectStart");
-
-  // Load + apply on boot
-  const DEFAULTS = {
-    theme: "light",
-    compact: false,
-    reduceMotion: false,
-    confirmDelete: true,
-    startPage: "my"
-  };
-
-  function loadSettings() {
-    try {
-      const raw = localStorage.getItem("eco_settings");
-      return raw ? { ...DEFAULTS, ...JSON.parse(raw) } : { ...DEFAULTS };
-    } catch { 
-      return { ...DEFAULTS }; 
-    }
-  }
-
-  function saveSettings(s) {
-    localStorage.setItem("eco_settings", JSON.stringify(s));
-  }
-
-  function applySettings(s) {
-    // Theme - apply to documentElement
-    document.documentElement.classList.remove("theme-light", "theme-dark");
-    document.documentElement.classList.add(`theme-${s.theme}`);
+<script type="module">
+    import { initializeApp } from 'firebase/app';
+    import { getAuth, onAuthStateChanged } from 'firebase/auth';
+    import { getFirestore } from 'firebase/firestore';
+    import { getStorage } from 'firebase/storage';
     
-    // Update radio buttons
-    if (themeLight) themeLight.checked = (s.theme === "light");
-    if (themeDark) themeDark.checked = (s.theme === "dark");
+    const firebaseConfig = {
+      apiKey: "AIzaSyBPr4X2_8JYCgXzMlTcVB0EJLhup9CdyYw",
+      authDomain: "login-page-echo-file.firebaseapp.com",
+      projectId: "login-page-echo-file",
+      storageBucket: "login-page-echo-file.appspot.com",
+      messagingSenderId: "200723524735",
+      appId: "1:200723524735:web:9eaed6ef10cbc2c406234a"
+    };
 
-    // Compact density
-    document.body.classList.toggle("compact-density", !!s.compact);
-    if (elCompact) elCompact.checked = !!s.compact;
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
 
-    // Reduce motion
-    document.documentElement.classList.toggle("reduce-motion", !!s.reduceMotion);
-    if (elReduce) elReduce.checked = !!s.reduceMotion;
+    // Make globals available
+    window.app = app;
+    window.auth = auth;
+    window.db = db;
+    window.storage = storage;
 
-    // Confirm before delete
-    if (elConfirm) elConfirm.checked = !!s.confirmDelete;
+    // Import Firestore functions we need
+    import * as firestoreModule from 'firebase/firestore';
+    import * as storageModule from 'firebase/storage';
+    
+    window.fs = firestoreModule;
+    window.storageFS = storageModule;
 
-    // Default start page
-    if (elStart) elStart.value = s.startPage;
-  }
+    console.log("🔥 Firebase initialized");
 
-  let settings = loadSettings();
-  applySettings(settings);
+    // Check auth state and redirect if needed
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        console.log("✅ User logged in:", user.email);
+        
+        // Update UI
+        const label = document.getElementById("currentUserLabel");
+        const mail = document.getElementById("currentUserEmail");
+        if (label) label.textContent = `שלום, ${user.email.split('@')[0]}`;
+        if (mail) mail.textContent = user.email;
 
-  // Open/Close
-  function openSettings() {
-    panel?.classList.remove("hidden");
-    panel?.setAttribute("aria-hidden", "false");
-    document.documentElement.style.overflow = "hidden";
-    modal?.focus();
-  }
-  
-  function closeSettings() {
-    panel?.classList.add("hidden");
-    panel?.setAttribute("aria-hidden", "true");
-    document.documentElement.style.overflow = "";
-    settingsBtn?.focus();
-  }
+        // Dispatch ready event for main.js
+        window.dispatchEvent(new CustomEvent('firebase-ready'));
+        
+        // Load app if bootFromCloud exists
+        if (typeof window.bootFromCloud === 'function') {
+          window.bootFromCloud();
+        }
+      } else {
+        console.log("❌ No user logged in, redirecting...");
+        window.location.replace("./forms/eco-wellness/index.html");
+      }
+    });
+  </script>
 
-  settingsBtn?.addEventListener("click", (e) => {
-    e.preventDefault();
-    openSettings();
-  });
 
-  // Close handlers
-  panel?.addEventListener("click", (e) => {
-    const t = e.target;
-    if (t === panel || t.closest("[data-close]")) closeSettings();
-  });
-  
-  panel?.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeSettings();
-  });
+<script type="module" src="./JS/main.js"></script>
 
-  // Theme toggle handlers
-  themeLight?.addEventListener("change", (e) => {
-    if (e.target.checked) {
-      settings.theme = "light";
-      saveSettings(settings);
-      applySettings(settings);
-    }
-  });
-  
-  themeDark?.addEventListener("change", (e) => {
-    if (e.target.checked) {
-      settings.theme = "dark";
-      saveSettings(settings);
-      applySettings(settings);
-    }
-  });
+<script type="module">
+    import { getAuth, signOut } from 'firebase/auth';
 
-  // Other handlers
-  elCompact?.addEventListener("change", (e) => {
-    settings.compact = !!e.target.checked;
-    saveSettings(settings);
-    applySettings(settings);
-  });
-  
-  elReduce?.addEventListener("change", (e) => {
-    settings.reduceMotion = !!e.target.checked;
-    saveSettings(settings);
-    applySettings(settings);
-  });
-  
-  elConfirm?.addEventListener("change", (e) => {
-    settings.confirmDelete = !!e.target.checked;
-    saveSettings(settings);
-    applySettings(settings);
-  });
-  
-  elStart?.addEventListener("change", (e) => {
-    settings.startPage = e.target.value;
-    saveSettings(settings);
-  });
+    document.addEventListener('DOMContentLoaded', () => {
+      const auth = getAuth();
+      
+      // Logout handlers
+      const logoutBtn = document.getElementById("logoutBtn");
+      const mobileLogoutBtn = document.getElementById("mobileLogoutBtn");
+      
+      const handleLogout = () => {
+        signOut(auth)
+          .then(() => {
+            console.log("✅ User signed out");
+            window.location.replace("forms/eco-wellness/index.html");
+          })
+          .catch((error) => {
+            console.error("❌ Logout error:", error);
+          });
+      };
 
-  // Export function for delete confirmation
-  window.shouldConfirmBeforeDelete = () => loadSettings().confirmDelete === true;
-});
-</script>
+      if (logoutBtn) logoutBtn.addEventListener("click", handleLogout);
+      if (mobileLogoutBtn) mobileLogoutBtn.addEventListener("click", handleLogout);
+
+      // Mobile menu
+      const sidebarDrawer = document.getElementById("sidebarDrawer");
+      const mobileMenuBtn = document.getElementById("mobileMenuBtn");
+      const closeMenuBtn = document.getElementById("closeMenuBtn");
+      
+      if (mobileMenuBtn) {
+        mobileMenuBtn.addEventListener("click", () => {
+          sidebarDrawer.classList.add("open");
+        });
+      }
+      
+      if (closeMenuBtn) {
+        closeMenuBtn.addEventListener("click", () => {
+          sidebarDrawer.classList.remove("open");
+        });
+      }
+
+      // Menu navigation
+      const menuItems = document.querySelectorAll(".menu-item");
+      menuItems.forEach(btn => {
+        btn.addEventListener("click", () => {
+          menuItems.forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+
+          const view = btn.dataset.view;
+          if (view === "home" && window.App?.renderHome) {
+            window.App.renderHome();
+          } else if (view === "shared" && window.App?.openSharedView) {
+            window.App.openSharedView();
+          } else if (view === "recycle" && window.App?.openRecycleView) {
+            window.App.openRecycleView();
+          }
+
+          // Close mobile menu
+          if (window.matchMedia("(max-width: 760px)").matches) {
+            sidebarDrawer.classList.remove("open");
+          }
+        });
+      });
+    });
+  </script>
 
 
   <!-- סקריפט עזר UI (כניסה/יציאה/ניווט בתפריט) -->
   <script>
   import { getAuth, signOut } from "firebase/auth";
 
-const auth = getAuth();
 
 logoutBtn.addEventListener("click", () => {
     signOut(auth)
@@ -2074,7 +2062,6 @@ const currentUserShown = auth.currentUser?.email ?? null;
 
 <script src="./JS/authCheck.js"></script>
 <!-- Your app — runs after firebase-config creates window.app/db/fs -->
-<script type="module" src="./JS/main.js"></script>
 
 
   <script src="./api-bridge.js"></script>
