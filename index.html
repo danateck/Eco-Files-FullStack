@@ -1817,211 +1817,106 @@ element.style {
 </div>
 
 
+<!-- Import map for bare ESM imports -->
+<script type="importmap">
+{
+  "imports": {
+    "firebase/app": "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js",
+    "firebase/auth": "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js",
+    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js",
+    "firebase/storage": "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js"
+  }
+}
+</script>
 
 <script type="module">
-    import { initializeApp } from 'firebase/app';
-    import { getAuth, onAuthStateChanged } from 'firebase/auth';
-    import { getFirestore } from 'firebase/firestore';
-    import { getStorage } from 'firebase/storage';
-    
-    const firebaseConfig = {
-      apiKey: "AIzaSyBPr4X2_8JYCgXzMlTcVB0EJLhup9CdyYw",
-      authDomain: "login-page-echo-file.firebaseapp.com",
-      projectId: "login-page-echo-file",
-      storageBucket: "login-page-echo-file.appspot.com",
-      messagingSenderId: "200723524735",
-      appId: "1:200723524735:web:9eaed6ef10cbc2c406234a"
-    };
+  import { initializeApp } from 'firebase/app';
+  import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
+  import { getFirestore } from 'firebase/firestore';
+  import { getStorage } from 'firebase/storage';
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const storage = getStorage(app);
+  // --- Firebase config ---
+  const firebaseConfig = {
+    apiKey: "AIzaSyBPr4X2_8JYCgXzMlTcVB0EJLhup9CdyYw",
+    authDomain: "login-page-echo-file.firebaseapp.com",
+    projectId: "login-page-echo-file",
+    storageBucket: "login-page-echo-file.appspot.com",
+    messagingSenderId: "200723524735",
+    appId: "1:200723524735:web:9eaed6ef10cbc2c406234a"
+  };
 
-    // Make globals available
-    window.app = app;
-    window.auth = auth;
-    window.db = db;
-    window.storage = storage;
+  // --- Initialize Firebase ---
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const storage = getStorage(app);
 
-    // Import Firestore functions we need
-    import * as firestoreModule from 'firebase/firestore';
-    import * as storageModule from 'firebase/storage';
-    
-    window.fs = firestoreModule;
-    window.storageFS = storageModule;
+  // Make globals available
+  window.app = app;
+  window.auth = auth;
+  window.db = db;
+  window.storage = storage;
 
-    console.log("🔥 Firebase initialized");
+  console.log("🔥 Firebase initialized");
 
-    // Check auth state and redirect if needed
-    onAuthStateChanged(auth, (user) => {
-      if (user) {
-        console.log("✅ User logged in:", user.email);
-        
-        // Update UI
-        const label = document.getElementById("currentUserLabel");
-        const mail = document.getElementById("currentUserEmail");
-        if (label) label.textContent = `שלום, ${user.email.split('@')[0]}`;
-        if (mail) mail.textContent = user.email;
+  // --- Auth state check ---
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      console.log("✅ User logged in:", user.email);
 
-        // Dispatch ready event for main.js
-        window.dispatchEvent(new CustomEvent('firebase-ready'));
-        
-        // Load app if bootFromCloud exists
-        if (typeof window.bootFromCloud === 'function') {
-          window.bootFromCloud();
-        }
-      } else {
+      // Update UI
+      const label = document.getElementById("currentUserLabel");
+      const mail = document.getElementById("currentUserEmail");
+      if (label) label.textContent = `שלום, ${user.email.split('@')[0]}`;
+      if (mail) mail.textContent = user.email;
+
+      // Dispatch ready event for other scripts
+      window.dispatchEvent(new CustomEvent('firebase-ready'));
+
+      // Start the app if bootFromCloud exists
+      if (typeof window.bootFromCloud === 'function') {
+        window.bootFromCloud();
+      }
+
+    } else {
+      // Only redirect if we're not already on the login page
+      if (!window.location.pathname.includes("forms/eco-wellness/index.html")) {
         console.log("❌ No user logged in, redirecting...");
         window.location.replace("./forms/eco-wellness/index.html");
       }
-    });
-  </script>
+    }
+  });
 
-
-<script type="module" src="./JS/main.js"></script>
-
-<script type="module">
-    import { getAuth, signOut } from 'firebase/auth';
-
-    document.addEventListener('DOMContentLoaded', () => {
-      const auth = getAuth();
-      
-      // Logout handlers
-      const logoutBtn = document.getElementById("logoutBtn");
-      const mobileLogoutBtn = document.getElementById("mobileLogoutBtn");
-      
-      const handleLogout = () => {
-        signOut(auth)
-          .then(() => {
-            console.log("✅ User signed out");
-            window.location.replace("forms/eco-wellness/index.html");
-          })
-          .catch((error) => {
-            console.error("❌ Logout error:", error);
-          });
-      };
-
-      if (logoutBtn) logoutBtn.addEventListener("click", handleLogout);
-      if (mobileLogoutBtn) mobileLogoutBtn.addEventListener("click", handleLogout);
-
-      // Mobile menu
-      const sidebarDrawer = document.getElementById("sidebarDrawer");
-      const mobileMenuBtn = document.getElementById("mobileMenuBtn");
-      const closeMenuBtn = document.getElementById("closeMenuBtn");
-      
-      if (mobileMenuBtn) {
-        mobileMenuBtn.addEventListener("click", () => {
-          sidebarDrawer.classList.add("open");
-        });
-      }
-      
-      if (closeMenuBtn) {
-        closeMenuBtn.addEventListener("click", () => {
-          sidebarDrawer.classList.remove("open");
-        });
-      }
-
-      // Menu navigation
-      const menuItems = document.querySelectorAll(".menu-item");
-      menuItems.forEach(btn => {
-        btn.addEventListener("click", () => {
-          menuItems.forEach(b => b.classList.remove("active"));
-          btn.classList.add("active");
-
-          const view = btn.dataset.view;
-          if (view === "home" && window.App?.renderHome) {
-            window.App.renderHome();
-          } else if (view === "shared" && window.App?.openSharedView) {
-            window.App.openSharedView();
-          } else if (view === "recycle" && window.App?.openRecycleView) {
-            window.App.openRecycleView();
-          }
-
-          // Close mobile menu
-          if (window.matchMedia("(max-width: 760px)").matches) {
-            sidebarDrawer.classList.remove("open");
-          }
-        });
-      });
-    });
-  </script>
-
-
-  <!-- סקריפט עזר UI (כניסה/יציאה/ניווט בתפריט) -->
-  <script>
-  import { getAuth, signOut } from "firebase/auth";
-
-
-logoutBtn.addEventListener("click", () => {
+  // --- Logout handling ---
+  const logoutHandler = () => {
     signOut(auth)
-        .then(() => {
-            console.log("✅ User signed out successfully");
-            // Redirect after logout
-            window.location.replace("forms/eco-wellness/index.html");
-        })
-        .catch((error) => {
-            console.error("❌ Error signing out:", error);
-        });
-});
+      .then(() => {
+        console.log("✅ User signed out");
+        window.location.replace("./forms/eco-wellness/index.html");
+      })
+      .catch(err => console.error("❌ Logout error:", err));
+  };
 
-    // שם משתמש בפינה
-    const label = document.getElementById("currentUserLabel");
-    const mail = document.getElementById("currentUserEmail");
-const currentUserShown = auth.currentUser?.email ?? null;
-    if (label) label.textContent = `שלום, ${currentUserShown}`;
-    if (mail) mail.textContent = currentUserShown;
-
-    // התנתקות
+  document.addEventListener('DOMContentLoaded', () => {
     const logoutBtn = document.getElementById("logoutBtn");
-    if (logoutBtn) {
-      logoutBtn.addEventListener("click", () => {
-    signOut(auth)
-        .then(() => {
-            console.log("✅ User signed out successfully");
-            // Redirect after logout
-            window.location.replace("forms/eco-wellness/index.html");
-        })
-        .catch((error) => {
-            console.error("❌ Error signing out:", error);
-        });
-});
-
-    }
     const mobileLogoutBtn = document.getElementById("mobileLogoutBtn");
-    if (mobileLogoutBtn) {
-     mobileLogoutBtn.addEventListener("click", () => {
-    signOut(auth)
-        .then(() => {
-            console.log("✅ User signed out successfully (mobile)");
-            // Redirect after logout
-            window.location.replace("forms/eco-wellness/index.html");
-        })
-        .catch((error) => {
-            console.error("❌ Error signing out (mobile):", error);
-        });
-});
-    }
 
-    // טאבים בראש (רק עיצוב כרגע)
-    const tabs = document.querySelectorAll(".tab-btn");
-    tabs.forEach(tab => {
-      tab.addEventListener("click", () => {
-        tabs.forEach(t => t.classList.remove("active"));
-        tab.classList.add("active");
-      });
-    });
+    if (logoutBtn) logoutBtn.addEventListener("click", logoutHandler);
+    if (mobileLogoutBtn) mobileLogoutBtn.addEventListener("click", logoutHandler);
 
-    // תפריט צד נפתח במובייל
+    // --- Mobile menu toggle ---
     const sidebarDrawer = document.getElementById("sidebarDrawer");
     const mobileMenuBtn = document.getElementById("mobileMenuBtn");
+    const closeMenuBtn = document.getElementById("closeMenuBtn");
+
     if (mobileMenuBtn) {
-      mobileMenuBtn.addEventListener("click", () => {
-        sidebarDrawer.classList.toggle("open");
-      });
+      mobileMenuBtn.addEventListener("click", () => sidebarDrawer.classList.add("open"));
+    }
+    if (closeMenuBtn) {
+      closeMenuBtn.addEventListener("click", () => sidebarDrawer.classList.remove("open"));
     }
 
-    // מעבר בין דפים (בית / שיתוף / סל מחזור)
+    // --- Menu navigation ---
     const menuItems = document.querySelectorAll(".menu-item");
     menuItems.forEach(btn => {
       btn.addEventListener("click", () => {
@@ -2029,53 +1924,31 @@ const currentUserShown = auth.currentUser?.email ?? null;
         btn.classList.add("active");
 
         const view = btn.dataset.view;
-        if (view === "home") {
-          window.App?.renderHome();
-        } else if (view === "shared") {
-          window.App?.openSharedView();
-        } else if (view === "recycle") {
-          window.App?.openRecycleView();
-        }
+        if (view === "home") window.App?.renderHome();
+        else if (view === "shared") window.App?.openSharedView();
+        else if (view === "recycle") window.App?.openRecycleView();
 
-        // אחרי בחירה במובייל – לסגור את הצד
+        // Close mobile menu on small screens
         if (window.matchMedia("(max-width: 760px)").matches) {
           sidebarDrawer.classList.remove("open");
         }
       });
     });
-  </script>
 
-<!-- Import map for bare ESM imports -->
-<!-- Import map MUST include storage too -->
-<script type="importmap">
-{
-  "imports": {
-    "firebase/app": "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js",
-    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js",
-    "firebase/storage": "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js"
-  }
-}
-</script>
-
-<!-- Initialize Firebase and expose globals -->
-<script type="module" src="./firebase-config.js"></script>
-
-<script src="./JS/authCheck.js"></script>
-<!-- Your app — runs after firebase-config creates window.app/db/fs -->
-
-
-  <script src="./api-bridge.js"></script>
-
-  <script>
-  document.addEventListener('DOMContentLoaded', async () => {
-    // If not logged in: this will redirect to login (no loop)
-    if (typeof requireLogin === 'function' && !requireLogin()) return;
-
-    // You *must* call bootFromCloud() so the page actually loads the docs and starts realtime listeners
-    if (typeof bootFromCloud === 'function') {
-      await bootFromCloud();
-    }
+    // --- Tab UI (just styling) ---
+    const tabs = document.querySelectorAll(".tab-btn");
+    tabs.forEach(tab => {
+      tab.addEventListener("click", () => {
+        tabs.forEach(t => t.classList.remove("active"));
+        tab.classList.add("active");
+      });
+    });
   });
 </script>
+
+<!-- Your main app logic should run after firebase-ready -->
+<script type="module" src="./JS/main.js"></script>
+<script type="module" src="./api-bridge.js"></script>
+
 </body>
 </html>
