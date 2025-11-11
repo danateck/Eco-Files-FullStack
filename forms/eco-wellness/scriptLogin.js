@@ -378,29 +378,24 @@ class EcoWellnessLoginForm {
         }
     }
 
-    async finishLogin(email, isNewUser = false) {
+     async finishLogin(email, isNewUser = false) {
         try {
             console.log("=== FINISH LOGIN START ===");
             console.log("Email:", email);
             console.log("Is new user:", isNewUser);
             
-            // Set current user in session
+            // CRITICAL: Set user in session first
             await setCurrentUser(email);
             
             // Verify it was set
             const storedUser = sessionStorage.getItem("docArchiveCurrentUser");
             console.log("Stored user after setCurrentUser:", storedUser);
-            
-            // Set a flag to indicate successful login
-            sessionStorage.setItem("loginSuccess", "true");
-            console.log("loginSuccess flag set");
 
-            // Check if user data exists in Firestore
+            // Load or create user data in Firestore
             console.log("Loading user data from Firestore...");
             let userData = await loadUserDataFromFirestore(email);
             console.log("User data loaded:", userData);
 
-            // If new user or no data exists, create initial data structure
             if (!userData) {
                 console.log("Creating new user data in Firestore");
                 userData = {
@@ -412,21 +407,29 @@ class EcoWellnessLoginForm {
                 console.log("User data save result:", saveResult);
             }
 
+            // Show success animation
             console.log("Calling showHarmonySuccess...");
             this.showHarmonySuccess();
 
+            // IMPORTANT: Wait for animation, then redirect
             console.log("Setting timeout for redirect...");
             setTimeout(() => {
                 console.log("=== REDIRECTING NOW ===");
                 console.log("Current URL:", window.location.href);
                 
-                // Path from forms/eco-wellness/login.html to project/index.html
-
+                // CRITICAL: Set loginSuccess flag RIGHT BEFORE redirect
+                // This prevents the dashboard from thinking we're already logged in
+                sessionStorage.setItem("loginSuccess", "true");
+                console.log("✅ loginSuccess flag set just before redirect");
+                
+                // Redirect to dashboard
                 const redirectPath = "../../index.html";
                 console.log("Redirecting to:", redirectPath);
                 
+                // Use replace to prevent back button issues
                 window.location.replace(redirectPath);
             }, 1500);
+            
         } catch (err) {
             console.error("=== ERROR IN FINISH LOGIN ===");
             console.error("Error details:", err);
@@ -434,7 +437,6 @@ class EcoWellnessLoginForm {
             alert("שגיאה בהתחברות. אנא נסי שוב.");
         }
     }
-
     showHarmonySuccess() {
         this.form.style.transform = 'scale(0.95)';
         this.form.style.opacity = '0';
@@ -507,7 +509,14 @@ if (!document.querySelector('#wellness-keyframes')) {
     document.head.appendChild(style);
 }
 
-// Initialize
+let loginFormInstance = null;
+
 document.addEventListener('DOMContentLoaded', () => {
-    new EcoWellnessLoginForm();
+    // Only initialize once
+    if (!loginFormInstance) {
+        console.log("📝 Initializing login form...");
+        loginFormInstance = new EcoWellnessLoginForm();
+    } else {
+        console.log("⚠️ Login form already initialized, skipping");
+    }
 });
