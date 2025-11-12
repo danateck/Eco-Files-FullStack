@@ -1,8 +1,9 @@
 // scriptLogin.js
 // Cloud Firestore Version - All data stored in Firebase Firestore
 
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, setPersistence, browserLocalPersistence }
+  from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 
-import { setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 
 
 
@@ -40,7 +41,8 @@ async function saveUserDataToFirestore(email, userData) {
 }
 
 async function setCurrentUser() {
-    const user = auth.currentUser;
+    const user = window.auth?.currentUser;
+
     if (user) {
         const email = user.email?.toLowerCase() ?? "";
         console.log("✅ Current logged-in user from Firebase:", email);
@@ -99,7 +101,7 @@ class EcoWellnessLoginForm {
             import("https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js")
         ]);
 
-        const { initializeApp } = appModule;
+      const { initializeApp, getApp, getApps } = appModule;
         const { 
             getAuth, 
             GoogleAuthProvider, 
@@ -113,7 +115,7 @@ class EcoWellnessLoginForm {
 
         const { getFirestore } = firestoreModule;
 
-        const firebaseApp = initializeApp(firebaseConfig);
+        const firebaseApp = getApps().length ? getApp() : initializeApp(window.firebaseConfig);
         this.auth = getAuth(firebaseApp);
 
         // ✅ ADD THIS — persistence handled by Firebase cookie
@@ -397,7 +399,8 @@ class EcoWellnessLoginForm {
             await setCurrentUser(email);
             
             // Verify it was set
-            const storedUser = auth.currentUser?.email?.toLowerCase() ?? "";
+           const storedUser = this.auth?.currentUser?.email?.toLowerCase() ?? "";
+
             console.log("Stored user after setCurrentUser:", storedUser);
 
             // Load or create user data in Firestore
