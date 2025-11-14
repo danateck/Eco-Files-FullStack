@@ -1,9 +1,5 @@
-
-
-
-
 // JS/authCheck.js
-// Single auth guard for all pages – no loops 🤍
+// Simple auth guard for GitHub Pages
 
 import {
   getAuth,
@@ -13,57 +9,55 @@ import {
 
 const auth = getAuth();
 
-// ---------- PATH HELPERS ----------
+// Base path for your GitHub Pages repo
 const BASE = "/Eco-Files-FullStack";
 
-function getPathInfo() {
-  const path = window.location.pathname;
+// Paths we care about
+const DASHBOARD_PATHS = [
+  `${BASE}/`,
+  `${BASE}/index.html`,
+];
 
-  const isDashboard =
-    path === `${BASE}/` ||
-    path === `${BASE}/index.html`;
+const LOGIN_PREFIX = `${BASE}/forms/eco-wellness`;
 
-  const isLogin =
-    path.startsWith(`${BASE}/forms/eco-wellness`);
+const path = window.location.pathname;
+const isDashboard = DASHBOARD_PATHS.includes(path);
+const isLogin = path.startsWith(LOGIN_PREFIX);
 
-  return { path, isDashboard, isLogin };
-}
+console.log("🔎 authCheck route:", { path, isDashboard, isLogin });
 
-const { isDashboard, isLogin } = getPathInfo();
-
-// ---------- MAIN AUTH LISTENER ----------
 onAuthStateChanged(auth, (user) => {
   if (user) {
     console.log("✅ User is logged in:", user.email);
 
-    // If user is logged in and sitting on login page -> send to dashboard
+    // If user is on login while logged in → go to dashboard
     if (isLogin) {
       window.location.replace(`${BASE}/`);
     }
   } else {
     console.log("❌ No user logged in");
 
-    // If user is NOT logged in and on dashboard -> send to login
+    // If user is on dashboard but NOT logged in → send to login
     if (isDashboard) {
-      window.location.replace(`${BASE}/forms/eco-wellness/`);
+      window.location.replace(`${LOGIN_PREFIX}/`);
     }
+    // If already on login page: do nothing (no reload loop)
   }
 });
 
-// ---------- LOGOUT HELPER ----------
+// expose logout for buttons
 export function logoutUser() {
-  console.log("🔓 Logging out user...");
+  const userEmail = auth.currentUser?.email ?? "Unknown";
+  console.log("🚪 Logging out:", userEmail);
 
   signOut(auth)
     .then(() => {
-      console.log("✅ User signed out");
-      window.location.replace(`${BASE}/forms/eco-wellness/`);
+      console.log("✅ Signed out");
+      window.location.replace(`${LOGIN_PREFIX}/`);
     })
     .catch((err) => {
-      console.error("❌ Sign-out error", err);
+      console.error("❌ Error during logout", err);
     });
 }
 
 console.log("✅ authCheck.js loaded");
-
-
