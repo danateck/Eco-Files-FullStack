@@ -1602,28 +1602,6 @@ const CATEGORIES = [
 
 
 
-function renderFolderItem(categoryName) {
-  const folderGrid = document.getElementById("folderGrid");
-  if (!folderGrid) return;
-
-  const folder = document.createElement("button");
-  folder.className = "folder-card";
-  folder.setAttribute("data-category", categoryName);
-
-  folder.innerHTML = `
-    <div class="folder-icon"></div>
-    <div class="folder-label">${categoryName}</div>
-  `;
-
-  folder.addEventListener("click", () => {
-    if (typeof openCategoryView === "function") {
-      openCategoryView(categoryName);
-    }
-  });
-
-  folderGrid.appendChild(folder);
-}
-
 window.renderHome = function() {
   console.log("🎨 renderHome called");
   
@@ -1637,8 +1615,25 @@ window.renderHome = function() {
   }
 
   folderGrid.innerHTML = "";
+  
+  const CATEGORIES = [
+    "כלכלה", "רפואה", "עבודה", "בית",
+    "אחריות", "תעודות", "עסק", "אחר"
+  ];
+  
   CATEGORIES.forEach(cat => {
-    renderFolderItem(cat);
+    const folder = document.createElement("button");
+    folder.className = "folder-card";
+    folder.innerHTML = `
+      <div class="folder-icon"></div>
+      <div class="folder-label">${cat}</div>
+    `;
+    folder.addEventListener("click", () => {
+      if (typeof window.openCategoryView === "function") {
+        window.openCategoryView(cat);
+      }
+    });
+    folderGrid.appendChild(folder);
   });
 
   homeView.classList.remove("hidden");
@@ -1647,15 +1642,7 @@ window.renderHome = function() {
   console.log("✅ renderHome complete");
 };
 
-
-// Make it available as both window.renderHome and renderHome
-const renderHome = window.renderHome;
-
-console.log("✅ renderHome defined globally");
-
-
-
-
+// 2. CATEGORY VIEW
 window.openCategoryView = function(categoryName) {
   console.log("📂 Opening category:", categoryName);
   
@@ -1671,13 +1658,12 @@ window.openCategoryView = function(categoryName) {
 
   categoryTitle.textContent = categoryName;
 
+  // Filter docs for this category
   let docsForThisCategory = (window.allDocsData || []).filter(doc =>
     doc.category &&
     doc.category.includes(categoryName) &&
     !doc._trashed
   );
-
-  docsForThisCategory = sortDocs(docsForThisCategory);
 
   docsList.innerHTML = "";
   
@@ -1685,7 +1671,16 @@ window.openCategoryView = function(categoryName) {
     docsList.innerHTML = `<div style="padding:2rem;text-align:center;opacity:0.6;">אין מסמכים בתיקייה זו</div>`;
   } else {
     docsForThisCategory.forEach(doc => {
-      const card = buildDocCard(doc, "normal");
+      const card = document.createElement("div");
+      card.className = "doc-card";
+      card.innerHTML = `
+        <p class="doc-card-title">${doc.title || doc.fileName || "מסמך"}</p>
+        <div class="doc-card-meta">
+          <span>ארגון: ${doc.org || "לא ידוע"}</span>
+          <span>שנה: ${doc.year || "-"}</span>
+        </div>
+        <button class="doc-open-link" data-open-id="${doc.id}">פתיחת קובץ</button>
+      `;
       docsList.appendChild(card);
     });
   }
@@ -1694,8 +1689,7 @@ window.openCategoryView = function(categoryName) {
   if (categoryView) categoryView.classList.remove("hidden");
 };
 
-const openCategoryView = window.openCategoryView;
-
+// 3. RECYCLE VIEW
 window.openRecycleView = function() {
   console.log("🗑️ Opening recycle view");
   
@@ -1714,9 +1708,17 @@ window.openRecycleView = function() {
   if (docs.length === 0) {
     docsList.innerHTML = `<div style="padding:2rem;text-align:center;opacity:0.6;">סל המחזור ריק</div>`;
   } else {
-    const sortedDocs = sortDocs(docs);
-    sortedDocs.forEach(doc => {
-      const card = buildDocCard(doc, "recycle");
+    docs.forEach(doc => {
+      const card = document.createElement("div");
+      card.className = "doc-card";
+      card.innerHTML = `
+        <p class="doc-card-title">${doc.title || doc.fileName || "מסמך"}</p>
+        <div class="doc-card-meta">
+          <span>ארגון: ${doc.org || "לא ידוע"}</span>
+        </div>
+        <button class="doc-action-btn restore">שחזור ♻️</button>
+        <button class="doc-action-btn danger">מחיקה לצמיתות 🗑️</button>
+      `;
       docsList.appendChild(card);
     });
   }
@@ -1725,15 +1727,97 @@ window.openRecycleView = function() {
   if (categoryView) categoryView.classList.remove("hidden");
 };
 
-const openRecycleView = window.openRecycleView;
+// 4. SHARED VIEW
+window.openSharedView = function() {
+  console.log("🤝 Opening shared view");
+  
+  const categoryTitle = document.getElementById("categoryTitle");
+  const docsList = document.getElementById("docsList");
+  const homeView = document.getElementById("homeView");
+  const categoryView = document.getElementById("categoryView");
+  
+  if (!categoryTitle || !docsList) {
+    console.error("❌ Shared view elements not found");
+    return;
+  }
 
-console.log("✅ Navigation functions defined globally");
+  docsList.classList.remove("shared-mode");
+  categoryTitle.textContent = "אחסון משותף";
+  docsList.innerHTML = "";
+  docsList.classList.add("shared-mode");
+
+  const wrap = document.createElement("div");
+  wrap.className = "shared-container";
+  
+  wrap.innerHTML = `
+    <div class="pending-wrap">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <strong>בקשות ממתינות</strong>
+        <small style="opacity:.8">הזמנות שממתינות לאישור</small>
+      </div>
+      <div id="sf_pending">
+        <div style="opacity:.7">אין בקשות ממתינות</div>
+      </div>
+    </div>
+
+    <div class="cozy-head">
+      <h3 style="margin:0;">תיקיות משותפות</h3>
+      <button id="sf_create_open" class="btn-cozy">+ צור תיקייה</button>
+    </div>
+
+    <div class="sf-list" id="sf_list">
+      <div style="opacity:.7">אין עדיין תיקיות משותפות</div>
+    </div>
+  `;
+  
+  docsList.appendChild(wrap);
+
+  if (homeView) homeView.classList.add("hidden");
+  if (categoryView) categoryView.classList.remove("hidden");
+  
+  console.log("✅ Shared view rendered");
+};
+
+// Export to window.App for backward compatibility
+window.App = {
+  renderHome: window.renderHome,
+  openCategoryView: window.openCategoryView,
+  openRecycleView: window.openRecycleView,
+  openSharedView: window.openSharedView
+};
+
+console.log("✅ All navigation functions defined globally");
 
 
 
 
 
+function renderFolderItem(categoryName) {
+  const folderGrid = document.getElementById("folderGrid");
+  if (!folderGrid) return;
 
+  const folder = document.createElement("button");
+  folder.className = "folder-card";
+  folder.setAttribute("data-category", categoryName);
+
+  folder.innerHTML = `
+    <div class="folder-icon"></div>
+    <div class="folder-label">${categoryName}</div>
+  `;
+
+  folder.addEventListener("click", () => {
+    if (typeof window.openCategoryView === "function") {
+      window.openCategoryView(categoryName);
+    }
+  });
+
+  folderGrid.appendChild(folder);
+}
+
+
+
+let currentSortField = "uploadedAt";
+let currentSortDir = "desc";
 
 
 
@@ -2266,9 +2350,6 @@ function purgeExpiredWarranties(docsArray) {
   return changed;
 }
 
-// מיון לתצוגה
-let currentSortField = "uploadedAt";
-let currentSortDir   = "desc";
 
 function sortDocs(docsArray) {
   const arr = [...docsArray];
@@ -2336,14 +2417,12 @@ function ensureUserSharedFields(allUsersData, username) {
 
 
 
-let openSharedView;
-
 
 /*********************
  * 4. אפליקציה / UI  *
  *********************/
 
-document.addEventListener("DOMContentLoaded", async () => {
+document.addEventListener("", async () => {
 
  console.log("📄 DOM Content Loaded");
 
