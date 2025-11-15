@@ -1,5 +1,8 @@
-// AFTER (CDN ESM)  ✅
+// Firebase Configuration with Auth Support
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import {
+  getAuth
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
   initializeFirestore, collection, addDoc, getDoc, getDocs, doc, query, where,
   updateDoc, setDoc, arrayUnion, onSnapshot
@@ -19,6 +22,7 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
   experimentalAutoDetectLongPolling: false,
@@ -26,7 +30,7 @@ const db = initializeFirestore(app, {
 });
 const storage = getStorage(app);
 
-// Bundle Firestore+Storage helpers as your app expects
+// Bundle Firestore+Storage helpers
 const fs = {
   // Firestore
   collection, addDoc, getDoc, getDocs, doc, query, where,
@@ -37,12 +41,20 @@ const fs = {
 
 // Expose globals for main.js
 window.app = app;
+window.auth = auth;
 window.db = db;
 window.storage = storage;
 window.fs = fs;
 
-// Optional: allow main.js to wait if needed
+// Helper function to get current user
+window.getCurrentUser = function() {
+  return auth.currentUser?.email || null;
+};
+
+// Dispatch ready event
 window.dispatchEvent(new Event("firebase-ready"));
 
-// Also export (handy if you import this module elsewhere)
-export { app, db, storage, fs };
+console.log("✅ Firebase config loaded");
+
+// Export for ES modules
+export { app, auth, db, storage, fs };

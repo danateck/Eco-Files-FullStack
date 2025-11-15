@@ -93,7 +93,14 @@ function setUserDocs(username, docsArray, _allUsersData) {
 
 
 let stopWatching = null;
-// Add this helper function at the top of your main.js
+
+// Make this function globally available IMMEDIATELY
+window.getCurrentUserEmail = function() {
+  const raw = auth.currentUser?.email?.toLowerCase() ?? "";
+  return raw.trim().toLowerCase();
+};
+
+// Also keep the standalone version for internal use
 function getCurrentUserEmail() {
   const raw = auth.currentUser?.email?.toLowerCase() ?? "";
   return raw.trim().toLowerCase();

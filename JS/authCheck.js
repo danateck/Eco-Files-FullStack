@@ -1,4 +1,4 @@
-// JS/authCheck.js – Fixed version with proper timing
+// authCheck.js – Fixed version with proper timing and exports
 
 import {
   getAuth,
@@ -72,7 +72,7 @@ function waitForBootFunction() {
 
 // ---------- MAIN AUTH LISTENER ----------
 onAuthStateChanged(auth, async (user) => {
-  console.log("🔍 Auth state changed:", "user =", user ? user.email : null);
+  console.log("🔐 Auth state changed:", "user =", user ? user.email : null);
 
   paintUserHeader(user);
 
@@ -111,6 +111,7 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
+// Export functions
 export function isUserLoggedIn() {
   return !!auth.currentUser;
 }
@@ -132,5 +133,10 @@ export function logout() {
       console.error("❌ Logout error:", err);
     });
 }
+
+// Make functions globally available
+window.getCurrentUserEmail = getCurrentUserEmail;
+window.isUserLoggedIn = isUserLoggedIn;
+window.handleLogout = logout;
 
 console.log("✅ authCheck.js loaded");
