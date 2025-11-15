@@ -1,4 +1,4 @@
-// JS/authCheck.js – Fixed version for GitHub Pages
+// JS/authCheck.js – Fixed version
 
 import {
   getAuth,
@@ -45,8 +45,33 @@ function paintUserHeader(user) {
   if (mail) mail.textContent = email;
 }
 
+// ✅ NEW: Wait for DOM to be ready
+function waitForDOM() {
+  return new Promise((resolve) => {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', resolve, { once: true });
+    } else {
+      resolve();
+    }
+  });
+}
+
+// ✅ NEW: Wait for bootFromCloud to be defined
+function waitForBootFunction() {
+  return new Promise((resolve) => {
+    const check = () => {
+      if (typeof window.bootFromCloud === 'function') {
+        resolve();
+      } else {
+        setTimeout(check, 50);
+      }
+    };
+    check();
+  });
+}
+
 // ---------- MAIN AUTH LISTENER ----------
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   console.log(
     "🔍 Auth state changed:",
     "path =", window.location.pathname,
@@ -69,20 +94,24 @@ onAuthStateChanged(auth, (user) => {
       return;
     }
     
-    // If on dashboard, dispatch ready event and boot app
+    // If on dashboard, wait for DOM and boot app
     if (isOnDashboard()) {
-      console.log("✅ On dashboard, dispatching firebase-ready and booting app");
+      console.log("✅ On dashboard, waiting for DOM and functions...");
+      
+      // ✅ WAIT for DOM to be ready
+      await waitForDOM();
+      console.log("✅ DOM ready");
+      
+      // ✅ Dispatch firebase-ready event
       window.dispatchEvent(new CustomEvent('firebase-ready'));
       
-      // Give main.js time to load, then boot
-      setTimeout(() => {
-        if (typeof window.bootFromCloud === 'function') {
-          console.log("🚀 Calling bootFromCloud");
-          window.bootFromCloud();
-        } else {
-          console.warn("⚠️ bootFromCloud not found");
-        }
-      }, 200);
+      // ✅ WAIT for bootFromCloud to be defined
+      await waitForBootFunction();
+      console.log("✅ bootFromCloud function ready");
+      
+      // ✅ NOW call boot
+      console.log("🚀 Calling bootFromCloud");
+      window.bootFromCloud();
     }
 
   } else {
@@ -115,7 +144,6 @@ export function logout() {
   return signOut(auth)
     .then(() => {
       console.log("✅ Signed out successfully");
-      // Force redirect to login after a brief delay
       setTimeout(() => {
         window.location.href = LOGIN_PATH;
       }, 100);
