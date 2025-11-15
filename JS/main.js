@@ -200,9 +200,9 @@ window.bootFromCloud = async function() {
     if (typeof hideLoading === "function") hideLoading();
   }
 
-  if (typeof watchMyDocs === "function") {
-    watchMyDocs();
-  }
+  // if (typeof watchMyDocs === "function") {
+  //   watchMyDocs();
+  // }
 };
 
 
