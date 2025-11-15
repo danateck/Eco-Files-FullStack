@@ -84,7 +84,7 @@ onAuthStateChanged(auth, async (user) => {
   if (user) {
     // ---------- USER LOGGED IN ----------
     console.log("✅ User logged in:", user.email);
-
+ window.userNow = (user.email || "").toLowerCase();
     // If logged-in user is on the login page → send them to dashboard
     if (isOnLoginPage()) {
       console.log("➡ Logged-in user on login page, going to dashboard");

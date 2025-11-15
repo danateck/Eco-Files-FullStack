@@ -2468,15 +2468,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   // Check if user is logged in
-  const currentUser = getCurrentUser();
+  let currentUser = getCurrentUser();
+
   if (!currentUser) {
     console.warn("⚠️ No user logged in on DOM load, waiting for auth...");
-    return;
+    // Don’t return here – let the rest of the UI set itself up.
+    // authCheck.js + bootFromCloud will set window.userNow later.
+  } else {
+    console.log("👤 Current user on DOM load:", currentUser);
+    window.userNow = currentUser;
   }
 
-  const userNow = currentUser;
-  console.log("👤 Current user on DOM load:", userNow);
-  window.userNow = userNow;
 
   // Get UI elements
   const homeView = document.getElementById("homeView");
