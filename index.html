@@ -1860,47 +1860,58 @@ element.style {
   console.log("🔥 Firebase initialized");
 
   // --- Auth state check ---
-// --- Auth state check ---
-onAuthStateChanged(auth, (user) => {
-  console.log(
-    "auth state changed. path =",
-    window.location.pathname,
-    "user =",
-    user ? user.email : null
-  );
+  // REMOVE ALL THIS OLD CODE:
+  /*
+  onAuthStateChanged(auth, (user) => {
+    console.log(
+      "auth state changed. path =",
+      window.location.pathname,
+      "user =",
+      user ? user.email : null
+    );
 
-  if (user) {
-    console.log("✅ User logged in:", user.email);
+    if (user) {
+      console.log("✅ User logged in:", user.email);
 
-    // Update UI
-    const label = document.getElementById("currentUserLabel");
-    const mail = document.getElementById("currentUserEmail");
-    if (label) label.textContent = `שלום, ${user.email.split('@')[0]}`;
-    if (mail) mail.textContent = user.email;
+      // Update UI
+      const label = document.getElementById("currentUserLabel");
+      const mail = document.getElementById("currentUserEmail");
+      if (label) label.textContent = `שלום, ${user.email.split('@')[0]}`;
+      if (mail) mail.textContent = user.email;
 
-    // Dispatch ready event for other scripts
-    window.dispatchEvent(new CustomEvent('firebase-ready'));
+      // Dispatch ready event for other scripts
+      window.dispatchEvent(new CustomEvent('firebase-ready'));
 
-    // Start the app if bootFromCloud exists
+      // Start the app if bootFromCloud exists
+      if (typeof window.bootFromCloud === 'function') {
+        window.bootFromCloud();
+      }
+
+    } else {
+      console.log("❌ No user logged in");
+
+      const path = window.location.pathname;
+      const onLoginPage = path.startsWith("/Eco-Files-FullStack/forms/eco-wellness");
+
+      if (!onLoginPage) {
+        console.log("➡ Redirecting to login page…");
+        window.location.replace("/Eco-Files-FullStack/forms/eco-wellness/");
+      } else {
+        console.log("ℹ Already on login page, not redirecting again");
+      }
+    }
+  });
+  */
+
+  // --- NEW SIMPLIFIED VERSION: ---
+  // Auth check is now handled by authCheck.js
+  // We just listen for the firebase-ready event
+  window.addEventListener('firebase-ready', () => {
+    console.log("📡 Firebase ready event received");
     if (typeof window.bootFromCloud === 'function') {
       window.bootFromCloud();
     }
-
-  } else {
-    console.log("❌ No user logged in");
-
-    const path = window.location.pathname;
-    const onLoginPage = path.startsWith("/Eco-Files-FullStack/forms/eco-wellness");
-
-    if (!onLoginPage) {
-      console.log("➡ Redirecting to login page…");
-      window.location.replace("/Eco-Files-FullStack/forms/eco-wellness/");
-    } else {
-      console.log("ℹ Already on login page, not redirecting again");
-    }
-  }
-});
-
+  });
 
   // --- Logout handling ---
   const logoutHandler = () => {
