@@ -604,7 +604,7 @@ async function uploadDocumentWithStorage(file, metadata = {}, forcedId=null) {
 fileInput.addEventListener("change", async () => {
   const file = fileInput.files[0];
   if (!file) {
-    showNotification("❌ ×œ× × ×'×—×¨ ק×•×'×¥", true);
+    showNotification("❌ לא נבחר קובץ", true);
     return;
   }
 
