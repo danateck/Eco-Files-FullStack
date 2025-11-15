@@ -1,38 +1,43 @@
 function normalizeEmail(e) { return (e || "").trim().toLowerCase(); }
 
+import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 
-import { getAuth, signOut } from "firebase/auth";
+const auth = getAuth();
 
+// Wait for Firebase to be ready
+let appRef, dbRef, storageRef, fsRef;
 
-// Read the globals created by firebase-config.js
-let appRef = window.app;
-let dbRef = window.db;
-let storageRef = window.storage;
-let fsRef = window.fs;
-
-// If not ready yet, wait for the event from firebase-config.js
-if (!appRef || !dbRef || !fsRef) {
-  console.warn("Firebase not ready yet, waiting for firebase-ready…");
-  window.addEventListener("firebase-ready", () => {
-    appRef = window.app;
-    dbRef = window.db;
-    storageRef = window.storage;
-    fsRef = window.fs;
-    console.log("🔥 Firebase globals restored (event)");
-    // if you need to kick off boot logic, call it here, e.g. bootFromCloud();
-  }, { once: true });
-} else {
-  console.log("🔥 Firebase globals restored");
+function initializeFirebaseRefs() {
+  appRef = window.app;
+  dbRef = window.db;
+  storageRef = window.storage;
+  fsRef = window.fs;
+  
+  if (!appRef || !dbRef || !fsRef) {
+    console.warn("⚠️ Firebase not ready, will retry...");
+    return false;
+  }
+  
+  console.log("✅ Firebase refs initialized");
+  return true;
 }
 
-// If the rest of your file references `app`, `db`, `storage`, `fs`,
-// either replace uses with appRef/dbRef/… or add:
-const app = appRef;
-const db = dbRef;
-const storage = storageRef;
-const fs = fsRef;
+// Try to initialize immediately
+if (!initializeFirebaseRefs()) {
+  // If not ready, wait for event
+  console.log("⏳ Waiting for firebase-ready event...");
+  window.addEventListener("firebase-ready", () => {
+    if (initializeFirebaseRefs()) {
+      console.log("✅ Firebase ready after event");
+    }
+  }, { once: true });
+}
 
-
+// Create aliases for easier use
+const app = () => appRef || window.app;
+const db = () => dbRef || window.db;
+const storage = () => storageRef || window.storage;
+const fs = () => fsRef || window.fs;
 
 // ---- Minimal pending-invites renderer ----
 window.paintPending = window.paintPending || function(invites = []) {
@@ -66,16 +71,10 @@ window.paintPending = window.paintPending || function(invites = []) {
   };
 };
 
-
-
-// ---- Global safety net (place near top of main.js) ----
+// ---- Global safety net ----
 window.allDocsData = Array.isArray(window.allDocsData) ? window.allDocsData : [];
-window.allUsersData = window.allUsersData || {};   // some code calls setUserDocs(..., allUsersData)
-window.userNow = window.userNow
-  || (typeof getCurrentUser === "function" && getCurrentUser())
-  || (typeof getCurrentUserEmail === "function" && getCurrentUserEmail())
-  || "";
-
+window.allUsersData = window.allUsersData || {};
+window.userNow = window.userNow || "";
 
 
 
@@ -2066,6 +2065,8 @@ let openSharedView, openRecycleView, openCategoryView, renderHome;
 document.addEventListener("DOMContentLoaded", async () => {
 
 
+console.log("📄 DOM Content Loaded");
+
   const panel = document.getElementById("premiumPanel");
   const modal = panel?.querySelector(".modal");
   const btnOpen = document.getElementById("premiumBtn");
@@ -2075,91 +2076,89 @@ document.addEventListener("DOMContentLoaded", async () => {
   function openPremiumPanel() {
     panel?.classList.remove("hidden");
     panel?.setAttribute("aria-hidden", "false");
-    document.documentElement.style.overflow = "hidden"; // lock page scroll
+    document.documentElement.style.overflow = "hidden";
     modal?.focus();
   }
-
 
   function closePremiumPanel() {
     panel?.classList.add("hidden");
     panel?.setAttribute("aria-hidden", "true");
-    document.documentElement.style.overflow = ""; // restore page scroll
+    document.documentElement.style.overflow = "";
     btnOpen?.focus();
   }
 
-  // open from top-right button
   btnOpen?.addEventListener("click", openPremiumPanel);
-
-  // close actions
   btnClose?.addEventListener("click", closePremiumPanel);
   btnLater?.addEventListener("click", closePremiumPanel);
 
-  // click outside modal to close
   panel?.addEventListener("click", (e) => {
     if (e.target === panel) closePremiumPanel();
   });
 
-  // ESC to close
   panel?.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closePremiumPanel();
   });
 
-  // plan selection (hook to payments / Firestore later)
   panel?.querySelectorAll("[data-select-plan]").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
-      const plan = e.currentTarget.getAttribute("data-select-plan"); // "pro" | "premium"
-      // TODO: integrate checkout and/or Firestore update here:
-      // await setDoc(doc(db, "users", userEmail), { plan }, { merge: true });
+      const plan = e.currentTarget.getAttribute("data-select-plan");
       alert("נבחרה תוכנית: " + (plan === "pro" ? "פרו" : "פרימיום"));
       closePremiumPanel();
     });
   });
 
-
-
-
-const currentUser = getCurrentUser();
+  const currentUser = getCurrentUser();
   if (!currentUser) {
-    // אם אין משתמש שמור, redirect to login
-    console.warn("⚠️ No user logged in, redirecting to login...");
-    window.location.href = "./";
-    return; // Stop execution
+    console.warn("⚠️ No user logged in on DOM load");
+    return;
   }
 
   const userNow = currentUser;
   console.log("👤 Current user:", userNow);
-  
 
-  const homeView      = document.getElementById("homeView");
-  const folderGrid    = document.getElementById("folderGrid");
-  const categoryView  = document.getElementById("categoryView");
+  const homeView = document.getElementById("homeView");
+  const folderGrid = document.getElementById("folderGrid");
+  const categoryView = document.getElementById("categoryView");
   const categoryTitle = document.getElementById("categoryTitle");
-  const docsList      = document.getElementById("docsList");
-  const backButton    = document.getElementById("backButton");
-  const uploadBtn     = document.getElementById("uploadBtn");
-  const fileInput     = document.getElementById("fileInput");
-  const sortSelect    = document.getElementById("sortSelect");
+  const docsList = document.getElementById("docsList");
+  const backButton = document.getElementById("backButton");
+  const uploadBtn = document.getElementById("uploadBtn");
+  const fileInput = document.getElementById("fileInput");
+  const sortSelect = document.getElementById("sortSelect");
 
-  // אלמנטים של מודאל עריכה
-  const editModal           = document.getElementById("editModal");
-  const editForm            = document.getElementById("editForm");
-  const editCancelBtn       = document.getElementById("editCancelBtn");
+  const editModal = document.getElementById("editModal");
+  const editForm = document.getElementById("editForm");
+  const editCancelBtn = document.getElementById("editCancelBtn");
 
-  const edit_title          = document.getElementById("edit_title");
-  const edit_org            = document.getElementById("edit_org");
-  const edit_year           = document.getElementById("edit_year");
-  const edit_recipient      = document.getElementById("edit_recipient");
-  const edit_warrantyStart  = document.getElementById("edit_warrantyStart");
-  const edit_warrantyExp    = document.getElementById("edit_warrantyExpiresAt");
-  const edit_autoDelete     = document.getElementById("edit_autoDeleteAfter");
-  const edit_category       = document.getElementById("edit_category");
-  const edit_sharedWith     = document.getElementById("edit_sharedWith");
+  const edit_title = document.getElementById("edit_title");
+  const edit_org = document.getElementById("edit_org");
+  const edit_year = document.getElementById("edit_year");
+  const edit_recipient = document.getElementById("edit_recipient");
+  const edit_warrantyStart = document.getElementById("edit_warrantyStart");
+  const edit_warrantyExp = document.getElementById("edit_warrantyExpiresAt");
+  const edit_autoDelete = document.getElementById("edit_autoDeleteAfter");
+  const edit_category = document.getElementById("edit_category");
+  const edit_sharedWith = document.getElementById("edit_sharedWith");
 
   let currentlyEditingDocId = null;
 
-  // טוענים נתונים מה- localStorage
   let allUsersData = loadAllUsersDataFromStorage();
-  let allDocsData  = getUserDocs(userNow, allUsersData);
+  let allDocsData = getUserDocs(userNow, allUsersData);
+
+  ensureUserSharedFields(allUsersData, userNow);
+  saveAllUsersDataToStorage(allUsersData);
+
+  if (!allDocsData || allDocsData.length === 0) {
+    allDocsData = [];
+    setUserDocs(userNow, allDocsData, allUsersData);
+  }
+
+  console.log("📊 Initial local data:", allDocsData.length, "documents");
+
+  // Boot from cloud will be called by authCheck.js
+  console.log("✅ Main.js initialized, waiting for bootFromCloud call");
+
+
 
 
   // === INIT shared fields (run once after loading allUsersData/allDocsData) ===
@@ -2182,13 +2181,6 @@ function ensureUserSharedFields(allUsersData, username) {
 
 
 
- ensureUserSharedFields(allUsersData, userNow);
-  saveAllUsersDataToStorage(allUsersData);
-          
-  if (!allDocsData || allDocsData.length === 0) {
-    allDocsData = [];
-    setUserDocs(userNow, allDocsData, allUsersData);
-  }
 
   console.log("📊 Initial local data:", allDocsData.length, "documents");
   

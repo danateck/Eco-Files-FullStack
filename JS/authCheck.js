@@ -14,7 +14,6 @@ const LOGIN_PATH = "/Eco-Files-FullStack/forms/eco-wellness/";
 
 function isOnLoginPage() {
   const path = window.location.pathname;
-  // Check if path starts with login path OR is exactly login path
   return path === LOGIN_PATH || 
          path === LOGIN_PATH + "index.html" ||
          path.startsWith(LOGIN_PATH);
@@ -22,7 +21,6 @@ function isOnLoginPage() {
 
 function isOnDashboard() {
   const path = window.location.pathname;
-  // Check if on root or root/index.html
   return path === ROOT_PATH || 
          path === ROOT_PATH + "index.html";
 }
@@ -47,16 +45,12 @@ function paintUserHeader(user) {
   if (mail) mail.textContent = email;
 }
 
-// Track if we've already redirected to prevent loops
-let hasRedirected = false;
-
 // ---------- MAIN AUTH LISTENER ----------
 onAuthStateChanged(auth, (user) => {
   console.log(
     "🔍 Auth state changed:",
     "path =", window.location.pathname,
-    "user =", user ? user.email : null,
-    "hasRedirected =", hasRedirected
+    "user =", user ? user.email : null
   );
 
   // Always try to paint username in header (if elements exist)
@@ -67,31 +61,42 @@ onAuthStateChanged(auth, (user) => {
     console.log("✅ User logged in:", user.email);
 
     // If logged-in user is on the login page → send them to dashboard
-    if (isOnLoginPage() && !hasRedirected) {
+    if (isOnLoginPage()) {
       console.log("➡ Logged-in user on login page, going to dashboard");
-      hasRedirected = true;
-      window.location.replace(ROOT_PATH);
+      setTimeout(() => {
+        window.location.replace(ROOT_PATH);
+      }, 100);
       return;
     }
     
-    // If on dashboard or other page, dispatch ready event
+    // If on dashboard, dispatch ready event and boot app
     if (isOnDashboard()) {
-      console.log("✅ On dashboard, dispatching firebase-ready");
+      console.log("✅ On dashboard, dispatching firebase-ready and booting app");
       window.dispatchEvent(new CustomEvent('firebase-ready'));
+      
+      // Give main.js time to load, then boot
+      setTimeout(() => {
+        if (typeof window.bootFromCloud === 'function') {
+          console.log("🚀 Calling bootFromCloud");
+          window.bootFromCloud();
+        } else {
+          console.warn("⚠️ bootFromCloud not found");
+        }
+      }, 200);
     }
 
   } else {
     // ---------- NO USER LOGGED IN ----------
     console.log("❌ No user logged in");
 
-    // If not on login page → go there ONCE
-    if (!isOnLoginPage() && !hasRedirected) {
+    // If not on login page → go there
+    if (!isOnLoginPage()) {
       console.log("➡ Redirecting to login page…");
-      hasRedirected = true;
-      window.location.replace(LOGIN_PATH);
-      return;
+      setTimeout(() => {
+        window.location.replace(LOGIN_PATH);
+      }, 100);
     } else {
-      console.log("ℹ Already on login page or already redirected");
+      console.log("ℹ Already on login page");
     }
   }
 });
@@ -106,22 +111,18 @@ export function getCurrentUserEmail() {
 }
 
 export function logout() {
-  hasRedirected = false; // Reset redirect flag
+  console.log("🚪 Logout initiated");
   return signOut(auth)
     .then(() => {
-      console.log("✅ Logged out, going to login page");
-      hasRedirected = true;
-      window.location.replace(LOGIN_PATH);
+      console.log("✅ Signed out successfully");
+      // Force redirect to login after a brief delay
+      setTimeout(() => {
+        window.location.href = LOGIN_PATH;
+      }, 100);
     })
     .catch((err) => {
       console.error("❌ Error while logging out:", err);
     });
 }
 
-// Prevent multiple initializations
-if (window._authCheckLoaded) {
-  console.warn("⚠️ authCheck.js already loaded, skipping");
-} else {
-  window._authCheckLoaded = true;
-  console.log("✅ authCheck.js loaded (fixed version)");
-}
+console.log("✅ authCheck.js loaded");
