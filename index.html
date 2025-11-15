@@ -1829,103 +1829,25 @@ element.style {
 }
 </script>
 
+
+<!-- Remove ALL inline Firebase initialization -->
+<!-- authCheck.js will handle everything -->
+
+<script type="module" src="./firebase-config.js"></script>
+<script type="module" src="./JS/authCheck.js"></script>
+<script type="module" src="./JS/main.js"></script>
+<script type="module" src="./api-bridge.js"></script>
+
 <script type="module">
-  import { initializeApp } from 'firebase/app';
-  import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
-  import { getFirestore } from 'firebase/firestore';
-  import { getStorage } from 'firebase/storage';
-
-  // --- Firebase config ---
-  const firebaseConfig = {
-    apiKey: "AIzaSyBPr4X2_8JYCgXzMlTcVB0EJLhup9CdyYw",
-    authDomain: "login-page-echo-file.firebaseapp.com",
-    projectId: "login-page-echo-file",
-    storageBucket: "login-page-echo-file.appspot.com",
-    messagingSenderId: "200723524735",
-    appId: "1:200723524735:web:9eaed6ef10cbc2c406234a"
-  };
-
-  // --- Initialize Firebase ---
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-  const storage = getStorage(app);
-
-  // Make globals available
-  window.app = app;
-  window.auth = auth;
-  window.db = db;
-  window.storage = storage;
-
-  console.log("🔥 Firebase initialized");
-
-  // --- Auth state check ---
-  // REMOVE ALL THIS OLD CODE:
-  /*
-  onAuthStateChanged(auth, (user) => {
-    console.log(
-      "auth state changed. path =",
-      window.location.pathname,
-      "user =",
-      user ? user.email : null
-    );
-
-    if (user) {
-      console.log("✅ User logged in:", user.email);
-
-      // Update UI
-      const label = document.getElementById("currentUserLabel");
-      const mail = document.getElementById("currentUserEmail");
-      if (label) label.textContent = `שלום, ${user.email.split('@')[0]}`;
-      if (mail) mail.textContent = user.email;
-
-      // Dispatch ready event for other scripts
-      window.dispatchEvent(new CustomEvent('firebase-ready'));
-
-      // Start the app if bootFromCloud exists
-      if (typeof window.bootFromCloud === 'function') {
-        window.bootFromCloud();
-      }
-
-    } else {
-      console.log("❌ No user logged in");
-
-      const path = window.location.pathname;
-      const onLoginPage = path.startsWith("/Eco-Files-FullStack/forms/eco-wellness");
-
-      if (!onLoginPage) {
-        console.log("➡ Redirecting to login page…");
-        window.location.replace("/Eco-Files-FullStack/forms/eco-wellness/");
-      } else {
-        console.log("ℹ Already on login page, not redirecting again");
-      }
-    }
-  });
-  */
-
-  // --- NEW SIMPLIFIED VERSION: ---
-  // Auth check is now handled by authCheck.js
-  // We just listen for the firebase-ready event
-  window.addEventListener('firebase-ready', () => {
-    console.log("📡 Firebase ready event received");
-    if (typeof window.bootFromCloud === 'function') {
-      window.bootFromCloud();
-    }
-  });
-
-  // --- Logout handling ---
-  const logoutHandler = () => {
-    signOut(auth)
-      .then(() => {
-        console.log("✅ User signed out");
-        window.location.replace("./forms/eco-wellness/index.html");
-      })
-      .catch(err => console.error("❌ Logout error:", err));
-  };
-
+  // Simple event handlers - NO auth logic here
   document.addEventListener('DOMContentLoaded', () => {
     const logoutBtn = document.getElementById("logoutBtn");
     const mobileLogoutBtn = document.getElementById("mobileLogoutBtn");
+
+    const logoutHandler = async () => {
+      const { logout } = await import('./JS/authCheck.js');
+      logout();
+    };
 
     if (logoutBtn) logoutBtn.addEventListener("click", logoutHandler);
     if (mobileLogoutBtn) mobileLogoutBtn.addEventListener("click", logoutHandler);
@@ -1971,14 +1893,6 @@ element.style {
     });
   });
 </script>
-
-
-<script type="module" src="./firebase-config.js"></script>
-
-<script type="module" src="./JS/authCheck.js"></script>
-<!-- Your main app logic should run after firebase-ready -->
-<script type="module" src="./JS/main.js"></script>
-<script type="module" src="./api-bridge.js"></script>
 
 </body>
 </html>
