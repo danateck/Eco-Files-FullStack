@@ -263,8 +263,15 @@ try {
 } catch (e) {
   console.warn("⚠️ Storage upload failed (will save metadata only):", e.message);
   downloadURL = null;
+alert("העלאת הקובץ נכשלה (CORS). המסמך לא נשמר.");
+return; // 👈 עצרי את כל הפונקציה! אל תשמרי בפיירסטור
   // Don't throw - continue without Storage URL
 }
+
+
+if (!downloadURL) return;
+
+
 
   const docRef = window.fs.doc(window.db, "documents", newId);
 
