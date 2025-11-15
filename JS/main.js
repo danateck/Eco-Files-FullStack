@@ -1499,6 +1499,9 @@ window.isFirebaseAvailable = function () {
 
 
 
+
+
+
 /*************************
  * 1. קטגוריות / מילות מפתח
  *************************/
@@ -1644,10 +1647,231 @@ window.renderHome = function() {
   console.log("✅ renderHome complete");
 };
 
+
 // Make it available as both window.renderHome and renderHome
 const renderHome = window.renderHome;
 
 console.log("✅ renderHome defined globally");
+
+
+
+
+window.openCategoryView = function(categoryName) {
+  console.log("📂 Opening category:", categoryName);
+  
+  const categoryTitle = document.getElementById("categoryTitle");
+  const docsList = document.getElementById("docsList");
+  const homeView = document.getElementById("homeView");
+  const categoryView = document.getElementById("categoryView");
+  
+  if (!categoryTitle || !docsList) {
+    console.error("❌ Category view elements not found");
+    return;
+  }
+
+  categoryTitle.textContent = categoryName;
+
+  let docsForThisCategory = (window.allDocsData || []).filter(doc =>
+    doc.category &&
+    doc.category.includes(categoryName) &&
+    !doc._trashed
+  );
+
+  docsForThisCategory = sortDocs(docsForThisCategory);
+
+  docsList.innerHTML = "";
+  
+  if (docsForThisCategory.length === 0) {
+    docsList.innerHTML = `<div style="padding:2rem;text-align:center;opacity:0.6;">אין מסמכים בתיקייה זו</div>`;
+  } else {
+    docsForThisCategory.forEach(doc => {
+      const card = buildDocCard(doc, "normal");
+      docsList.appendChild(card);
+    });
+  }
+
+  if (homeView) homeView.classList.add("hidden");
+  if (categoryView) categoryView.classList.remove("hidden");
+};
+
+const openCategoryView = window.openCategoryView;
+
+window.openRecycleView = function() {
+  console.log("🗑️ Opening recycle view");
+  
+  const categoryTitle = document.getElementById("categoryTitle");
+  const docsList = document.getElementById("docsList");
+  const homeView = document.getElementById("homeView");
+  const categoryView = document.getElementById("categoryView");
+  
+  if (!categoryTitle || !docsList) return;
+
+  categoryTitle.textContent = "סל מחזור";
+  const docs = (window.allDocsData || []).filter(d => d._trashed === true);
+  
+  docsList.innerHTML = "";
+  
+  if (docs.length === 0) {
+    docsList.innerHTML = `<div style="padding:2rem;text-align:center;opacity:0.6;">סל המחזור ריק</div>`;
+  } else {
+    const sortedDocs = sortDocs(docs);
+    sortedDocs.forEach(doc => {
+      const card = buildDocCard(doc, "recycle");
+      docsList.appendChild(card);
+    });
+  }
+
+  if (homeView) homeView.classList.add("hidden");
+  if (categoryView) categoryView.classList.remove("hidden");
+};
+
+const openRecycleView = window.openRecycleView;
+
+console.log("✅ Navigation functions defined globally");
+
+
+
+
+
+
+
+
+
+function buildDocCard(doc, mode) {
+  const card = document.createElement("div");
+  card.className = "doc-card";
+
+  const warrantyBlock =
+    (doc.category && doc.category.includes("אחריות")) ?
+    `
+      <span>הועלה ב: ${doc.uploadedAt || "-"}</span>
+      <span>תאריך קנייה: ${doc.warrantyStart || "-"}</span>
+      <span>תוקף אחריות עד: ${doc.warrantyExpiresAt || "-"}</span>
+      <span>מחיקה אוטומטית אחרי: ${doc.autoDeleteAfter || "-"}</span>
+    `
+    : `
+      <span>הועלה ב: ${doc.uploadedAt || "-"}</span>
+    `;
+
+  const openFileButtonHtml = `
+    <button class="doc-open-link" data-open-id="${doc.id}">
+      פתיחת קובץ
+    </button>
+  `;
+
+  const displayTitle = doc.title || doc.fileName || doc.originalFileName || "מסמך";
+
+  card.innerHTML = `
+    <p class="doc-card-title">${displayTitle}</p>
+    <div class="doc-card-meta">
+      <span>ארגון: ${doc.org || "לא ידוע"}</span>
+      <span>שנה: ${doc.year || "-"}</span>
+      <span>שייך ל: ${doc.recipient?.join(", ") || "-"}</span>
+      ${warrantyBlock}
+    </div>
+    ${openFileButtonHtml}
+    <div class="doc-actions"></div>
+  `;
+
+  const actions = card.querySelector(".doc-actions");
+
+  if (mode !== "recycle") {
+    const editBtn = document.createElement("button");
+    editBtn.className = "doc-action-btn";
+    editBtn.textContent = "עריכה ✏️";
+    editBtn.addEventListener("click", () => {
+      if (typeof openEditModal === "function") {
+        openEditModal(doc);
+      }
+    });
+    actions.appendChild(editBtn);
+
+    const trashBtn = document.createElement("button");
+    trashBtn.className = "doc-action-btn danger";
+    trashBtn.textContent = "העבר לסל מחזור 🗑️";
+    trashBtn.addEventListener("click", () => {
+      markDocTrashed(doc.id, true);
+      
+      const categoryTitle = document.getElementById("categoryTitle");
+      const currentCat = categoryTitle?.textContent || "";
+      
+      if (currentCat === "אחסון משותף") {
+        if (typeof openSharedView === "function") openSharedView();
+      } else if (currentCat === "סל מחזור") {
+        if (typeof openRecycleView === "function") openRecycleView();
+      } else {
+        if (typeof openCategoryView === "function") openCategoryView(currentCat);
+      }
+    });
+    actions.appendChild(trashBtn);
+
+  } else {
+    const restoreBtn = document.createElement("button");
+    restoreBtn.className = "doc-action-btn restore";
+    restoreBtn.textContent = "שחזור ♻️";
+    restoreBtn.addEventListener("click", () => {
+      markDocTrashed(doc.id, false);
+      if (typeof openRecycleView === "function") openRecycleView();
+    });
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "doc-action-btn danger";
+    deleteBtn.textContent = "מחיקה לצמיתות 🗑️";
+    deleteBtn.addEventListener("click", () => {
+      deleteDocForever(doc.id);
+      if (typeof openRecycleView === "function") openRecycleView();
+    });
+
+    actions.appendChild(restoreBtn);
+    actions.appendChild(deleteBtn);
+  }
+
+  return card;
+}
+
+function markDocTrashed(id, trashed) {
+  const allDocsData = window.allDocsData || [];
+  const userNow = getCurrentUserEmail();
+  const allUsersData = window.allUsersData || {};
+  
+  const i = allDocsData.findIndex(d => d.id === id);
+  if (i > -1) {
+    allDocsData[i]._trashed = !!trashed;
+    window.allDocsData = allDocsData;
+    
+    if (typeof setUserDocs === "function") {
+      setUserDocs(userNow, allDocsData, allUsersData);
+    }
+    
+    showNotification(trashed ? "הועבר לסל המחזור" : "שוחזר מהסל");
+  }
+}
+
+function deleteDocForever(id) {
+  const allDocsData = window.allDocsData || [];
+  const userNow = getCurrentUserEmail();
+  const allUsersData = window.allUsersData || {};
+  
+  const i = allDocsData.findIndex(d => d.id === id);
+  if (i > -1) {
+    deleteFileFromDB(id).catch(() => {});
+    allDocsData.splice(i, 1);
+    window.allDocsData = allDocsData;
+    
+    if (typeof setUserDocs === "function") {
+      setUserDocs(userNow, allDocsData, allUsersData);
+    }
+    
+    showNotification("הקובץ נמחק לצמיתות");
+  }
+}
+
+console.log("✅ Document card builder defined globally");
+
+
+
+
+
 
 
 
@@ -2112,7 +2336,7 @@ function ensureUserSharedFields(allUsersData, username) {
 
 
 
-let openSharedView, openRecycleView, openCategoryView;
+let openSharedView;
 
 
 /*********************
