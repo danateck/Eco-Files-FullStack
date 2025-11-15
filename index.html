@@ -9,7 +9,17 @@
   <!-- Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600&display=swap" rel="stylesheet" />
 
-
+  <!-- CRITICAL: Import Map MUST come before any module scripts -->
+  <script type="importmap">
+  {
+    "imports": {
+      "firebase/app": "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js",
+      "firebase/auth": "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js",
+      "firebase/firestore": "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js",
+      "firebase/storage": "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js"
+    }
+  }
+  </script>
   <style>
 
 
@@ -1815,205 +1825,11 @@ element.style {
 
 
 
-<!-- Firebase Config -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-    import { getAuth } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-    import { getFirestore } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-    import { getStorage } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-storage.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyBPr4X2_8JYCgXzMlTcVB0EJLhup9CdyYw",
-      authDomain: "login-page-echo-file.firebaseapp.com",
-      projectId: "login-page-echo-file",
-      storageBucket: "login-page-echo-file.appspot.com",
-      messagingSenderId: "200723524735",
-      appId: "1:200723524735:web:9eaed6ef10cbc2c406234a"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const storage = getStorage(app);
-
-    window.app = app;
-    window.auth = auth;
-    window.db = db;
-    window.storage = storage;
-
-    console.log("✅ Firebase initialized");
-    window.dispatchEvent(new Event("firebase-ready"));
-  </script>
-
-  <!-- Main Dashboard Logic -->
-  <script type="module">
-    console.log("🚀 Starting dashboard initialization...");
-
-    // Wait for Firebase
-    await new Promise(resolve => {
-      if (window.auth && window.db) {
-        resolve();
-      } else {
-        window.addEventListener("firebase-ready", resolve, { once: true });
-      }
-    });
-
-    console.log("✅ Firebase ready");
-
-    // Get elements
-    const homeView = document.getElementById("homeView");
-    const categoryView = document.getElementById("categoryView");
-    const folderGrid = document.getElementById("folderGrid");
-    const backButton = document.getElementById("backButton");
-    const uploadBtn = document.getElementById("uploadBtn");
-    const fileInput = document.getElementById("fileInput");
-    const logoutBtn = document.getElementById("logoutBtn");
-    const notification = document.getElementById("notification");
-
-    // Categories
-    const CATEGORIES = [
-      "כלכלה", "רפואה", "עבודה", "בית",
-      "אחריות", "תעודות", "עסק", "אחר"
-    ];
-
-    // Global data
-    window.allDocsData = [];
-
-    // Show notification
-    function showNotification(message, isError = false) {
-      notification.textContent = message;
-      notification.className = "notification show" + (isError ? " error" : "");
-      setTimeout(() => {
-        notification.className = "notification hidden";
-      }, 3000);
-    }
-
-    // Render home
-    function renderHome() {
-      console.log("🎨 Rendering home...");
-      
-      folderGrid.innerHTML = "";
-      
-      CATEGORIES.forEach(cat => {
-        const folder = document.createElement("button");
-        folder.className = "folder-card";
-        folder.innerHTML = `
-          <div style="font-size:2rem;">📁</div>
-          <div class="folder-label">${cat}</div>
-        `;
-        
-        folder.addEventListener("click", () => {
-          console.log("📂 Opening:", cat);
-          openCategory(cat);
-        });
-        
-        folderGrid.appendChild(folder);
-      });
-      
-      homeView.classList.remove("hidden");
-      categoryView.classList.add("hidden");
-      
-      console.log("✅ Home rendered");
-    }
-
-    // Open category
-    function openCategory(categoryName) {
-      console.log("Opening category:", categoryName);
-      
-      document.getElementById("categoryTitle").textContent = categoryName;
-      
-      const docs = window.allDocsData.filter(d => 
-        d.category === categoryName && !d._trashed
-      );
-      
-      const docsList = document.getElementById("docsList");
-      docsList.innerHTML = "";
-      
-      if (docs.length === 0) {
-        docsList.innerHTML = "<p>אין מסמכים בתיקייה זו</p>";
-      } else {
-        docs.forEach(doc => {
-          const card = document.createElement("div");
-          card.className = "doc-card";
-          card.innerHTML = `
-            <h3>${doc.title || doc.fileName}</h3>
-            <p>ארגון: ${doc.org || "-"}</p>
-          `;
-          docsList.appendChild(card);
-        });
-      }
-      
-      homeView.classList.add("hidden");
-      categoryView.classList.remove("hidden");
-    }
-
-    // Back button
-    backButton.addEventListener("click", () => {
-      console.log("⬅ Back to home");
-      renderHome();
-    });
-
-    // Upload button
-    uploadBtn.addEventListener("click", () => {
-      console.log("📤 Upload clicked");
-      fileInput.click();
-    });
-
-    fileInput.addEventListener("change", async () => {
-      const file = fileInput.files[0];
-      if (!file) return;
-      
-      console.log("📎 File selected:", file.name);
-      showNotification("הקובץ נוסף בהצלחה!");
-      
-      // Add to data
-      window.allDocsData.push({
-        id: crypto.randomUUID(),
-        title: file.name,
-        fileName: file.name,
-        category: "אחר",
-        uploadedAt: new Date().toISOString()
-      });
-      
-      fileInput.value = "";
-    });
-
-    // Logout
-    logoutBtn.addEventListener("click", () => {
-      console.log("🚪 Logging out");
-      window.location.href = "forms/eco-wellness/index.html";
-    });
-
-    // Menu navigation
-    document.querySelectorAll(".menu-item").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const view = btn.dataset.view;
-        console.log("🔘 Menu clicked:", view);
-        
-        if (view === "home") {
-          renderHome();
-        } else {
-          showNotification(`פתיחת ${view}...`);
-        }
-      });
-    });
-
-    // Initial render
-    console.log("🎬 Initial render");
-    renderHome();
-
-    // Export functions
-    window.renderHome = renderHome;
-    window.showNotification = showNotification;
-
-    console.log("✅ Dashboard ready!");
-  </script>
-
-
 <script type="module" src="./firebase-config.js"></script>
 <script type="module" src="./JS/authCheck.js"></script>
 <script type="module" src="./JS/main.js"></script>
 <script type="module" src="./api-bridge.js"></script>
+
 
 
 
