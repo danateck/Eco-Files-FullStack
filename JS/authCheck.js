@@ -82,39 +82,41 @@ onAuthStateChanged(auth, async (user) => {
   paintUserHeader(user);
 
   if (user) {
-    // ---------- USER LOGGED IN ----------
-    console.log("✅ User logged in:", user.email);
- window.userNow = (user.email || "").toLowerCase();
-    // If logged-in user is on the login page → send them to dashboard
-    if (isOnLoginPage()) {
-      console.log("➡ Logged-in user on login page, going to dashboard");
-      setTimeout(() => {
-        window.location.replace(ROOT_PATH);
-      }, 100);
-      return;
-    }
-    
-    // If on dashboard, wait for DOM and boot app
-    if (isOnDashboard()) {
-      console.log("✅ On dashboard, waiting for DOM and functions...");
-      
-      // ✅ WAIT for DOM to be ready
-      await waitForDOM();
-      console.log("✅ DOM ready");
-      
-      // ✅ Dispatch firebase-ready event
-      window.dispatchEvent(new CustomEvent('firebase-ready'));
-      
-      // ✅ WAIT for bootFromCloud to be defined
-      await waitForBootFunction();
-      console.log("✅ bootFromCloud function ready");
-      
-      // ✅ NOW call boot
-      console.log("🚀 Calling bootFromCloud");
-      window.bootFromCloud();
-    }
+  console.log(
+    "🔍 Auth state changed:",
+    "path =", window.location.pathname,
+    "user =", user ? user.email : null
+  );
 
-  } else {
+  paintUserHeader(user);
+
+  console.log("✅ User logged in:", user.email);
+  window.userNow = (user.email || "").toLowerCase();
+
+  if (isOnLoginPage()) {
+    console.log("➡ Logged-in user on login page, going to dashboard");
+    setTimeout(() => {
+      window.location.replace(ROOT_PATH);
+    }, 100);
+    return;
+  }
+
+  if (isOnDashboard()) {
+    console.log("✅ On dashboard, waiting for DOM and functions...");
+
+    await waitForDOM();
+    console.log("✅ DOM ready");
+
+    window.dispatchEvent(new CustomEvent('firebase-ready'));
+
+    await waitForBootFunction();
+    console.log("✅ bootFromCloud function ready");
+
+    // ⬇️ IMPORTANT CHANGE:
+    console.log("🚀 Calling bootFromCloud for:", window.userNow);
+    window.bootFromCloud(window.userNow);
+  }
+}else {
     // ---------- NO USER LOGGED IN ----------
     console.log("❌ No user logged in");
 

@@ -152,11 +152,11 @@ async function loadDocuments() {
 }
 
 
-
 window.bootFromCloud = async function() {
   console.log("🚀 bootFromCloud called");
   
-  await waitForFirebase();
+  // ❌ REMOVE THIS – it can block forever
+  // await waitForFirebase();
   
   const me = getCurrentUserEmail();
   console.log("👤 Boot user:", me);
@@ -167,7 +167,9 @@ window.bootFromCloud = async function() {
   }
 
   try {
-    if (typeof showLoading === "function") showLoading("טוען מסמכים מהענן...");
+    if (typeof showLoading === "function") {
+      showLoading("טוען מסמכים מהענן...");
+    }
     
     const docs = await loadDocuments();
     console.log("📦 Loaded", docs.length, "documents from Firestore");
@@ -176,6 +178,8 @@ window.bootFromCloud = async function() {
     
     const userNow = me;
     if (typeof setUserDocs === "function") {
+      // make sure allUsersData exists
+      if (!window.allUsersData) window.allUsersData = {};
       setUserDocs(userNow, window.allDocsData, window.allUsersData);
     }
     
@@ -196,8 +200,11 @@ window.bootFromCloud = async function() {
     if (typeof hideLoading === "function") hideLoading();
   }
 
-  watchMyDocs();
+  if (typeof watchMyDocs === "function") {
+    watchMyDocs();
+  }
 };
+
 
 console.log("✅ bootFromCloud defined globally");
 
