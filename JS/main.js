@@ -1820,8 +1820,10 @@ function buildDocCard(doc, mode) {
 
   } else {
     const restoreBtn = document.createElement("button");
-    restoreBtn.className = "doc-action-btn restore";
-    restoreBtn.textContent = "שחזור ♻️";
+restoreBtn.className = "doc-action-btn restore";
+restoreBtn.textContent = "שחזור ♻️";
+restoreBtn.dataset.docId = doc.id; // 👈 חשוב
+
     restoreBtn.addEventListener("click", async () => {
   try {
     // ננסה קודם את הגרסה שמדברת עם Render (api-bridge.js)
@@ -4404,6 +4406,46 @@ document.addEventListener('click', function(e) {
     }
   }
 });
+
+
+// 🎯 האזנה גלובלית לכפתור "שחזור" בסל המחזור
+document.addEventListener("click", async (event) => {
+  const btn = event.target.closest(".doc-action-btn.restore");
+  if (!btn) return; // לא כפתור שחזור – מתעלמים
+
+  const docId = btn.dataset.docId;
+  if (!docId) {
+    console.error("❌ Restore click without docId on button");
+    return;
+  }
+
+  console.log("♻️ Restore clicked for doc:", docId);
+
+  try {
+    if (window.markDocTrashed && typeof window.markDocTrashed === "function") {
+      await window.markDocTrashed(docId, false); // 👈 משתמש ב-API BRIDGE
+    } else {
+      console.error("❌ window.markDocTrashed is not available");
+      return;
+    }
+
+    // לרענן את תצוגת סל המחזור אחרי השחזור
+    if (typeof openRecycleView === "function") {
+      openRecycleView();
+    } else {
+      // fallback – לרענן כל הדף
+      window.location.reload();
+    }
+  } catch (err) {
+    console.error("❌ Restore failed:", err);
+    if (typeof showNotification === "function") {
+      showNotification("שגיאה בשחזור המסמך", true);
+    }
+  }
+});
+
+
+
 
 
 console.log("✅ All functions fixed and loaded!");
