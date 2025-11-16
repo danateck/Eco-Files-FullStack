@@ -1718,8 +1718,8 @@ function buildDocCard(doc, mode) {
     const trashBtn = document.createElement("button");
     trashBtn.className = "doc-action-btn danger";
     trashBtn.textContent = "העבר לסל מחזור 🗑️";
-    trashBtn.addEventListener("click", () => {
-      markDocTrashed(doc.id, true);
+    trashBtn.addEventListener("click", async  () => {
+      await markDocTrashed(doc.id, true);
       
       const categoryTitle = document.getElementById("categoryTitle");
       const currentCat = categoryTitle?.textContent || "";

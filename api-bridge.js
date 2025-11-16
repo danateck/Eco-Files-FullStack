@@ -315,7 +315,7 @@ async function markDocTrashed(docId, trashed) {
 
   let backendOk = false;
 
-  // קודם מנסים לדבר עם השרת – אבל לא נופלים אם זה נכשל
+  // קודם מנסים לדבר עם השרת – אבל לא מפילים את כל הפעולה אם יש בעיה
   try {
     const headers = await getAuthHeaders();
     headers["Content-Type"] = "application/json";
@@ -332,19 +332,9 @@ async function markDocTrashed(docId, trashed) {
 
     clearTimeout(timeoutId);
 
-    if (res.status === 404) {
+    if (!res.ok) {
       const text = await res.text();
-      console.warn(
-        "⚠️ Backend says doc not found or access denied. Doing local-only trash/restore:",
-        text
-      );
-      // לא זורקים – נמשיך לוקאלי
-    } else if (!res.ok) {
-      const text = await res.text();
-      console.warn(
-        "⚠️ Trash failed on backend, continuing locally:",
-        text
-      );
+      console.warn("⚠️ Trash failed on backend, continuing locally:", text);
     } else {
       backendOk = true;
     }
@@ -355,7 +345,7 @@ async function markDocTrashed(docId, trashed) {
     );
   }
 
-  // 🧠 מכאן והלאה – תמיד נעדכן לוקאלית, גם אם השרת נפל / CORS
+  // 🧠 מכאן והלאה – תמיד נעדכן לוקאלית, גם אם השרת נחנק
 
   console.log(
     `✅ ${trashed ? "Trashed" : "Restored"} locally:`,
@@ -363,7 +353,7 @@ async function markDocTrashed(docId, trashed) {
     backendOk ? "(backend OK)" : "(backend FAILED)"
   );
 
-  // Firestore
+  // Update Firestore
   if (window.db && window.fs) {
     try {
       const docRef = window.fs.doc(window.db, "documents", docId);
@@ -376,7 +366,7 @@ async function markDocTrashed(docId, trashed) {
     }
   }
 
-  // cache לוקאלי
+  // Update local cache
   if (Array.isArray(window.allDocsData)) {
     const idx = window.allDocsData.findIndex((d) => d.id === docId);
     if (idx >= 0) {
@@ -385,9 +375,9 @@ async function markDocTrashed(docId, trashed) {
     }
   }
 
-  // מחזירים משהו קטן, גם אם השרת נפל
   return { backendOk };
 }
+
 
 
 // ═══ 5. Delete Forever ═══
