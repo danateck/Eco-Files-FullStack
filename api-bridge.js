@@ -1,60 +1,79 @@
 // ═══════════════════════════════════════════════════════════════════
-//        api-bridge-FIXED.js - גרסה מתוקנת שלא תיתקע!
+//        api-bridge-ULTIMATE-FIX.js - תיקון Authentication!
 // ═══════════════════════════════════════════════════════════════════
 
 const API_BASE = (location.hostname === 'localhost')
   ? 'http://localhost:8787'
   : 'https://eco-files.onrender.com'; // 👈 שני את זה ל-URL שלך!
 
-console.log("🔗 API Bridge starting... URL:", API_BASE);
+console.log("🔗 API Bridge (ULTIMATE) starting...");
+console.log("📍 API URL:", API_BASE);
 
-// ═══ Helper Functions ═══
+// ═══ Helper: Get user email ═══
+function getCurrentUser() {
+  // Try multiple ways to get the email
+  if (typeof getCurrentUserEmail === "function") {
+    const email = getCurrentUserEmail();
+    if (email) return email.toLowerCase().trim();
+  }
+  
+  if (window.auth?.currentUser?.email) {
+    return window.auth.currentUser.email.toLowerCase().trim();
+  }
+  
+  if (typeof auth !== "undefined" && auth?.currentUser?.email) {
+    return auth.currentUser.email.toLowerCase().trim();
+  }
+  
+  console.error("❌ Cannot get user email!");
+  return null;
+}
 
+// ═══ Helper: Get auth headers ═══
 async function getAuthHeaders() {
   const headers = {};
   
+  // Get user email
+  const userEmail = getCurrentUser();
+  if (!userEmail) {
+    console.error("❌ No user email for headers!");
+    return headers;
+  }
+  
+  console.log("👤 User for request:", userEmail);
+  
+  // ✅ ALWAYS add X-Dev-Email (this is what the backend expects!)
+  headers['X-Dev-Email'] = userEmail;
+  
+  // Try to add Firebase token too (if available)
   if (window.auth?.currentUser) {
     try {
       const token = await window.auth.currentUser.getIdToken();
       headers['Authorization'] = `Bearer ${token}`;
+      console.log("✅ Added Firebase token");
     } catch (err) {
-      console.warn('⚠️ Token error:', err);
+      console.warn('⚠️ Could not get Firebase token (using email only):', err.message);
     }
   }
   
-  const userEmail = (typeof getCurrentUserEmail === "function")
-    ? getCurrentUserEmail()
-    : (window.auth?.currentUser?.email ?? "").toLowerCase();
-    
-  if (userEmail) {
-    headers['X-Dev-Email'] = userEmail;
-  }
-  
+  console.log("📤 Headers:", Object.keys(headers));
   return headers;
 }
 
-function getCurrentUser() {
-  if (typeof getCurrentUserEmail === "function") {
-    return getCurrentUserEmail();
-  }
-  return (window.auth?.currentUser?.email ?? "").toLowerCase();
-}
-
-// ═══ 1. Load Documents (עם Timeout!) ═══
+// ═══ 1. Load Documents ═══
 
 async function loadDocuments() {
   const me = getCurrentUser();
   if (!me) {
-    console.warn('⚠️ No user logged in');
+    console.error('❌ Cannot load documents - not logged in');
     return [];
   }
 
-  console.log("📡 Loading documents from Render...");
+  console.log("📡 Loading documents from:", API_BASE);
 
   try {
     const headers = await getAuthHeaders();
     
-    // ✅ קריאה עם TIMEOUT של 10 שניות
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
     
@@ -66,13 +85,14 @@ async function loadDocuments() {
     clearTimeout(timeoutId);
     
     if (!res.ok) {
-      throw new Error(`API returned ${res.status}`);
+      const text = await res.text();
+      console.error(`❌ API error ${res.status}:`, text);
+      throw new Error(`API returned ${res.status}: ${text}`);
     }
     
     const list = await res.json();
     console.log(`✅ Loaded ${list.length} documents from Render`);
     
-    // Transform to frontend format
     return list.map(d => ({
       id: d.id,
       title: d.title || d.file_name,
@@ -97,14 +117,12 @@ async function loadDocuments() {
     
   } catch (error) {
     console.error('❌ Render API failed:', error.message);
-    
-    // ✅ Fallback to Firestore
     console.log("🔄 Falling back to Firestore...");
     return await loadFromFirestore(me);
   }
 }
 
-// Helper: Load from Firestore (fallback)
+// Helper: Load from Firestore
 async function loadFromFirestore(userEmail) {
   if (!window.db || !window.fs) {
     console.error("❌ Firebase not available");
@@ -134,13 +152,18 @@ async function loadFromFirestore(userEmail) {
   }
 }
 
-// ═══ 2. Upload Document (עם Timeout!) ═══
+// ═══ 2. Upload Document ═══
 
 async function uploadDocument(file, metadata = {}) {
   const me = getCurrentUser();
-  if (!me) throw new Error("User not logged in");
+  if (!me) {
+    const err = new Error("Not logged in");
+    console.error("❌", err);
+    throw err;
+  }
 
-  console.log("📤 Uploading to Render...");
+  console.log("📤 Uploading file:", file.name);
+  console.log("📤 User:", me);
 
   try {
     const fd = new FormData();
@@ -156,8 +179,8 @@ async function uploadDocument(file, metadata = {}) {
     if (metadata.autoDeleteAfter) fd.append('autoDeleteAfter', metadata.autoDeleteAfter);
 
     const headers = await getAuthHeaders();
+    console.log("📤 Uploading to:", `${API_BASE}/api/docs`);
     
-    // ✅ Timeout של 30 שניות להעלאה
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
     
@@ -171,11 +194,13 @@ async function uploadDocument(file, metadata = {}) {
     clearTimeout(timeoutId);
     
     if (!res.ok) {
-      throw new Error(`Upload failed: ${await res.text()}`);
+      const text = await res.text();
+      console.error(`❌ Upload failed ${res.status}:`, text);
+      throw new Error(`Upload failed: ${text}`);
     }
     
     const result = await res.json();
-    console.log('✅ Uploaded to Render:', result.id);
+    console.log('✅ Uploaded:', result.id);
     
     const doc = {
       id: result.id,
@@ -196,14 +221,14 @@ async function uploadDocument(file, metadata = {}) {
       downloadURL: `${API_BASE}/api/docs/${result.id}/download`
     };
     
-    // ✅ Sync to Firestore (don't wait)
+    // Sync to Firestore
     if (window.db && window.fs) {
       syncToFirestore(result.id, doc).catch(err => 
         console.warn("⚠️ Firestore sync failed:", err)
       );
     }
     
-    // ✅ Update local cache
+    // Update local cache
     if (Array.isArray(window.allDocsData)) {
       window.allDocsData.push(doc);
     }
@@ -232,6 +257,9 @@ async function syncToFirestore(docId, docData) {
 // ═══ 3. Update Document ═══
 
 async function updateDocument(docId, updates) {
+  const me = getCurrentUser();
+  if (!me) throw new Error("Not logged in");
+  
   try {
     const headers = await getAuthHeaders();
     headers['Content-Type'] = 'application/json';
@@ -249,10 +277,11 @@ async function updateDocument(docId, updates) {
     clearTimeout(timeoutId);
     
     if (!res.ok) {
-      throw new Error(`Update failed: ${await res.text()}`);
+      const text = await res.text();
+      throw new Error(`Update failed: ${text}`);
     }
     
-    console.log('✅ Updated in Render:', docId);
+    console.log('✅ Updated:', docId);
     
     // Update Firestore
     if (window.db && window.fs) {
@@ -281,6 +310,9 @@ async function updateDocument(docId, updates) {
 // ═══ 4. Trash/Restore ═══
 
 async function markDocTrashed(docId, trashed) {
+  const me = getCurrentUser();
+  if (!me) throw new Error("Not logged in");
+  
   try {
     const headers = await getAuthHeaders();
     headers['Content-Type'] = 'application/json';
@@ -298,10 +330,11 @@ async function markDocTrashed(docId, trashed) {
     clearTimeout(timeoutId);
     
     if (!res.ok) {
-      throw new Error(`Trash failed: ${await res.text()}`);
+      const text = await res.text();
+      throw new Error(`Trash failed: ${text}`);
     }
     
-    console.log(`✅ ${trashed ? 'Trashed' : 'Restored'} in Render:`, docId);
+    console.log(`✅ ${trashed ? 'Trashed' : 'Restored'}:`, docId);
     
     // Update Firestore
     if (window.db && window.fs) {
@@ -331,6 +364,9 @@ async function markDocTrashed(docId, trashed) {
 // ═══ 5. Delete Forever ═══
 
 async function deleteDocForever(docId) {
+  const me = getCurrentUser();
+  if (!me) throw new Error("Not logged in");
+  
   try {
     const headers = await getAuthHeaders();
     
@@ -346,10 +382,11 @@ async function deleteDocForever(docId) {
     clearTimeout(timeoutId);
     
     if (!res.ok) {
-      throw new Error(`Delete failed: ${await res.text()}`);
+      const text = await res.text();
+      throw new Error(`Delete failed: ${text}`);
     }
     
-    console.log('✅ Deleted from Render:', docId);
+    console.log('✅ Deleted:', docId);
     
     // Delete from Firestore
     if (window.db && window.fs) {
@@ -377,6 +414,9 @@ async function deleteDocForever(docId) {
 // ═══ 6. Download ═══
 
 async function downloadDocument(docId, fileName) {
+  const me = getCurrentUser();
+  if (!me) throw new Error("Not logged in");
+  
   try {
     const headers = await getAuthHeaders();
     const res = await fetch(`${API_BASE}/api/docs/${docId}/download`, { headers });
@@ -411,4 +451,15 @@ window.markDocTrashed = markDocTrashed;
 window.deleteDocForever = deleteDocForever;
 window.downloadDocument = downloadDocument;
 
-console.log('✅ API Bridge FIXED loaded - with timeouts and fallback!');
+// Debug helper
+window.testAuth = async function() {
+  console.log("🔍 Testing authentication...");
+  const user = getCurrentUser();
+  console.log("User:", user);
+  const headers = await getAuthHeaders();
+  console.log("Headers:", headers);
+  return { user, headers };
+};
+
+console.log('✅ API Bridge (ULTIMATE FIX) loaded!');
+console.log('💡 Debug: Run testAuth() to check authentication');
