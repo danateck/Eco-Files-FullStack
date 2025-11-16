@@ -214,102 +214,102 @@ console.log("✅ bootFromCloud defined globally");
 // ============================================
 // FIX 2: Upload document with owner info
 // ============================================
-async function uploadDocument(file, metadata = {}) {
-  // ✅ who is the owner
-  const raw = getCurrentUserEmail();
-  const currentUser = raw ? normalizeEmail(raw) : null;
+// async function uploadDocument(file, metadata = {}) {
+//   // ✅ who is the owner
+//   const raw = getCurrentUserEmail();
+//   const currentUser = raw ? normalizeEmail(raw) : null;
   
-  console.log("📤 Uploading document for user:", currentUser);
+//   console.log("📤 Uploading document for user:", currentUser);
   
-  if (!currentUser) {
-    console.error("❌ No current user for upload");
-    throw new Error("User not logged in");
-  }
+//   if (!currentUser) {
+//     console.error("❌ No current user for upload");
+//     throw new Error("User not logged in");
+//   }
 
-  // ✅ stable doc id used by both UI & Firestore
-  const newId = crypto.randomUUID();
+//   // ✅ stable doc id used by both UI & Firestore
+//   const newId = crypto.randomUUID();
 
-  // ✅ sanitize filename for Storage path safety (no weird chars/slashes)
-  const safeName = (file?.name || "file")
-    .replace(/[\\/]+/g, "_")
-    .replace(/[^\w.\-() \u0590-\u05FF]/g, "_"); // allow Hebrew too
+//   // ✅ sanitize filename for Storage path safety (no weird chars/slashes)
+//   const safeName = (file?.name || "file")
+//     .replace(/[\\/]+/g, "_")
+//     .replace(/[^\w.\-() \u0590-\u05FF]/g, "_"); // allow Hebrew too
 
-  // ✅ normalize & de-dupe sharedWith, and never include owner
-  const sharedWith = Array.isArray(metadata.sharedWith)
-    ? [...new Set(metadata.sharedWith.map(normalizeEmail).filter(e => e && e !== currentUser))]
-    : [];
+//   // ✅ normalize & de-dupe sharedWith, and never include owner
+//   const sharedWith = Array.isArray(metadata.sharedWith)
+//     ? [...new Set(metadata.sharedWith.map(normalizeEmail).filter(e => e && e !== currentUser))]
+//     : [];
 
-  let downloadURL = null;
-  // Around line 237-252 in uploadDocument
-// Around line 237-252 in uploadDocument
-try {
-  if (window.storage) {
-    const encodedName = encodeURIComponent(safeName);
-    const storagePath = `documents/${currentUser}/${newId}/${encodedName}`;
+//   let downloadURL = null;
+//   // Around line 237-252 in uploadDocument
+// // Around line 237-252 in uploadDocument
+// try {
+//   if (window.storage) {
+//     const encodedName = encodeURIComponent(safeName);
+//     const storagePath = `documents/${currentUser}/${newId}/${encodedName}`;
     
-    console.log("📤 Attempting Storage upload to:", storagePath);
+//     console.log("📤 Attempting Storage upload to:", storagePath);
     
-    const storageRef = window.fs.ref(window.storage, storagePath);
+//     const storageRef = window.fs.ref(window.storage, storagePath);
     
-    // Increase timeout to 30 seconds for larger files
-    const uploadPromise = window.fs.uploadBytes(storageRef, file);
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Upload timeout')), 30000)
-    );
+//     // Increase timeout to 30 seconds for larger files
+//     const uploadPromise = window.fs.uploadBytes(storageRef, file);
+//     const timeoutPromise = new Promise((_, reject) => 
+//       setTimeout(() => reject(new Error('Upload timeout')), 30000)
+//     );
     
-    const snap = await Promise.race([uploadPromise, timeoutPromise]);
-    downloadURL = await window.fs.getDownloadURL(snap.ref);
-    console.log("✅ File uploaded to Storage:", downloadURL);
-  }
-} catch (e) {
-  console.warn("⚠️ Storage upload failed (will save metadata only):", e.message);
-  downloadURL = null;
-}
+//     const snap = await Promise.race([uploadPromise, timeoutPromise]);
+//     downloadURL = await window.fs.getDownloadURL(snap.ref);
+//     console.log("✅ File uploaded to Storage:", downloadURL);
+//   }
+// } catch (e) {
+//   console.warn("⚠️ Storage upload failed (will save metadata only):", e.message);
+//   downloadURL = null;
+// }
 
-// Continue even if storage fails - save to Firestore with metadata
+// // Continue even if storage fails - save to Firestore with metadata
 
-  const docRef = window.fs.doc(window.db, "documents", newId);
+//   const docRef = window.fs.doc(window.db, "documents", newId);
 
-  // ✅ write canonical fields (avoid letting incoming metadata override owner/ids)
-  const docData = {
-  title: metadata.title ?? safeName,
-  category: metadata.category ?? "אחר",
-  year: metadata.year ?? String(new Date().getFullYear()),
-  org: metadata.org ?? "",
-  recipient: Array.isArray(metadata.recipient) ? metadata.recipient : [],
+//   // ✅ write canonical fields (avoid letting incoming metadata override owner/ids)
+//   const docData = {
+//   title: metadata.title ?? safeName,
+//   category: metadata.category ?? "אחר",
+//   year: metadata.year ?? String(new Date().getFullYear()),
+//   org: metadata.org ?? "",
+//   recipient: Array.isArray(metadata.recipient) ? metadata.recipient : [],
   
-  warrantyStart: metadata.warrantyStart ?? null,
-  warrantyExpiresAt: metadata.warrantyExpiresAt ?? null,
-  autoDeleteAfter: metadata.autoDeleteAfter ?? null,
+//   warrantyStart: metadata.warrantyStart ?? null,
+//   warrantyExpiresAt: metadata.warrantyExpiresAt ?? null,
+//   autoDeleteAfter: metadata.autoDeleteAfter ?? null,
   
-  owner: currentUser,
-  sharedWith,
+//   owner: currentUser,
+//   sharedWith,
   
-  downloadURL: downloadURL || null,
-  fileName: safeName,
-  fileSize: file?.size ?? null,
-  fileType: file?.type ?? "application/octet-stream",
+//   downloadURL: downloadURL || null,
+//   fileName: safeName,
+//   fileSize: file?.size ?? null,
+//   fileType: file?.type ?? "application/octet-stream",
   
-  uploadedAt: (window.fs.serverTimestamp?.() ?? Date.now()),
-  lastModified: (window.fs.serverTimestamp?.() ?? Date.now()),
-  lastModifiedBy: currentUser,
-  deletedAt: null,
-  deletedBy: null
-  // Make sure NO undefined fields are here
-};
+//   uploadedAt: (window.fs.serverTimestamp?.() ?? Date.now()),
+//   lastModified: (window.fs.serverTimestamp?.() ?? Date.now()),
+//   lastModifiedBy: currentUser,
+//   deletedAt: null,
+//   deletedBy: null
+//   // Make sure NO undefined fields are here
+// };
 
-// Remove any undefined fields before saving
-Object.keys(docData).forEach(key => {
-  if (docData[key] === undefined) {
-    delete docData[key];
-  }
-});
+// // Remove any undefined fields before saving
+// Object.keys(docData).forEach(key => {
+//   if (docData[key] === undefined) {
+//     delete docData[key];
+//   }
+// });
 
-  await window.fs.setDoc(docRef, docData, { merge: true });
-  console.log("✅ Document metadata saved to Firestore:", newId);
+//   await window.fs.setDoc(docRef, docData, { merge: true });
+//   console.log("✅ Document metadata saved to Firestore:", newId);
   
-  return { id: newId, ...docData };
-}
+//   return { id: newId, ...docData };
+// }
 
 
 
@@ -1881,56 +1881,56 @@ async function markDocTrashed(id, trashed) {
   }
 }
 
-async function deleteDocForever(id) {
-  const allDocsData = window.allDocsData || [];
-  const userNow = getCurrentUserEmail();
-  const allUsersData = window.allUsersData || {};
+// async function deleteDocForever(id) {
+//   const allDocsData = window.allDocsData || [];
+//   const userNow = getCurrentUserEmail();
+//   const allUsersData = window.allUsersData || {};
   
-  const i = allDocsData.findIndex(d => d.id === id);
-  if (i === -1) {
-    showNotification("המסמך לא נמצא", true);
-    return;
-  }
+//   const i = allDocsData.findIndex(d => d.id === id);
+//   if (i === -1) {
+//     showNotification("המסמך לא נמצא", true);
+//     return;
+//   }
   
-  const doc = allDocsData[i];
+//   const doc = allDocsData[i];
   
-  try {
-    // Delete from IndexedDB (local)
-    await deleteFileFromDB(id).catch(() => {});
+//   try {
+//     // Delete from IndexedDB (local)
+//     await deleteFileFromDB(id).catch(() => {});
     
-    // Delete from Firestore
-    if (isFirebaseAvailable()) {
-      const docRef = window.fs.doc(window.db, "documents", id);
-      await window.fs.deleteDoc(docRef);
-      console.log("✅ Document deleted from Firestore:", id);
-    }
+//     // Delete from Firestore
+//     if (isFirebaseAvailable()) {
+//       const docRef = window.fs.doc(window.db, "documents", id);
+//       await window.fs.deleteDoc(docRef);
+//       console.log("✅ Document deleted from Firestore:", id);
+//     }
     
-    // Delete from Storage (if has downloadURL)
-    if (doc.downloadURL && window.storage) {
-      try {
-        const storageRef = window.fs.ref(window.storage, doc.downloadURL);
-        await window.fs.deleteObject(storageRef);
-        console.log("✅ File deleted from Storage");
-      } catch (storageError) {
-        console.warn("⚠️ Could not delete from Storage (might not exist):", storageError.message);
-      }
-    }
+//     // Delete from Storage (if has downloadURL)
+//     if (doc.downloadURL && window.storage) {
+//       try {
+//         const storageRef = window.fs.ref(window.storage, doc.downloadURL);
+//         await window.fs.deleteObject(storageRef);
+//         console.log("✅ File deleted from Storage");
+//       } catch (storageError) {
+//         console.warn("⚠️ Could not delete from Storage (might not exist):", storageError.message);
+//       }
+//     }
     
-    // Remove from local array
-    allDocsData.splice(i, 1);
-    window.allDocsData = allDocsData;
+//     // Remove from local array
+//     allDocsData.splice(i, 1);
+//     window.allDocsData = allDocsData;
     
-    if (typeof setUserDocs === "function") {
-      setUserDocs(userNow, allDocsData, allUsersData);
-    }
+//     if (typeof setUserDocs === "function") {
+//       setUserDocs(userNow, allDocsData, allUsersData);
+//     }
     
-    showNotification("הקובץ נמחק לצמיתות");
+//     showNotification("הקובץ נמחק לצמיתות");
     
-  } catch (error) {
-    console.error("❌ Error deleting document:", error);
-    showNotification("שגיאה במחיקת המסמך", true);
-  }
-}
+//   } catch (error) {
+//     console.error("❌ Error deleting document:", error);
+//     showNotification("שגיאה במחיקת המסמך", true);
+//   }
+// }
 
 console.log("✅ buildDocCard and helpers defined");
 
