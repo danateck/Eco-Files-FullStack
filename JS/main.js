@@ -214,102 +214,102 @@ console.log("✅ bootFromCloud defined globally");
 // ============================================
 // FIX 2: Upload document with owner info
 // ============================================
-async function uploadDocument(file, metadata = {}) {
-  // ✅ who is the owner
-  const raw = getCurrentUserEmail();
-  const currentUser = raw ? normalizeEmail(raw) : null;
+// async function uploadDocument(file, metadata = {}) {
+//   // ✅ who is the owner
+//   const raw = getCurrentUserEmail();
+//   const currentUser = raw ? normalizeEmail(raw) : null;
   
-  console.log("📤 Uploading document for user:", currentUser);
+//   console.log("📤 Uploading document for user:", currentUser);
   
-  if (!currentUser) {
-    console.error("❌ No current user for upload");
-    throw new Error("User not logged in");
-  }
+//   if (!currentUser) {
+//     console.error("❌ No current user for upload");
+//     throw new Error("User not logged in");
+//   }
 
-  // ✅ stable doc id used by both UI & Firestore
-  const newId = crypto.randomUUID();
+//   // ✅ stable doc id used by both UI & Firestore
+//   const newId = crypto.randomUUID();
 
-  // ✅ sanitize filename for Storage path safety (no weird chars/slashes)
-  const safeName = (file?.name || "file")
-    .replace(/[\\/]+/g, "_")
-    .replace(/[^\w.\-() \u0590-\u05FF]/g, "_"); // allow Hebrew too
+//   // ✅ sanitize filename for Storage path safety (no weird chars/slashes)
+//   const safeName = (file?.name || "file")
+//     .replace(/[\\/]+/g, "_")
+//     .replace(/[^\w.\-() \u0590-\u05FF]/g, "_"); // allow Hebrew too
 
-  // ✅ normalize & de-dupe sharedWith, and never include owner
-  const sharedWith = Array.isArray(metadata.sharedWith)
-    ? [...new Set(metadata.sharedWith.map(normalizeEmail).filter(e => e && e !== currentUser))]
-    : [];
+//   // ✅ normalize & de-dupe sharedWith, and never include owner
+//   const sharedWith = Array.isArray(metadata.sharedWith)
+//     ? [...new Set(metadata.sharedWith.map(normalizeEmail).filter(e => e && e !== currentUser))]
+//     : [];
 
-  let downloadURL = null;
-  // Around line 237-252 in uploadDocument
-// Around line 237-252 in uploadDocument
-try {
-  if (window.storage) {
-    const encodedName = encodeURIComponent(safeName);
-    const storagePath = `documents/${currentUser}/${newId}/${encodedName}`;
+//   let downloadURL = null;
+//   // Around line 237-252 in uploadDocument
+// // Around line 237-252 in uploadDocument
+// try {
+//   if (window.storage) {
+//     const encodedName = encodeURIComponent(safeName);
+//     const storagePath = `documents/${currentUser}/${newId}/${encodedName}`;
     
-    console.log("📤 Attempting Storage upload to:", storagePath);
+//     console.log("📤 Attempting Storage upload to:", storagePath);
     
-    const storageRef = window.fs.ref(window.storage, storagePath);
+//     const storageRef = window.fs.ref(window.storage, storagePath);
     
-    // Increase timeout to 30 seconds for larger files
-    const uploadPromise = window.fs.uploadBytes(storageRef, file);
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Upload timeout')), 30000)
-    );
+//     // Increase timeout to 30 seconds for larger files
+//     const uploadPromise = window.fs.uploadBytes(storageRef, file);
+//     const timeoutPromise = new Promise((_, reject) => 
+//       setTimeout(() => reject(new Error('Upload timeout')), 30000)
+//     );
     
-    const snap = await Promise.race([uploadPromise, timeoutPromise]);
-    downloadURL = await window.fs.getDownloadURL(snap.ref);
-    console.log("✅ File uploaded to Storage:", downloadURL);
-  }
-} catch (e) {
-  console.warn("⚠️ Storage upload failed (will save metadata only):", e.message);
-  downloadURL = null;
-}
+//     const snap = await Promise.race([uploadPromise, timeoutPromise]);
+//     downloadURL = await window.fs.getDownloadURL(snap.ref);
+//     console.log("✅ File uploaded to Storage:", downloadURL);
+//   }
+// } catch (e) {
+//   console.warn("⚠️ Storage upload failed (will save metadata only):", e.message);
+//   downloadURL = null;
+// }
 
-// Continue even if storage fails - save to Firestore with metadata
+// // Continue even if storage fails - save to Firestore with metadata
 
-  const docRef = window.fs.doc(window.db, "documents", newId);
+//   const docRef = window.fs.doc(window.db, "documents", newId);
 
-  // ✅ write canonical fields (avoid letting incoming metadata override owner/ids)
-  const docData = {
-  title: metadata.title ?? safeName,
-  category: metadata.category ?? "אחר",
-  year: metadata.year ?? String(new Date().getFullYear()),
-  org: metadata.org ?? "",
-  recipient: Array.isArray(metadata.recipient) ? metadata.recipient : [],
+//   // ✅ write canonical fields (avoid letting incoming metadata override owner/ids)
+//   const docData = {
+//   title: metadata.title ?? safeName,
+//   category: metadata.category ?? "אחר",
+//   year: metadata.year ?? String(new Date().getFullYear()),
+//   org: metadata.org ?? "",
+//   recipient: Array.isArray(metadata.recipient) ? metadata.recipient : [],
   
-  warrantyStart: metadata.warrantyStart ?? null,
-  warrantyExpiresAt: metadata.warrantyExpiresAt ?? null,
-  autoDeleteAfter: metadata.autoDeleteAfter ?? null,
+//   warrantyStart: metadata.warrantyStart ?? null,
+//   warrantyExpiresAt: metadata.warrantyExpiresAt ?? null,
+//   autoDeleteAfter: metadata.autoDeleteAfter ?? null,
   
-  owner: currentUser,
-  sharedWith,
+//   owner: currentUser,
+//   sharedWith,
   
-  downloadURL: downloadURL || null,
-  fileName: safeName,
-  fileSize: file?.size ?? null,
-  fileType: file?.type ?? "application/octet-stream",
+//   downloadURL: downloadURL || null,
+//   fileName: safeName,
+//   fileSize: file?.size ?? null,
+//   fileType: file?.type ?? "application/octet-stream",
   
-  uploadedAt: (window.fs.serverTimestamp?.() ?? Date.now()),
-  lastModified: (window.fs.serverTimestamp?.() ?? Date.now()),
-  lastModifiedBy: currentUser,
-  deletedAt: null,
-  deletedBy: null
-  // Make sure NO undefined fields are here
-};
+//   uploadedAt: (window.fs.serverTimestamp?.() ?? Date.now()),
+//   lastModified: (window.fs.serverTimestamp?.() ?? Date.now()),
+//   lastModifiedBy: currentUser,
+//   deletedAt: null,
+//   deletedBy: null
+//   // Make sure NO undefined fields are here
+// };
 
-// Remove any undefined fields before saving
-Object.keys(docData).forEach(key => {
-  if (docData[key] === undefined) {
-    delete docData[key];
-  }
-});
+// // Remove any undefined fields before saving
+// Object.keys(docData).forEach(key => {
+//   if (docData[key] === undefined) {
+//     delete docData[key];
+//   }
+// });
 
-  await window.fs.setDoc(docRef, docData, { merge: true });
-  console.log("✅ Document metadata saved to Firestore:", newId);
+//   await window.fs.setDoc(docRef, docData, { merge: true });
+//   console.log("✅ Document metadata saved to Firestore:", newId);
   
-  return { id: newId, ...docData };
-}
+//   return { id: newId, ...docData };
+// }
 
 
 
@@ -469,6 +469,62 @@ async function shareDocument(docId, recipientEmails) {
 
   const newShared = [...new Set([...(data.sharedWith || []), ...recipientEmails.map(normalizeEmail)])];
   await window.fs.updateDoc(ref, { sharedWith: newShared, lastModified: Date.now(), lastModifiedBy: me });
+  return { success: true };
+}
+
+// Add document to shared folder
+async function addDocumentToSharedFolder(docId, folderId) {
+  const me = getCurrentUserEmail();
+  if (!me || !isFirebaseAvailable()) throw new Error("User not logged in");
+
+  // Get the folder
+  const folderRef = window.fs.doc(window.db, "sharedFolders", folderId);
+  const folderSnap = await window.fs.getDoc(folderRef);
+  
+  if (!folderSnap.exists()) throw new Error("Folder not found");
+  
+  const folderData = folderSnap.data();
+  
+  // Check if user is a member
+  if (!folderData.members?.includes(me)) {
+    throw new Error("You are not a member of this folder");
+  }
+  
+  // Get the document
+  const docRef = window.fs.doc(window.db, "documents", docId);
+  const docSnap = await window.fs.getDoc(docRef);
+  
+  if (!docSnap.exists()) throw new Error("Document not found");
+  
+  const docData = docSnap.data();
+  
+  // Only owner can add to folder
+  if (docData.owner !== me) {
+    throw new Error("Only the document owner can add it to folders");
+  }
+  
+  // Update document with folder reference
+  const folders = docData.sharedFolders || [];
+  if (!folders.includes(folderId)) {
+    folders.push(folderId);
+    await window.fs.updateDoc(docRef, { 
+      sharedFolders: folders,
+      lastModified: Date.now(),
+      lastModifiedBy: me
+    });
+  }
+  
+  // Update folder with document reference
+  const docs = folderData.documents || [];
+  if (!docs.includes(docId)) {
+    docs.push(docId);
+    await window.fs.updateDoc(folderRef, { 
+      documents: docs,
+      lastModified: Date.now(),
+      lastModifiedBy: me
+    });
+  }
+  
   return { success: true };
 }
 
@@ -1682,16 +1738,82 @@ function buildDocCard(doc, mode) {
     const shareBtn = document.createElement("button");
     shareBtn.className = "doc-action-btn";
     shareBtn.textContent = "הכנס לתיקייה משותפת 📤";
-    shareBtn.addEventListener("click", () => {
-      // Open shared folder modal or prompt
-      if (typeof openShareModal === "function") {
-        openShareModal(doc);
-      } else {
-        const email = prompt("הזן כתובת מייל לשיתוף:");
-        if (email && email.trim()) {
-          console.log("Share document", doc.id, "with", email);
-          showNotification("שיתוף נשלח!");
+    shareBtn.addEventListener("click", async () => {
+      // Show modal with shared folders
+      try {
+        const folders = await loadSharedFolders();
+        
+        if (folders.length === 0) {
+          showNotification("אין לך תיקיות משותפות. צור תיקייה חדשה תחילה!");
+          return;
         }
+        
+        // Create modal HTML
+        const modalHTML = `
+          <div class="modal-backdrop" id="shareFolderModal" style="display: flex; align-items: center; justify-content: center;">
+            <div class="modal" style="max-width: 500px; width: 90%;">
+              <div class="modal-head">
+                <h2>בחר תיקייה משותפת</h2>
+                <button class="modal-close" onclick="document.getElementById('shareFolderModal').remove()">✖</button>
+              </div>
+              <div class="scroll-area" style="max-height: 400px;">
+                <p style="margin-bottom: 1rem; color: #666;">בחר לאיזו תיקייה להוסיף את המסמך "${doc.title || doc.fileName}"</p>
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                  ${folders.map(folder => `
+                    <button 
+                      class="folder-select-btn" 
+                      data-folder-id="${folder.id}"
+                      style="
+                        padding: 1rem;
+                        border: 1px solid #ddd;
+                        border-radius: 8px;
+                        background: #fff;
+                        cursor: pointer;
+                        text-align: right;
+                        transition: all 0.2s;
+                      "
+                      onmouseover="this.style.borderColor='#4CAF50'; this.style.background='#f0f9f0'"
+                      onmouseout="this.style.borderColor='#ddd'; this.style.background='#fff'"
+                    >
+                      <div style="font-weight: 600; margin-bottom: 0.25rem;">📁 ${folder.name}</div>
+                      <div style="font-size: 0.85rem; color: #666;">
+                        ${folder.members?.length || 0} חברים • יצר: ${folder.owner}
+                      </div>
+                    </button>
+                  `).join('')}
+                </div>
+              </div>
+              <div class="modal-foot">
+                <button class="btn" onclick="document.getElementById('shareFolderModal').remove()">ביטול</button>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        // Add modal to page
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // Add click handlers to folder buttons
+        document.querySelectorAll('.folder-select-btn').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const folderId = btn.dataset.folderId;
+            const folder = folders.find(f => f.id === folderId);
+            
+            try {
+              // Add document to shared folder
+              await addDocumentToSharedFolder(doc.id, folderId);
+              showNotification(`המסמך נוסף לתיקייה "${folder.name}"!`);
+              document.getElementById('shareFolderModal').remove();
+            } catch (error) {
+              console.error("Error adding to folder:", error);
+              showNotification("שגיאה בהוספת המסמך לתיקייה", true);
+            }
+          });
+        });
+        
+      } catch (error) {
+        console.error("Error loading folders:", error);
+        showNotification("שגיאה בטעינת התיקיות המשותפות", true);
       }
     });
     actions.appendChild(shareBtn);
@@ -1720,13 +1842,19 @@ function buildDocCard(doc, mode) {
   return card;
 }
 
-function markDocTrashed(id, trashed) {
+async function markDocTrashed(id, trashed) {
   const allDocsData = window.allDocsData || [];
   const userNow = getCurrentUserEmail();
   const allUsersData = window.allUsersData || {};
   
   const i = allDocsData.findIndex(d => d.id === id);
-  if (i > -1) {
+  if (i === -1) {
+    showNotification("המסמך לא נמצא", true);
+    return;
+  }
+  
+  try {
+    // Update local
     allDocsData[i]._trashed = !!trashed;
     window.allDocsData = allDocsData;
     
@@ -1734,28 +1862,75 @@ function markDocTrashed(id, trashed) {
       setUserDocs(userNow, allDocsData, allUsersData);
     }
     
+    // Update Firestore (NO Storage access needed!)
+    if (isFirebaseAvailable()) {
+      const docRef = window.fs.doc(window.db, "documents", id);
+      await window.fs.updateDoc(docRef, {
+        _trashed: !!trashed,
+        lastModified: Date.now(),
+        lastModifiedBy: userNow
+      });
+      console.log("✅ Document trash status updated in Firestore");
+    }
+    
     showNotification(trashed ? "הועבר לסל המחזור" : "שוחזר מהסל");
+    
+  } catch (error) {
+    console.error("❌ Error updating trash status:", error);
+    showNotification("שגיאה בעדכון המסמך", true);
   }
 }
 
-function deleteDocForever(id) {
-  const allDocsData = window.allDocsData || [];
-  const userNow = getCurrentUserEmail();
-  const allUsersData = window.allUsersData || {};
+// async function deleteDocForever(id) {
+//   const allDocsData = window.allDocsData || [];
+//   const userNow = getCurrentUserEmail();
+//   const allUsersData = window.allUsersData || {};
   
-  const i = allDocsData.findIndex(d => d.id === id);
-  if (i > -1) {
-    deleteFileFromDB(id).catch(() => {});
-    allDocsData.splice(i, 1);
-    window.allDocsData = allDocsData;
+//   const i = allDocsData.findIndex(d => d.id === id);
+//   if (i === -1) {
+//     showNotification("המסמך לא נמצא", true);
+//     return;
+//   }
+  
+//   const doc = allDocsData[i];
+  
+//   try {
+//     // Delete from IndexedDB (local)
+//     await deleteFileFromDB(id).catch(() => {});
     
-    if (typeof setUserDocs === "function") {
-      setUserDocs(userNow, allDocsData, allUsersData);
-    }
+//     // Delete from Firestore
+//     if (isFirebaseAvailable()) {
+//       const docRef = window.fs.doc(window.db, "documents", id);
+//       await window.fs.deleteDoc(docRef);
+//       console.log("✅ Document deleted from Firestore:", id);
+//     }
     
-    showNotification("הקובץ נמחק לצמיתות");
-  }
-}
+//     // Delete from Storage (if has downloadURL)
+//     if (doc.downloadURL && window.storage) {
+//       try {
+//         const storageRef = window.fs.ref(window.storage, doc.downloadURL);
+//         await window.fs.deleteObject(storageRef);
+//         console.log("✅ File deleted from Storage");
+//       } catch (storageError) {
+//         console.warn("⚠️ Could not delete from Storage (might not exist):", storageError.message);
+//       }
+//     }
+    
+//     // Remove from local array
+//     allDocsData.splice(i, 1);
+//     window.allDocsData = allDocsData;
+    
+//     if (typeof setUserDocs === "function") {
+//       setUserDocs(userNow, allDocsData, allUsersData);
+//     }
+    
+//     showNotification("הקובץ נמחק לצמיתות");
+    
+//   } catch (error) {
+//     console.error("❌ Error deleting document:", error);
+//     showNotification("שגיאה במחיקת המסמך", true);
+//   }
+// }
 
 console.log("✅ buildDocCard and helpers defined");
 
