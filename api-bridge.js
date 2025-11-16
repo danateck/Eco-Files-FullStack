@@ -312,30 +312,43 @@ async function updateDocument(docId, updates) {
 async function markDocTrashed(docId, trashed) {
   const me = getCurrentUser();
   if (!me) throw new Error("Not logged in");
-  
+
   try {
     const headers = await getAuthHeaders();
     headers['Content-Type'] = 'application/json';
-    
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
-    
+
     const res = await fetch(`${API_BASE}/api/docs/${docId}/trash`, {
       method: 'PUT',
       headers,
       body: JSON.stringify({ trashed }),
       signal: controller.signal
     });
-    
+
     clearTimeout(timeoutId);
-    
-    if (!res.ok) {
+
+    let data = null;
+
+    if (res.status === 404) {
+      const text = await res.text();
+      console.warn("⚠️ Backend says doc not found or access denied. Doing local-only trash/restore:", text);
+      // לא זורקים שגיאה – נמשיך לעדכן מקומית
+    } else if (!res.ok) {
       const text = await res.text();
       throw new Error(`Trash failed: ${text}`);
+    } else {
+      // בקשה הצליחה – ננסה לקרוא JSON, אבל לא נקרוס אם אין
+      try {
+        data = await res.json();
+      } catch (e) {
+        data = {};
+      }
     }
-    
-    console.log(`✅ ${trashed ? 'Trashed' : 'Restored'}:`, docId);
-    
+
+    console.log(`✅ ${trashed ? 'Trashed' : 'Restored'} (local sync):`, docId);
+
     // Update Firestore
     if (window.db && window.fs) {
       const docRef = window.fs.doc(window.db, "documents", docId);
@@ -344,7 +357,7 @@ async function markDocTrashed(docId, trashed) {
         lastModified: Date.now()
       }).catch(err => console.warn("⚠️ Firestore update failed:", err));
     }
-    
+
     // Update local cache
     if (Array.isArray(window.allDocsData)) {
       const idx = window.allDocsData.findIndex(d => d.id === docId);
@@ -353,49 +366,63 @@ async function markDocTrashed(docId, trashed) {
         window.allDocsData[idx].lastModified = Date.now();
       }
     }
-    
-    return await res.json();
+
+    // גם אם השרת החזיר 404 – נחזיר אובייקט קטן
+    return data || { localOnly: true };
   } catch (error) {
     console.error('❌ Trash error:', error);
     throw error;
   }
 }
 
+
 // ═══ 5. Delete Forever ═══
 
 async function deleteDocForever(docId) {
   const me = getCurrentUser();
   if (!me) throw new Error("Not logged in");
-  
+
   try {
     const headers = await getAuthHeaders();
-    
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
-    
+
     const res = await fetch(`${API_BASE}/api/docs/${docId}`, {
       method: 'DELETE',
       headers,
       signal: controller.signal
     });
-    
+
     clearTimeout(timeoutId);
-    
-    if (!res.ok) {
+
+    let data = null;
+
+    if (res.status === 404) {
+      const text = await res.text();
+      console.warn("⚠️ Backend says doc not found or access denied on delete. Removing locally:", text);
+      // לא זורקים – נמשיך למחוק לוקאלית
+    } else if (!res.ok) {
       const text = await res.text();
       throw new Error(`Delete failed: ${text}`);
+    } else {
+      try {
+        data = await res.json();
+      } catch (e) {
+        data = {};
+      }
     }
-    
-    console.log('✅ Deleted:', docId);
-    
+
+    console.log('✅ Deleted (local sync):', docId);
+
     // Delete from Firestore
     if (window.db && window.fs) {
       const docRef = window.fs.doc(window.db, "documents", docId);
-      await window.fs.deleteDoc(docRef).catch(err => 
+      await window.fs.deleteDoc(docRef).catch(err =>
         console.warn("⚠️ Firestore delete failed:", err)
       );
     }
-    
+
     // Remove from local cache
     if (Array.isArray(window.allDocsData)) {
       const idx = window.allDocsData.findIndex(d => d.id === docId);
@@ -403,13 +430,14 @@ async function deleteDocForever(docId) {
         window.allDocsData.splice(idx, 1);
       }
     }
-    
-    return await res.json();
+
+    return data || { localOnly: true };
   } catch (error) {
     console.error('❌ Delete error:', error);
     throw error;
   }
 }
+
 
 // ═══ 6. Download ═══
 
