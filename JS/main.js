@@ -3997,44 +3997,33 @@ window.addEventListener("firebase-ready", () => {
 
 
 // ═══════════════════════════════════════════════════════════════════
-//                    🚨 תיקון חירום - הכי פשוט!
+//    SHARED-FOLDERS-FIX.js - תיקון לתיקיות משותפות שנעלמות
 // ═══════════════════════════════════════════════════════════════════
-// 
-// הבעיה: loadDocuments() תקוע ולא מחזיר מסמכים
-// הפתרון: נטען רק מ-Firestore (פשוט וישיר!)
+//
+// הוסיפי את הקוד הזה בסוף main.js
 //
 // ═══════════════════════════════════════════════════════════════════
 
-// ╔══════════════════════════════════════════════════════════════════╗
-// ║  שלב 1: פתחי את api-bridge.js ומחקי הכל!                       ║
-// ║  או שני את השם שלו ל-api-bridge.js.OLD                         ║
-// ╚══════════════════════════════════════════════════════════════════╝
+console.log("🔧 Loading Shared Folders Fix...");
 
-// הסיבה: api-bridge גורם לבעיות. נשתמש רק ב-Firestore!
-
-
-// ╔══════════════════════════════════════════════════════════════════╗
-// ║  שלב 2: הוסיפי את הקוד הזה ל-main.js (בסוף הקובץ)              ║
-// ╚══════════════════════════════════════════════════════════════════╝
-
-// ═════════════ תיקון SharedFolders שנעלמות ═════════════
+// ═══ פונקציות עזר ═══
 
 // שמירה ב-localStorage
-window.saveSharedFoldersList = function(folders) {
+function saveSharedFoldersToCache(folders) {
   try {
     const me = getCurrentUserEmail();
     if (!me) return;
     
     const key = `sharedFolders_${me}`;
     localStorage.setItem(key, JSON.stringify(folders));
-    console.log("✅ Shared folders saved:", folders.length);
+    console.log("✅ Saved", folders.length, "shared folders to cache");
   } catch (err) {
-    console.warn("⚠️ Could not save shared folders:", err);
+    console.warn("⚠️ Could not save to cache:", err);
   }
-};
+}
 
 // טעינה מ-localStorage
-window.loadSharedFoldersList = function() {
+function loadSharedFoldersFromCache() {
   try {
     const me = getCurrentUserEmail();
     if (!me) return [];
@@ -4043,102 +4032,93 @@ window.loadSharedFoldersList = function() {
     const data = localStorage.getItem(key);
     if (data) {
       const folders = JSON.parse(data);
-      console.log("✅ Loaded shared folders from localStorage:", folders.length);
+      console.log("✅ Loaded", folders.length, "shared folders from cache");
       return folders;
     }
   } catch (err) {
-    console.warn("⚠️ Could not load shared folders:", err);
+    console.warn("⚠️ Could not load from cache:", err);
   }
   return [];
-};
+}
 
-// ═════════════ תיקון Shared Invites ═════════════
+// ═══ Override openSharedFolder ═══
 
-// שמור invites כשיוצרים אותם
-const originalSendInvite = window.sendShareInviteToFirestore;
-if (originalSendInvite) {
-  window.sendShareInviteToFirestore = async function(...args) {
-    const result = await originalSendInvite(...args);
+if (typeof window.openSharedFolder === "function") {
+  const originalOpenSharedFolder = window.openSharedFolder;
+  
+  window.openSharedFolder = async function(folderId) {
+    console.log("📂 Opening shared folder:", folderId);
     
-    // טען מחדש את ה-invites ושמור
-    if (typeof loadPendingInvites === "function") {
-      const invites = await loadPendingInvites();
-      const me = getCurrentUserEmail();
-      localStorage.setItem(`pendingInvites_${me}`, JSON.stringify(invites));
+    // קרא לפונקציה המקורית
+    const result = await originalOpenSharedFolder(folderId);
+    
+    // שמור את רשימת התיקיות
+    if (window.mySharedFolders && Array.isArray(window.mySharedFolders)) {
+      saveSharedFoldersToCache(window.mySharedFolders);
     }
     
     return result;
   };
+  
+  console.log("✅ openSharedFolder overridden");
 }
 
-// טען invites בהתחלה
-window.loadPendingInvitesWithCache = async function() {
-  const me = getCurrentUserEmail();
-  if (!me) return [];
+// ═══ Override acceptShareInvite ═══
+
+if (typeof window.updateInviteStatus === "function") {
+  const originalUpdateInvite = window.updateInviteStatus;
   
-  try {
-    // נסה לטעון מ-Firestore
-    if (typeof loadPendingInvites === "function") {
-      const invites = await loadPendingInvites();
-      if (invites && invites.length > 0) {
-        localStorage.setItem(`pendingInvites_${me}`, JSON.stringify(invites));
-        return invites;
-      }
+  window.updateInviteStatus = async function(inviteId, status) {
+    console.log("📬 Updating invite:", inviteId, status);
+    
+    // קרא לפונקציה המקורית
+    const result = await originalUpdateInvite(inviteId, status);
+    
+    // אם אישרנו הזמנה, רענן את התיקיות ושמור
+    if (status === "accepted") {
+      setTimeout(async () => {
+        if (typeof loadSharedFoldersFromFirestore === "function") {
+          try {
+            const folders = await loadSharedFoldersFromFirestore();
+            if (folders && folders.length > 0) {
+              window.mySharedFolders = folders;
+              saveSharedFoldersToCache(folders);
+              console.log("✅ Shared folders updated after accepting invite");
+            }
+          } catch (err) {
+            console.warn("⚠️ Could not update folders:", err);
+          }
+        }
+      }, 1000);
     }
     
-    // fallback ל-localStorage
-    const cached = localStorage.getItem(`pendingInvites_${me}`);
-    if (cached) {
-      return JSON.parse(cached);
-    }
-  } catch (err) {
-    console.warn("⚠️ Could not load invites:", err);
-  }
+    return result;
+  };
   
-  return [];
-};
+  console.log("✅ updateInviteStatus overridden");
+}
 
-// ═════════════ תיקון openSharedFolder ═════════════
+// ═══ טעינה אוטומטית בהתחלה ═══
 
-// Override פונקציית openSharedFolder
-const originalOpenSharedFolder = window.openSharedFolder;
-window.openSharedFolder = async function(folderId) {
-  console.log("📂 Opening shared folder:", folderId);
-  
-  // טען את התיקייה
-  if (originalOpenSharedFolder) {
-    await originalOpenSharedFolder(folderId);
-  }
-  
-  // שמור את רשימת התיקיות המשותפות
-  if (window.mySharedFolders) {
-    saveSharedFoldersList(window.mySharedFolders);
-  }
-};
-
-// ═════════════ טעינה ראשונית של SharedFolders ═════════════
-
-// קרא בעת טעינת הדף
 if (typeof window.bootFromCloud !== "undefined") {
   const originalBoot = window.bootFromCloud;
   
   window.bootFromCloud = async function() {
-    console.log("🚀 Custom boot with shared folders cache");
+    console.log("🚀 Boot with shared folders cache");
     
     // טען מסמכים רגילים
     await originalBoot();
     
     // טען תיקיות משותפות מ-cache
-    const cachedFolders = loadSharedFoldersList();
+    const cachedFolders = loadSharedFoldersFromCache();
     if (cachedFolders && cachedFolders.length > 0) {
       window.mySharedFolders = cachedFolders;
       console.log("✅ Restored", cachedFolders.length, "shared folders from cache");
-    }
-    
-    // טען invites מ-cache
-    const cachedInvites = await loadPendingInvitesWithCache();
-    if (cachedInvites && cachedInvites.length > 0) {
-      window.paintPending(cachedInvites);
+      
+      // עדכן את ה-UI אם אפשר
+      if (typeof renderSharedFoldersUI === "function") {
+        renderSharedFoldersUI(cachedFolders);
+      }
     }
     
     // נסה לטעון מ-Firestore ברקע (לא נחכה)
@@ -4148,20 +4128,64 @@ if (typeof window.bootFromCloud !== "undefined") {
           const folders = await loadSharedFoldersFromFirestore();
           if (folders && folders.length > 0) {
             window.mySharedFolders = folders;
-            saveSharedFoldersList(folders);
+            saveSharedFoldersToCache(folders);
             console.log("✅ Updated shared folders from Firestore");
+            
+            // עדכן UI
+            if (typeof renderSharedFoldersUI === "function") {
+              renderSharedFoldersUI(folders);
+            }
           }
         }
       } catch (err) {
-        console.warn("⚠️ Could not update from Firestore:", err);
+        console.warn("⚠️ Could not sync from Firestore:", err);
       }
-    }, 1000);
+    }, 2000);
   };
+  
+  console.log("✅ bootFromCloud overridden for shared folders");
 }
 
-console.log("✅ Emergency fixes loaded!");
+// ═══ טעינה ידנית (אם bootFromCloud לא קיים) ═══
 
+if (!window.bootFromCloud) {
+  // אם אין bootFromCloud, נסה לטעון כשהדף נטען
+  window.addEventListener('load', function() {
+    console.log("📂 Loading shared folders on page load...");
+    
+    const cachedFolders = loadSharedFoldersFromCache();
+    if (cachedFolders && cachedFolders.length > 0) {
+      window.mySharedFolders = cachedFolders;
+      console.log("✅ Loaded", cachedFolders.length, "shared folders");
+    }
+  });
+}
 
-// ╔══════════════════════════════════════════════════════════════════╗
-// ║  שלב 3: רפרשי את הדף (Ctrl+Shift+R)                             ║
-// ╚══════════════════════════════════════════════════════════════════╝
+// ═══ פונקציה ידנית לשמירה ═══
+
+window.saveCurrentSharedFolders = function() {
+  if (window.mySharedFolders && Array.isArray(window.mySharedFolders)) {
+    saveSharedFoldersToCache(window.mySharedFolders);
+    console.log("✅ Manually saved shared folders");
+  } else {
+    console.warn("⚠️ No shared folders to save");
+  }
+};
+
+// ═══ פונקציה ידנית לטעינה ═══
+
+window.loadSavedSharedFolders = function() {
+  const folders = loadSharedFoldersFromCache();
+  if (folders && folders.length > 0) {
+    window.mySharedFolders = folders;
+    console.log("✅ Manually loaded", folders.length, "shared folders");
+    return folders;
+  }
+  console.warn("⚠️ No saved shared folders found");
+  return [];
+};
+
+console.log("✅ Shared Folders Fix loaded!");
+console.log("💡 Manual commands available:");
+console.log("   - saveCurrentSharedFolders()");
+console.log("   - loadSavedSharedFolders()");

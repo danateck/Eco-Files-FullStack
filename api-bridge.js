@@ -1,30 +1,30 @@
 // ═══════════════════════════════════════════════════════════════════
-// api-bridge-IMPROVED.js - גרסה משופרת עם סנכרון Firestore
+//        api-bridge-FIXED.js - גרסה מתוקנת שלא תיתקע!
 // ═══════════════════════════════════════════════════════════════════
 
 const API_BASE = (location.hostname === 'localhost')
   ? 'http://localhost:8787'
-  : 'https://eco-files.onrender.com'; // 👈 שני את ה-URL שלך כאן!
+  : 'https://eco-files.onrender.com'; // 👈 שני את זה ל-URL שלך!
 
-console.log("🔗 API Bridge loading... Base URL:", API_BASE);
+console.log("🔗 API Bridge starting... URL:", API_BASE);
 
-// ═════════════════ Helper Functions ═════════════════
+// ═══ Helper Functions ═══
 
 async function getAuthHeaders() {
   const headers = {};
   
-  if (window.auth?.currentUser && typeof window.auth.currentUser.getIdToken === 'function') {
+  if (window.auth?.currentUser) {
     try {
       const token = await window.auth.currentUser.getIdToken();
       headers['Authorization'] = `Bearer ${token}`;
     } catch (err) {
-      console.warn('⚠️ Could not get Firebase token:', err);
+      console.warn('⚠️ Token error:', err);
     }
   }
   
   const userEmail = (typeof getCurrentUserEmail === "function")
     ? getCurrentUserEmail()
-    : (auth.currentUser?.email ?? "").toLowerCase();
+    : (window.auth?.currentUser?.email ?? "").toLowerCase();
     
   if (userEmail) {
     headers['X-Dev-Email'] = userEmail;
@@ -37,14 +37,10 @@ function getCurrentUser() {
   if (typeof getCurrentUserEmail === "function") {
     return getCurrentUserEmail();
   }
-  return (auth.currentUser?.email ?? "").toLowerCase();
+  return (window.auth?.currentUser?.email ?? "").toLowerCase();
 }
 
-function isFirebaseAvailable() {
-  return !!(window.db && window.fs && window.app);
-}
-
-// ═════════════════ 1. Load Documents ═════════════════
+// ═══ 1. Load Documents (עם Timeout!) ═══
 
 async function loadDocuments() {
   const me = getCurrentUser();
@@ -53,10 +49,21 @@ async function loadDocuments() {
     return [];
   }
 
+  console.log("📡 Loading documents from Render...");
+
   try {
-    // ✅ Load from Render
     const headers = await getAuthHeaders();
-    const res = await fetch(`${API_BASE}/api/docs`, { headers });
+    
+    // ✅ קריאה עם TIMEOUT של 10 שניות
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    
+    const res = await fetch(`${API_BASE}/api/docs`, { 
+      headers,
+      signal: controller.signal 
+    });
+    
+    clearTimeout(timeoutId);
     
     if (!res.ok) {
       throw new Error(`API returned ${res.status}`);
@@ -66,7 +73,7 @@ async function loadDocuments() {
     console.log(`✅ Loaded ${list.length} documents from Render`);
     
     // Transform to frontend format
-    const docs = list.map(d => ({
+    return list.map(d => ({
       id: d.id,
       title: d.title || d.file_name,
       fileName: d.file_name,
@@ -88,30 +95,22 @@ async function loadDocuments() {
       downloadURL: `${API_BASE}/api/docs/${d.id}/download`
     }));
     
-    // ✅ Sync to Firestore (background, don't wait)
-    if (isFirebaseAvailable()) {
-      syncToFirestore(docs).catch(err => 
-        console.warn("⚠️ Firestore sync failed:", err)
-      );
-    }
-    
-    return docs;
-    
   } catch (error) {
-    console.error('❌ Render API failed:', error);
+    console.error('❌ Render API failed:', error.message);
     
     // ✅ Fallback to Firestore
-    if (isFirebaseAvailable()) {
-      console.log("🔄 Falling back to Firestore...");
-      return await loadFromFirestore(me);
-    }
-    
-    return [];
+    console.log("🔄 Falling back to Firestore...");
+    return await loadFromFirestore(me);
   }
 }
 
-// Helper: Load from Firestore
+// Helper: Load from Firestore (fallback)
 async function loadFromFirestore(userEmail) {
+  if (!window.db || !window.fs) {
+    console.error("❌ Firebase not available");
+    return [];
+  }
+  
   try {
     const col = window.fs.collection(window.db, "documents");
     const qOwned = window.fs.query(col, window.fs.where("owner", "==", userEmail));
@@ -135,49 +134,15 @@ async function loadFromFirestore(userEmail) {
   }
 }
 
-// Helper: Sync to Firestore (background)
-async function syncToFirestore(docs) {
-  if (!Array.isArray(docs) || docs.length === 0) return;
-  
-  console.log(`🔄 Syncing ${docs.length} documents to Firestore...`);
-  
-  for (const doc of docs) {
-    try {
-      const docRef = window.fs.doc(window.db, "documents", doc.id);
-      await window.fs.setDoc(docRef, {
-        title: doc.title,
-        fileName: doc.fileName,
-        fileSize: doc.fileSize,
-        fileType: doc.fileType,
-        category: doc.category,
-        year: doc.year,
-        org: doc.org,
-        recipient: doc.recipient,
-        sharedWith: doc.sharedWith,
-        owner: doc.owner,
-        uploadedAt: doc.uploadedAt,
-        lastModified: doc.lastModified,
-        lastModifiedBy: doc.lastModifiedBy,
-        _trashed: doc._trashed,
-        deletedAt: doc.deletedAt,
-        deletedBy: doc.deletedBy
-      }, { merge: true });
-    } catch (err) {
-      console.warn(`⚠️ Failed to sync doc ${doc.id}:`, err);
-    }
-  }
-  
-  console.log("✅ Firestore sync complete");
-}
-
-// ═════════════════ 2. Upload Document ═════════════════
+// ═══ 2. Upload Document (עם Timeout!) ═══
 
 async function uploadDocument(file, metadata = {}) {
   const me = getCurrentUser();
   if (!me) throw new Error("User not logged in");
 
+  console.log("📤 Uploading to Render...");
+
   try {
-    // ✅ Upload to Render
     const fd = new FormData();
     fd.append('file', file);
     fd.append('title', metadata.title ?? file.name);
@@ -191,18 +156,26 @@ async function uploadDocument(file, metadata = {}) {
     if (metadata.autoDeleteAfter) fd.append('autoDeleteAfter', metadata.autoDeleteAfter);
 
     const headers = await getAuthHeaders();
+    
+    // ✅ Timeout של 30 שניות להעלאה
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    
     const res = await fetch(`${API_BASE}/api/docs`, { 
       method: 'POST', 
       headers, 
-      body: fd 
+      body: fd,
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
     
     if (!res.ok) {
       throw new Error(`Upload failed: ${await res.text()}`);
     }
     
     const result = await res.json();
-    console.log('✅ Document uploaded to Render:', result.id);
+    console.log('✅ Uploaded to Render:', result.id);
     
     const doc = {
       id: result.id,
@@ -223,15 +196,11 @@ async function uploadDocument(file, metadata = {}) {
       downloadURL: `${API_BASE}/api/docs/${result.id}/download`
     };
     
-    // ✅ Sync to Firestore
-    if (isFirebaseAvailable()) {
-      try {
-        const docRef = window.fs.doc(window.db, "documents", result.id);
-        await window.fs.setDoc(docRef, doc, { merge: true });
-        console.log("✅ Document synced to Firestore");
-      } catch (err) {
-        console.warn("⚠️ Firestore sync failed:", err);
-      }
+    // ✅ Sync to Firestore (don't wait)
+    if (window.db && window.fs) {
+      syncToFirestore(result.id, doc).catch(err => 
+        console.warn("⚠️ Firestore sync failed:", err)
+      );
     }
     
     // ✅ Update local cache
@@ -247,40 +216,54 @@ async function uploadDocument(file, metadata = {}) {
   }
 }
 
-// ═════════════════ 3. Update Document ═════════════════
+// Helper: Sync to Firestore
+async function syncToFirestore(docId, docData) {
+  if (!window.db || !window.fs) return;
+  
+  try {
+    const docRef = window.fs.doc(window.db, "documents", docId);
+    await window.fs.setDoc(docRef, docData, { merge: true });
+    console.log("✅ Synced to Firestore:", docId);
+  } catch (err) {
+    console.warn("⚠️ Firestore sync failed:", err);
+  }
+}
+
+// ═══ 3. Update Document ═══
 
 async function updateDocument(docId, updates) {
   try {
     const headers = await getAuthHeaders();
     headers['Content-Type'] = 'application/json';
     
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    
     const res = await fetch(`${API_BASE}/api/docs/${docId}`, {
       method: 'PUT',
       headers,
-      body: JSON.stringify(updates)
+      body: JSON.stringify(updates),
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
     
     if (!res.ok) {
       throw new Error(`Update failed: ${await res.text()}`);
     }
     
-    console.log('✅ Document updated in Render:', docId);
+    console.log('✅ Updated in Render:', docId);
     
-    // ✅ Update Firestore
-    if (isFirebaseAvailable()) {
-      try {
-        const docRef = window.fs.doc(window.db, "documents", docId);
-        await window.fs.updateDoc(docRef, {
-          ...updates,
-          lastModified: Date.now()
-        });
-        console.log("✅ Document updated in Firestore");
-      } catch (err) {
-        console.warn("⚠️ Firestore update failed:", err);
-      }
+    // Update Firestore
+    if (window.db && window.fs) {
+      const docRef = window.fs.doc(window.db, "documents", docId);
+      await window.fs.updateDoc(docRef, {
+        ...updates,
+        lastModified: Date.now()
+      }).catch(err => console.warn("⚠️ Firestore update failed:", err));
     }
     
-    // ✅ Update local cache
+    // Update local cache
     if (Array.isArray(window.allDocsData)) {
       const idx = window.allDocsData.findIndex(d => d.id === docId);
       if (idx >= 0) {
@@ -295,40 +278,41 @@ async function updateDocument(docId, updates) {
   }
 }
 
-// ═════════════════ 4. Trash/Restore ═════════════════
+// ═══ 4. Trash/Restore ═══
 
 async function markDocTrashed(docId, trashed) {
   try {
     const headers = await getAuthHeaders();
     headers['Content-Type'] = 'application/json';
     
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    
     const res = await fetch(`${API_BASE}/api/docs/${docId}/trash`, {
       method: 'PUT',
       headers,
-      body: JSON.stringify({ trashed })
+      body: JSON.stringify({ trashed }),
+      signal: controller.signal
     });
     
+    clearTimeout(timeoutId);
+    
     if (!res.ok) {
-      throw new Error(`Trash operation failed: ${await res.text()}`);
+      throw new Error(`Trash failed: ${await res.text()}`);
     }
     
-    console.log(`✅ Document ${trashed ? 'trashed' : 'restored'} in Render:`, docId);
+    console.log(`✅ ${trashed ? 'Trashed' : 'Restored'} in Render:`, docId);
     
-    // ✅ Update Firestore
-    if (isFirebaseAvailable()) {
-      try {
-        const docRef = window.fs.doc(window.db, "documents", docId);
-        await window.fs.updateDoc(docRef, {
-          _trashed: !!trashed,
-          lastModified: Date.now()
-        });
-        console.log("✅ Document updated in Firestore");
-      } catch (err) {
-        console.warn("⚠️ Firestore update failed:", err);
-      }
+    // Update Firestore
+    if (window.db && window.fs) {
+      const docRef = window.fs.doc(window.db, "documents", docId);
+      await window.fs.updateDoc(docRef, {
+        _trashed: !!trashed,
+        lastModified: Date.now()
+      }).catch(err => console.warn("⚠️ Firestore update failed:", err));
     }
     
-    // ✅ Update local cache
+    // Update local cache
     if (Array.isArray(window.allDocsData)) {
       const idx = window.allDocsData.findIndex(d => d.id === docId);
       if (idx >= 0) {
@@ -339,40 +323,43 @@ async function markDocTrashed(docId, trashed) {
     
     return await res.json();
   } catch (error) {
-    console.error('❌ Trash operation error:', error);
+    console.error('❌ Trash error:', error);
     throw error;
   }
 }
 
-// ═════════════════ 5. Delete Permanently ═════════════════
+// ═══ 5. Delete Forever ═══
 
 async function deleteDocForever(docId) {
   try {
     const headers = await getAuthHeaders();
     
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    
     const res = await fetch(`${API_BASE}/api/docs/${docId}`, {
       method: 'DELETE',
-      headers
+      headers,
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
     
     if (!res.ok) {
       throw new Error(`Delete failed: ${await res.text()}`);
     }
     
-    console.log('✅ Document permanently deleted from Render:', docId);
+    console.log('✅ Deleted from Render:', docId);
     
-    // ✅ Delete from Firestore
-    if (isFirebaseAvailable()) {
-      try {
-        const docRef = window.fs.doc(window.db, "documents", docId);
-        await window.fs.deleteDoc(docRef);
-        console.log("✅ Document deleted from Firestore");
-      } catch (err) {
-        console.warn("⚠️ Firestore deletion failed:", err);
-      }
+    // Delete from Firestore
+    if (window.db && window.fs) {
+      const docRef = window.fs.doc(window.db, "documents", docId);
+      await window.fs.deleteDoc(docRef).catch(err => 
+        console.warn("⚠️ Firestore delete failed:", err)
+      );
     }
     
-    // ✅ Remove from local cache
+    // Remove from local cache
     if (Array.isArray(window.allDocsData)) {
       const idx = window.allDocsData.findIndex(d => d.id === docId);
       if (idx >= 0) {
@@ -387,7 +374,7 @@ async function deleteDocForever(docId) {
   }
 }
 
-// ═════════════════ 6. Download ═════════════════
+// ═══ 6. Download ═══
 
 async function downloadDocument(docId, fileName) {
   try {
@@ -408,14 +395,14 @@ async function downloadDocument(docId, fileName) {
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
     
-    console.log('✅ Document downloaded:', docId);
+    console.log('✅ Downloaded:', docId);
   } catch (error) {
     console.error('❌ Download error:', error);
     throw error;
   }
 }
 
-// ═════════════════ Expose Globally ═════════════════
+// ═══ Expose Globally ═══
 
 window.loadDocuments = loadDocuments;
 window.uploadDocument = uploadDocument;
@@ -424,4 +411,4 @@ window.markDocTrashed = markDocTrashed;
 window.deleteDocForever = deleteDocForever;
 window.downloadDocument = downloadDocument;
 
-console.log('✅ API Bridge (IMPROVED) loaded - Render + Firestore sync ready!');
+console.log('✅ API Bridge FIXED loaded - with timeouts and fallback!');
