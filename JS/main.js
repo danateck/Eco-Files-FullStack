@@ -1666,6 +1666,7 @@ const CATEGORIES = [
 ];
 
 // ===== buildDocCard and helper functions =====
+// ===== buildDocCard and helper functions =====
 function buildDocCard(doc, mode) {
   const card = document.createElement("div");
   card.className = "doc-card";
@@ -1718,37 +1719,49 @@ function buildDocCard(doc, mode) {
     const trashBtn = document.createElement("button");
     trashBtn.className = "doc-action-btn danger";
     trashBtn.textContent = "העבר לסל מחזור 🗑️";
-    trashBtn.addEventListener("click", async  () => {
-      await markDocTrashed(doc.id, true);
-      
+    trashBtn.addEventListener("click", async () => {
+      try {
+        // אם api-bridge הגדיר window.markDocTrashed – נשתמש בו, אחרת בפונקציה המקומית
+        if (window.markDocTrashed && window.markDocTrashed !== markDocTrashed) {
+          await window.markDocTrashed(doc.id, true);
+        } else {
+          await markDocTrashed(doc.id, true);
+        }
+      } catch (err) {
+        console.error("❌ Trash failed:", err);
+        if (typeof showNotification === "function") {
+          showNotification("שגיאה בהעברה לסל מחזור", true);
+        }
+        return;
+      }
+
       const categoryTitle = document.getElementById("categoryTitle");
       const currentCat = categoryTitle?.textContent || "";
-      
-      if (currentCat === "אחסון משותף") {
-        if (typeof openSharedView === "function") openSharedView();
+
+      if (!currentCat || currentCat === "ראשי" || currentCat === "הכל") {
+        if (typeof renderHome === "function") renderHome();
       } else if (currentCat === "סל מחזור") {
         if (typeof openRecycleView === "function") openRecycleView();
       } else {
         if (typeof openCategoryView === "function") openCategoryView(currentCat);
       }
     });
+
     actions.appendChild(trashBtn);
 
-    // Add to shared folder button
+    // כפתור תיקייה משותפת – הגרסה החדשה עם modal
     const shareBtn = document.createElement("button");
     shareBtn.className = "doc-action-btn";
     shareBtn.textContent = "הכנס לתיקייה משותפת 📤";
     shareBtn.addEventListener("click", async () => {
-      // Show modal with shared folders
       try {
         const folders = await loadSharedFolders();
-        
+
         if (folders.length === 0) {
           showNotification("אין לך תיקיות משותפות. צור תיקייה חדשה תחילה!");
           return;
         }
-        
-        // Create modal HTML
+
         const modalHTML = `
           <div class="modal-backdrop" id="shareFolderModal" style="display: flex; align-items: center; justify-content: center;">
             <div class="modal" style="max-width: 500px; width: 90%;">
@@ -1789,28 +1802,24 @@ function buildDocCard(doc, mode) {
             </div>
           </div>
         `;
-        
-        // Add modal to page
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-        
-        // Add click handlers to folder buttons
-        document.querySelectorAll('.folder-select-btn').forEach(btn => {
-          btn.addEventListener('click', async () => {
+
+        document.body.insertAdjacentHTML("beforeend", modalHTML);
+
+        document.querySelectorAll(".folder-select-btn").forEach(btn => {
+          btn.addEventListener("click", async () => {
             const folderId = btn.dataset.folderId;
             const folder = folders.find(f => f.id === folderId);
-            
+
             try {
-              // Add document to shared folder
               await addDocumentToSharedFolder(doc.id, folderId);
               showNotification(`המסמך נוסף לתיקייה "${folder.name}"!`);
-              document.getElementById('shareFolderModal').remove();
+              document.getElementById("shareFolderModal").remove();
             } catch (error) {
               console.error("Error adding to folder:", error);
               showNotification("שגיאה בהוספת המסמך לתיקייה", true);
             }
           });
         });
-        
       } catch (error) {
         console.error("Error loading folders:", error);
         showNotification("שגיאה בטעינת התיקיות המשותפות", true);
@@ -1819,42 +1828,64 @@ function buildDocCard(doc, mode) {
     actions.appendChild(shareBtn);
 
   } else {
+    // מצב סל מחזור
     const restoreBtn = document.createElement("button");
-restoreBtn.className = "doc-action-btn restore";
-restoreBtn.textContent = "שחזור ♻️";
-restoreBtn.dataset.docId = doc.id; // 👈 חשוב
+    restoreBtn.className = "doc-action-btn restore";
+    restoreBtn.textContent = "שחזור ♻️";
 
     restoreBtn.addEventListener("click", async () => {
-  console.log("♻️ Restore clicked for:", doc.id);
-  try {
-    if (window.markDocTrashed && typeof window.markDocTrashed === "function") {
-      await window.markDocTrashed(doc.id, false);  // ← זה הולך ל-Render
-    } else {
-      console.error("❌ window.markDocTrashed לא מוגדר");
-      return;
-    }
+      console.log("♻️ Restore clicked for:", doc.id);
+      try {
+        if (window.markDocTrashed && typeof window.markDocTrashed === "function") {
+          await window.markDocTrashed(doc.id, false);
+        } else if (typeof markDocTrashed === "function") {
+          await markDocTrashed(doc.id, false);
+        } else {
+          console.error("❌ אין markDocTrashed מוגדר");
+          return;
+        }
 
-    // ריענון תצוגת סל מחזור
-    if (typeof openRecycleView === "function") {
-      openRecycleView();
-    } else {
-      window.location.reload();
-    }
-  } catch (err) {
-    console.error("❌ Restore failed:", err);
-    if (typeof showNotification === "function") {
-      showNotification("שגיאה בשחזור המסמך", true);
-    }
-  }
-});
-
+        if (typeof openRecycleView === "function") {
+          openRecycleView();
+        } else {
+          window.location.reload();
+        }
+      } catch (err) {
+        console.error("❌ Restore failed:", err);
+        if (typeof showNotification === "function") {
+          showNotification("שגיאה בשחזור המסמך", true);
+        }
+      }
+    });
 
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "doc-action-btn danger";
     deleteBtn.textContent = "מחיקה לצמיתות 🗑️";
-    deleteBtn.addEventListener("click", () => {
-      deleteDocForever(doc.id);
-      if (typeof openRecycleView === "function") openRecycleView();
+    deleteBtn.addEventListener("click", async () => {
+      const confirmDelete = localStorage.getItem("confirmDelete") !== "false";
+      if (confirmDelete && !confirm("למחוק לצמיתות? אי אפשר לשחזר.")) return;
+
+      try {
+        if (window.deleteDocForever && window.deleteDocForever !== deleteDocForever) {
+          await window.deleteDocForever(doc.id);
+        } else if (typeof deleteDocForever === "function") {
+          await deleteDocForever(doc.id);
+        } else {
+          console.error("❌ deleteDocForever function not found");
+          return;
+        }
+
+        if (typeof openRecycleView === "function") {
+          openRecycleView();
+        } else {
+          window.location.reload();
+        }
+      } catch (err) {
+        console.error("❌ Delete forever failed:", err);
+        if (typeof showNotification === "function") {
+          showNotification("שגיאה במחיקת המסמך", true);
+        }
+      }
     });
 
     actions.appendChild(restoreBtn);
@@ -1863,6 +1894,7 @@ restoreBtn.dataset.docId = doc.id; // 👈 חשוב
 
   return card;
 }
+
 
 async function markDocTrashed(id, trashed) {
   console.log("♻️ markDocTrashed called from main.js:", id, trashed);
@@ -2055,56 +2087,33 @@ window.openCategoryView = function(categoryName) {
   console.log("✅ Category view opened with", docsForThisCategory.length, "documents");
 };
 
-// 3. RECYCLE VIEW
-window.openRecycleView = function() {
+// 3. RECYCLE VIEW – משתמש ב-buildDocCard
+window.openRecycleView = function () {
   console.log("🗑️ Opening recycle view");
-  
+
   const categoryTitle = document.getElementById("categoryTitle");
   const docsList = document.getElementById("docsList");
   const homeView = document.getElementById("homeView");
   const categoryView = document.getElementById("categoryView");
-  
-  if (!categoryTitle || !docsList) return;
 
-  categoryTitle.textContent = "סל מחזור";
-  const docs = (window.allDocsData || []).filter(d => d._trashed === true);
-  
-  docsList.innerHTML = "";
-  
-  // 3. RECYCLE VIEW
-window.openRecycleView = function() {
-  console.log("🗑️ Opening recycle view");
-  
-  const categoryTitle = document.getElementById("categoryTitle");
-  const docsList = document.getElementById("docsList");
-  const homeView = document.getElementById("homeView");
-  const categoryView = document.getElementById("categoryView");
-  
-  if (!categoryTitle || !docsList) return;
-
-  categoryTitle.textContent = "סל מחזור";
-  const docs = (window.allDocsData || []).filter(d => d._trashed === true);
-  
-  docsList.innerHTML = "";
-  
-  if (docs.length === 0) {
-    docsList.innerHTML = `<div style="padding:2rem;text-align:center;opacity:0.6;">סל המחזור ריק</div>`;
-  } else {
-    docs.forEach(doc => {
-      // 👈 משתמשים ב-buildDocCard במצב recycle
-      const card = buildDocCard(doc, "recycle");
-      docsList.appendChild(card);
-    });
+  if (!categoryTitle || !docsList) {
+    console.error("❌ Recycle view elements not found");
+    return;
   }
 
+  categoryTitle.textContent = "סל מחזור";
+
+  const trashedDocs = (window.allDocsData || []).filter(d => d._trashed === true);
+
+  // משתמשים בפונקציה הכללית שמציירת כרטיסים
+  renderDocsList(trashedDocs, "recycle");
+
   if (homeView) homeView.classList.add("hidden");
   if (categoryView) categoryView.classList.remove("hidden");
+
+  console.log("✅ Recycle view opened with", trashedDocs.length, "documents");
 };
 
-
-  if (homeView) homeView.classList.add("hidden");
-  if (categoryView) categoryView.classList.remove("hidden");
-};
 
 // 4. SHARED VIEW
 window.openSharedView = function() {
@@ -2881,139 +2890,7 @@ saveAllUsersDataToStorage(allUsersData);
 
 
 
-  function buildDocCard(doc, mode) {
-    const card = document.createElement("div");
-    card.className = "doc-card";
 
-    const warrantyBlock =
-      (doc.category && doc.category.includes("אחריות")) ?
-      `
-        <span>הועלה ב: ${doc.uploadedAt || "-"}</span>
-        <span>תאריך קנייה: ${doc.warrantyStart || "-"}</span>
-        <span>תוקף אחריות עד: ${doc.warrantyExpiresAt || "-"}</span>
-        <span>מחיקה אוטומטית אחרי: ${doc.autoDeleteAfter || "-"}</span>
-      `
-      : `
-        <span>הועלה ב: ${doc.uploadedAt || "-"}</span>
-      `;
-
-    const openFileButtonHtml = `
-      <button class="doc-open-link"
-              data-open-id="${doc.id}">
-        פתיחת קובץ
-      </button>
-    `;
-
-  // Use title, fallback to fileName, fallback to originalFileName
-const displayTitle = doc.title || doc.fileName || doc.originalFileName || "מסמך";
-
-
-card.innerHTML = `
-  <p class="doc-card-title">${displayTitle}</p>
-      <div class="doc-card-meta">
-        <span>ארגון: ${doc.org || "לא ידוע"}</span>
-        <span>שנה: ${doc.year || "-"}</span>
-        <span>שייך ל: ${doc.recipient?.join(", ") || "-"}</span>
-        ${warrantyBlock}
-      </div>
-
-      ${openFileButtonHtml}
-
-      <div class="doc-actions"></div>
-    `;
-
-    const actions = card.querySelector(".doc-actions");
-
-    if (mode !== "recycle") {
-      const editBtn = document.createElement("button");
-      editBtn.className = "doc-action-btn";
-      editBtn.textContent = "עריכה ✏️";
-      editBtn.addEventListener("click", () => {
-        openEditModal(doc);
-      });
-      actions.appendChild(editBtn);
-
-      const trashBtn = document.createElement("button");
-      trashBtn.className = "doc-action-btn danger";
-      trashBtn.textContent = "העבר לסל מחזור 🗑️";
-      trashBtn.addEventListener("click", () => {
-        markDocTrashed(doc.id, true);
-
-        const currentCat = categoryTitle.textContent;
-        if (currentCat === "אחסון משותף") {
-          openSharedView();
-        } else if (currentCat === "סל מחזור") {
-          openRecycleView();
-        } else {
-          openCategoryView(currentCat);
-        }
-      });
-      actions.appendChild(trashBtn);
-
-      // כפתור: הכנס לתיקייה משותפת
-const addToSharedBtn = document.createElement("button");
-addToSharedBtn.className = "doc-action-btn";
-addToSharedBtn.textContent = "הכנס לתיקייה משותפת";
-addToSharedBtn.addEventListener("click", () => {
-  const me = allUsersData[userNow];
-  openSharedFolderPicker(me, async (folderId) => {
-    const docId = doc.id;
-    const i = allDocsData.findIndex(d => d.id === docId);
-    if (i > -1) {
-      allDocsData[i].sharedFolderId = folderId;
-      setUserDocs(userNow, allDocsData, allUsersData);
-      
-      // Sync to Firestore immediately
-      if (isFirebaseAvailable()) {
-        showLoading("משתף מסמך...");
-        try {
-          await upsertSharedDocRecord(allDocsData[i], folderId);
-          console.log("✅ Document synced to Firestore for all members");
-        } catch (e) {
-          console.error("Error syncing document:", e);
-        }
-        hideLoading();
-      }
-      
-      showNotification("המסמך שויך לתיקייה המשותפת ✅");
-      const currentCat = categoryTitle.textContent;
-      if (currentCat === "אחסון משותף") {
-        openSharedView();
-      } else if (currentCat === "סל מחזור") {
-        openRecycleView();
-      } else {
-        openCategoryView(currentCat);
-      }
-    }
-  });
-});
-
-actions.appendChild(addToSharedBtn);
-
-
-    } else {
-      const restoreBtn = document.createElement("button");
-      restoreBtn.className = "doc-action-btn restore";
-      restoreBtn.textContent = "שחזור ♻️";
-      restoreBtn.addEventListener("click", () => {
-        markDocTrashed(doc.id, false);
-        openRecycleView();
-      });
-
-      const deleteBtn = document.createElement("button");
-      deleteBtn.className = "doc-action-btn danger";
-      deleteBtn.textContent = "מחיקה לצמיתות 🗑️";
-      deleteBtn.addEventListener("click", () => {
-        deleteDocForever(doc.id);
-        openRecycleView();
-      });
-
-      actions.appendChild(restoreBtn);
-      actions.appendChild(deleteBtn);
-    }
-
-    return card;
-  }
 
   function openCategoryView(categoryName) {
     categoryTitle.textContent = categoryName;
