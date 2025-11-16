@@ -1825,19 +1825,20 @@ restoreBtn.textContent = "שחזור ♻️";
 restoreBtn.dataset.docId = doc.id; // 👈 חשוב
 
     restoreBtn.addEventListener("click", async () => {
+  console.log("♻️ Restore clicked for:", doc.id);
   try {
-    // ננסה קודם את הגרסה שמדברת עם Render (api-bridge.js)
     if (window.markDocTrashed && typeof window.markDocTrashed === "function") {
-      await window.markDocTrashed(doc.id, false);
+      await window.markDocTrashed(doc.id, false);  // ← זה הולך ל-Render
     } else {
-      // fallback – רק לוקלי, אם מסיבה כלשהי אין api bridge
-      if (typeof markDocTrashed === "function") {
-        markDocTrashed(doc.id, false);
-      }
+      console.error("❌ window.markDocTrashed לא מוגדר");
+      return;
     }
 
+    // ריענון תצוגת סל מחזור
     if (typeof openRecycleView === "function") {
       openRecycleView();
+    } else {
+      window.location.reload();
     }
   } catch (err) {
     console.error("❌ Restore failed:", err);
@@ -1846,6 +1847,7 @@ restoreBtn.dataset.docId = doc.id; // 👈 חשוב
     }
   }
 });
+
 
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "doc-action-btn danger";
@@ -4409,41 +4411,6 @@ document.addEventListener('click', function(e) {
 
 
 // 🎯 האזנה גלובלית לכפתור "שחזור" בסל המחזור
-document.addEventListener("click", async (event) => {
-  const btn = event.target.closest(".doc-action-btn.restore");
-  if (!btn) return; // לא כפתור שחזור – מתעלמים
-
-  const docId = btn.dataset.docId;
-  if (!docId) {
-    console.error("❌ Restore click without docId on button");
-    return;
-  }
-
-  console.log("♻️ Restore clicked for doc:", docId);
-
-  try {
-    if (window.markDocTrashed && typeof window.markDocTrashed === "function") {
-      await window.markDocTrashed(docId, false); // 👈 משתמש ב-API BRIDGE
-    } else {
-      console.error("❌ window.markDocTrashed is not available");
-      return;
-    }
-
-    // לרענן את תצוגת סל המחזור אחרי השחזור
-    if (typeof openRecycleView === "function") {
-      openRecycleView();
-    } else {
-      // fallback – לרענן כל הדף
-      window.location.reload();
-    }
-  } catch (err) {
-    console.error("❌ Restore failed:", err);
-    if (typeof showNotification === "function") {
-      showNotification("שגיאה בשחזור המסמך", true);
-    }
-  }
-});
-
 
 
 
