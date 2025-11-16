@@ -313,66 +313,80 @@ async function markDocTrashed(docId, trashed) {
   const me = getCurrentUser();
   if (!me) throw new Error("Not logged in");
 
+  let backendOk = false;
+
+  // קודם מנסים לדבר עם השרת – אבל לא נופלים אם זה נכשל
   try {
     const headers = await getAuthHeaders();
-    headers['Content-Type'] = 'application/json';
+    headers["Content-Type"] = "application/json";
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     const res = await fetch(`${API_BASE}/api/docs/${docId}/trash`, {
-      method: 'PUT',
+      method: "PUT",
       headers,
       body: JSON.stringify({ trashed }),
-      signal: controller.signal
+      signal: controller.signal,
     });
 
     clearTimeout(timeoutId);
 
-    let data = null;
-
     if (res.status === 404) {
       const text = await res.text();
-      console.warn("⚠️ Backend says doc not found or access denied. Doing local-only trash/restore:", text);
-      // לא זורקים שגיאה – נמשיך לעדכן מקומית
+      console.warn(
+        "⚠️ Backend says doc not found or access denied. Doing local-only trash/restore:",
+        text
+      );
+      // לא זורקים – נמשיך לוקאלי
     } else if (!res.ok) {
       const text = await res.text();
-      throw new Error(`Trash failed: ${text}`);
+      console.warn(
+        "⚠️ Trash failed on backend, continuing locally:",
+        text
+      );
     } else {
-      // בקשה הצליחה – ננסה לקרוא JSON, אבל לא נקרוס אם אין
-      try {
-        data = await res.json();
-      } catch (e) {
-        data = {};
-      }
+      backendOk = true;
     }
+  } catch (error) {
+    console.warn(
+      "⚠️ Trash request failed (network/CORS), continuing locally:",
+      error
+    );
+  }
 
-    console.log(`✅ ${trashed ? 'Trashed' : 'Restored'} (local sync):`, docId);
+  // 🧠 מכאן והלאה – תמיד נעדכן לוקאלית, גם אם השרת נפל / CORS
 
-    // Update Firestore
-    if (window.db && window.fs) {
+  console.log(
+    `✅ ${trashed ? "Trashed" : "Restored"} locally:`,
+    docId,
+    backendOk ? "(backend OK)" : "(backend FAILED)"
+  );
+
+  // Firestore
+  if (window.db && window.fs) {
+    try {
       const docRef = window.fs.doc(window.db, "documents", docId);
       await window.fs.updateDoc(docRef, {
         _trashed: !!trashed,
-        lastModified: Date.now()
-      }).catch(err => console.warn("⚠️ Firestore update failed:", err));
+        lastModified: Date.now(),
+      });
+    } catch (err) {
+      console.warn("⚠️ Firestore update failed:", err);
     }
-
-    // Update local cache
-    if (Array.isArray(window.allDocsData)) {
-      const idx = window.allDocsData.findIndex(d => d.id === docId);
-      if (idx >= 0) {
-        window.allDocsData[idx]._trashed = !!trashed;
-        window.allDocsData[idx].lastModified = Date.now();
-      }
-    }
-
-    // גם אם השרת החזיר 404 – נחזיר אובייקט קטן
-    return data || { localOnly: true };
-  } catch (error) {
-    console.error('❌ Trash error:', error);
-    throw error;
   }
+
+  // cache לוקאלי
+  if (Array.isArray(window.allDocsData)) {
+    const idx = window.allDocsData.findIndex((d) => d.id === docId);
+    if (idx >= 0) {
+      window.allDocsData[idx]._trashed = !!trashed;
+      window.allDocsData[idx].lastModified = Date.now();
+    }
+  }
+
+  // מחזירים משהו קטן, גם אם השרת נפל
+  return { backendOk };
 }
 
 
@@ -382,6 +396,9 @@ async function deleteDocForever(docId) {
   const me = getCurrentUser();
   if (!me) throw new Error("Not logged in");
 
+  let backendOk = false;
+
+  // מנסים למחוק בשרת – אבל לא נותנים לזה להפיל אותנו
   try {
     const headers = await getAuthHeaders();
 
@@ -389,53 +406,57 @@ async function deleteDocForever(docId) {
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     const res = await fetch(`${API_BASE}/api/docs/${docId}`, {
-      method: 'DELETE',
+      method: "DELETE",
       headers,
-      signal: controller.signal
+      signal: controller.signal,
     });
 
     clearTimeout(timeoutId);
 
-    let data = null;
-
     if (res.status === 404) {
       const text = await res.text();
-      console.warn("⚠️ Backend says doc not found or access denied on delete. Removing locally:", text);
-      // לא זורקים – נמשיך למחוק לוקאלית
+      console.warn(
+        "⚠️ Backend says doc not found or access denied on delete. Removing locally:",
+        text
+      );
     } else if (!res.ok) {
       const text = await res.text();
-      throw new Error(`Delete failed: ${text}`);
+      console.warn("⚠️ Delete failed on backend, deleting locally:", text);
     } else {
-      try {
-        data = await res.json();
-      } catch (e) {
-        data = {};
-      }
+      backendOk = true;
     }
-
-    console.log('✅ Deleted (local sync):', docId);
-
-    // Delete from Firestore
-    if (window.db && window.fs) {
-      const docRef = window.fs.doc(window.db, "documents", docId);
-      await window.fs.deleteDoc(docRef).catch(err =>
-        console.warn("⚠️ Firestore delete failed:", err)
-      );
-    }
-
-    // Remove from local cache
-    if (Array.isArray(window.allDocsData)) {
-      const idx = window.allDocsData.findIndex(d => d.id === docId);
-      if (idx >= 0) {
-        window.allDocsData.splice(idx, 1);
-      }
-    }
-
-    return data || { localOnly: true };
   } catch (error) {
-    console.error('❌ Delete error:', error);
-    throw error;
+    console.warn(
+      "⚠️ Delete request failed (network/CORS), deleting locally:",
+      error
+    );
   }
+
+  console.log(
+    "✅ Deleted locally:",
+    docId,
+    backendOk ? "(backend OK)" : "(backend FAILED)"
+  );
+
+  // Firestore
+  if (window.db && window.fs) {
+    try {
+      const docRef = window.fs.doc(window.db, "documents", docId);
+      await window.fs.deleteDoc(docRef);
+    } catch (err) {
+      console.warn("⚠️ Firestore delete failed:", err);
+    }
+  }
+
+  // cache לוקאלי
+  if (Array.isArray(window.allDocsData)) {
+    const idx = window.allDocsData.findIndex((d) => d.id === docId);
+    if (idx >= 0) {
+      window.allDocsData.splice(idx, 1);
+    }
+  }
+
+  return { backendOk };
 }
 
 
