@@ -2093,6 +2093,7 @@ window.openCategoryView = function(categoryName) {
 };
 
 // 3. RECYCLE VIEW – משתמש ב-buildDocCard
+// 3. RECYCLE VIEW – בלי renderDocsList
 window.openRecycleView = function () {
   console.log("🗑️ Opening recycle view");
 
@@ -2108,16 +2109,26 @@ window.openRecycleView = function () {
 
   categoryTitle.textContent = "סל מחזור";
 
+  // לוקחים רק מסמכים שמסומנים כ־_trashed = true
   const trashedDocs = (window.allDocsData || []).filter(d => d._trashed === true);
 
-  // משתמשים בפונקציה הכללית שמציירת כרטיסים
-  renderDocsList(trashedDocs, "recycle");
+  docsList.innerHTML = "";
+
+  if (trashedDocs.length === 0) {
+    docsList.innerHTML = `<div style="padding:2rem;text-align:center;opacity:0.6;">סל המחזור ריק</div>`;
+  } else {
+    trashedDocs.forEach(doc => {
+      const card = buildDocCard(doc, "recycle");
+      docsList.appendChild(card);
+    });
+  }
 
   if (homeView) homeView.classList.add("hidden");
   if (categoryView) categoryView.classList.remove("hidden");
 
   console.log("✅ Recycle view opened with", trashedDocs.length, "documents");
 };
+
 
 
 // 4. SHARED VIEW
