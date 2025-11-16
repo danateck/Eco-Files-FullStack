@@ -663,241 +663,6 @@ async function uploadDocumentWithStorage(file, metadata = {}, forcedId=null) {
 
 
 
-// 3. Updated file upload handler (replace in your DOMContentLoaded)
-// Replace your existing fileInput.addEventListener("change", ...) with this:
-
-
-if (fileInput) {
-fileInput.addEventListener("change", async () => {
-  const file = fileInput.files[0];
-  if (!file) {
-    showNotification("❌ לא נבחר קובץ", true);
-    return;
-  }
-
-  try {
-    const fileName = file.name.trim();
-
-    // Check for duplicates
-    const alreadyExists = allDocsData.some(doc => {
-      return (
-        doc.originalFileName === fileName &&
-        doc._trashed !== true
-      );
-    });
-    
-    if (alreadyExists) {
-      showNotification("הקובץ הזה כבר קיים בארכיון שלך", true);
-      fileInput.value = "";
-      return;
-    }
-
-    // Guess category
-    let guessedCategory = guessCategoryForFileNameOnly(file.name);
-    if (!guessedCategory || guessedCategory === "אחר") {
-      const manual = prompt(
-        'לא זיהיתי אוטומטית את סוג המסמך.\nלאיזה תיקייה לשמור?\nאפשרויות: ' +
-        CATEGORIES.join(", "),
-        "רפואה"
-      );
-      if (manual && manual.trim() !== "") {
-        guessedCategory = manual.trim();
-      } else {
-        guessedCategory = "אחר";
-      }
-    }
-
-    // Warranty details if needed
-    let warrantyStart = null;
-    let warrantyExpiresAt = null;
-    let autoDeleteAfter = null;
-
-    if (guessedCategory === "אחריות") {
-      let extracted = {
-        warrantyStart: null,
-        warrantyExpiresAt: null,
-        autoDeleteAfter: null,
-      };
-
-      if (file.type === "application/pdf") {
-        const ocrText = await extractTextFromPdfWithOcr(file);
-        const dataFromText = extractWarrantyFromText(ocrText);
-        extracted = { ...extracted, ...dataFromText };
-      }
-
-      if (file.type.startsWith("image/") && window.Tesseract) {
-        const { data } = await window.Tesseract.recognize(file, "heb+eng", {
-          tessedit_pageseg_mode: 6,
-        });
-        const imgText = data?.text || "";
-        const dataFromText = extractWarrantyFromText(imgText);
-        extracted = { ...extracted, ...dataFromText };
-      }
-
-      if (!extracted.warrantyStart && !extracted.warrantyExpiresAt) {
-        const buf = await file.arrayBuffer().catch(() => null);
-        if (buf) {
-          const txt = new TextDecoder("utf-8").decode(buf);
-          const dataFromText = extractWarrantyFromText(txt);
-          extracted = { ...extracted, ...dataFromText };
-        }
-      }
-
-      if (!extracted.warrantyStart && !extracted.warrantyExpiresAt) {
-        const manualData = fallbackAskWarrantyDetails();
-        if (manualData.warrantyStart) {
-          extracted.warrantyStart = manualData.warrantyStart;
-        }
-        if (manualData.warrantyExpiresAt) {
-          extracted.warrantyExpiresAt = manualData.warrantyExpiresAt;
-        }
-        if (manualData.autoDeleteAfter) {
-          extracted.autoDeleteAfter = manualData.autoDeleteAfter;
-        }
-      }
-
-      warrantyStart     = extracted.warrantyStart     || null;
-      warrantyExpiresAt = extracted.warrantyExpiresAt || null;
-      autoDeleteAfter   = extracted.autoDeleteAfter   || null;
-    }
-
-    // Read file as base64 for local storage
-    const fileDataBase64 = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-
-    const newId = crypto.randomUUID();
-
-    // Save to IndexedDB (local cache)
-    await saveFileToDB(newId, fileDataBase64);
-
-    // Upload to Firebase Storage + Firestore
-    // Upload to Firebase Storage + Firestore
-    // Upload to Firebase Storage + Firestore
-    let cloudDoc = null;
-    if (isFirebaseAvailable()) {
-      try {
-        showLoading("שומר בענן...");
-        
-        // Upload using the proper uploadDocument function
-        cloudDoc = await uploadDocument(file, {
-          title: fileName,
-          category: guessedCategory,
-          year: new Date().getFullYear().toString(),
-          org: "",
-          recipient: [],
-          warrantyStart,
-          warrantyExpiresAt,
-          autoDeleteAfter
-        });
-        
-        console.log("✅ Cloud upload successful:", cloudDoc);
-        
-        // Use the cloud doc data
-        if (cloudDoc && cloudDoc.id) {
-          const newDoc = {
-            id: cloudDoc.id,
-            ...cloudDoc,
-            title: fileName,
-            originalFileName: fileName,
-            mimeType: file.type,
-            hasFile: true
-          };
-          
-          allDocsData.push(newDoc);
-          setUserDocs(userNow, allDocsData, allUsersData);
-          
-          showNotification(`✅ הקובץ נוסף לתיקייה "${guessedCategory}" ונשמר`);
-        }
-        
-        hideLoading(); // ← Make sure to hide loading here!
-        
-      } catch (e) {
-        console.error("❌ Cloud upload failed:", e);
-        hideLoading(); // ← And here!
-        
-        // Fallback: save locally only
-        const newDoc = {
-          id: newId,
-          title: fileName,
-          originalFileName: fileName,
-          category: guessedCategory,
-          uploadedAt: new Date().toISOString().split("T")[0],
-          year: new Date().getFullYear().toString(),
-          org: "",
-          recipient: [],
-          sharedWith: [],
-          warrantyStart,
-          warrantyExpiresAt,
-          autoDeleteAfter,
-          mimeType: file.type,
-          hasFile: true,
-          downloadURL: null,
-          owner: normalizeEmail(getCurrentUserEmail())
-        };
-        
-        allDocsData.push(newDoc);
-        setUserDocs(userNow, allDocsData, allUsersData);
-        
-        showNotification(`✅ נשמר במכשיר (ללא ענן)`);
-      }
-    } else {
-      // No Firebase - local only
-      const newDoc = {
-        id: newId,
-        title: fileName,
-        originalFileName: fileName,
-        category: guessedCategory,
-        uploadedAt: new Date().toISOString().split("T")[0],
-        year: new Date().getFullYear().toString(),
-        org: "",
-        recipient: [],
-        sharedWith: [],
-        warrantyStart,
-        warrantyExpiresAt,
-        autoDeleteAfter,
-        mimeType: file.type,
-        hasFile: true,
-        downloadURL: null,
-        owner: normalizeEmail(getCurrentUserEmail())
-      };
-      
-      allDocsData.push(newDoc);
-      setUserDocs(userNow, allDocsData, allUsersData);
-      
-      showNotification(`✅ הקובץ נוסף לתיקייה "${guessedCategory}"`);
-    }
-    // Refresh UI
-    const currentCat = categoryTitle.textContent;
-    if (currentCat === "אחסון משותף") {
-      openSharedView();
-    } else if (currentCat === "סל מחזור") {
-      openRecycleView();
-    } else if (!homeView.classList.contains("hidden")) {
-      renderHome();
-    } else {
-      openCategoryView(currentCat);
-    }
-
-    fileInput.value = "";
-
-  } catch (err) {
-    console.error("שגיאה בהעלאה:", err);
-    showNotification("הייתה בעיה בהעלאה. נסה שוב או קובץ אחר.", true);
-    hideLoading();
-  }
-});
-
-}
-
-
-
-
-// 3. Updated file upload handler (replace in your DOMContentLoaded)
-// Replace your existing fileInput.addEventListener("change", ...) with this:
 
 
 
@@ -2829,6 +2594,216 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     folderGrid.appendChild(folder);
   }
+
+
+
+
+
+if (fileInput) {
+  fileInput.addEventListener("change", async () => {
+    const file = fileInput.files[0];
+    if (!file) {
+      showNotification("❌ לא נבחר קובץ", true);
+      return;
+    }
+
+    try {
+      const fileName = file.name.trim();
+
+      // בדיקת כפילויות לפי שם קובץ (ולא בסל מחזור)
+      const alreadyExists = (window.allDocsData || []).some(doc => {
+        return (
+          doc.originalFileName === fileName &&
+          doc._trashed !== true
+        );
+      });
+      if (alreadyExists) {
+        showNotification("הקובץ הזה כבר קיים בארכיון שלך", true);
+        fileInput.value = "";
+        return;
+      }
+
+      // ניחוש קטגוריה
+      let guessedCategory = guessCategoryForFileNameOnly(file.name);
+      if (!guessedCategory || guessedCategory === "אחר") {
+        const manual = prompt(
+          'לא זיהיתי אוטומטית את סוג המסמך.\nלאיזו תיקייה לשמור?\nאפשרויות: ' +
+          CATEGORIES.join(", "),
+          "רפואה"
+        );
+        if (manual && manual.trim() !== "") {
+          guessedCategory = manual.trim();
+        } else {
+          guessedCategory = "אחר";
+        }
+      }
+
+      // פרטי אחריות אם צריך
+      let warrantyStart = null;
+      let warrantyExpiresAt = null;
+      let autoDeleteAfter = null;
+
+      if (guessedCategory === "אחריות") {
+        let extracted = {
+          warrantyStart: null,
+          warrantyExpiresAt: null,
+          autoDeleteAfter: null,
+        };
+
+        if (file.type === "application/pdf") {
+          const ocrText = await extractTextFromPdfWithOcr(file);
+          const dataFromText = extractWarrantyFromText(ocrText);
+          extracted = { ...extracted, ...dataFromText };
+        }
+
+        if (file.type.startsWith("image/") && window.Tesseract) {
+          const { data } = await window.Tesseract.recognize(file, "heb+eng", {
+            tessedit_pageseg_mode: 6,
+          });
+          const imgText = data?.text || "";
+          const dataFromText = extractWarrantyFromText(imgText);
+          extracted = { ...extracted, ...dataFromText };
+        }
+
+        if (!extracted.warrantyStart && !extracted.warrantyExpiresAt) {
+          const buf = await file.arrayBuffer().catch(() => null);
+          if (buf) {
+            const txt = new TextDecoder("utf-8").decode(buf);
+            const dataFromText = extractWarrantyFromText(txt);
+            extracted = { ...extracted, ...dataFromText };
+          }
+        }
+
+        if (!extracted.warrantyStart && !extracted.warrantyExpiresAt) {
+          const manualData = fallbackAskWarrantyDetails();
+          if (manualData.warrantyStart) {
+            extracted.warrantyStart = manualData.warrantyStart;
+          }
+          if (manualData.warrantyExpiresAt) {
+            extracted.warrantyExpiresAt = manualData.warrantyExpiresAt;
+          }
+          if (manualData.autoDeleteAfter) {
+            extracted.autoDeleteAfter = manualData.autoDeleteAfter;
+          }
+        }
+
+        warrantyStart     = extracted.warrantyStart     || null;
+        warrantyExpiresAt = extracted.warrantyExpiresAt || null;
+        autoDeleteAfter   = extracted.autoDeleteAfter   || null;
+      }
+
+      // קריאה של הקובץ כ-base64 ל-IndexedDB
+      const fileDataBase64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const newId = crypto.randomUUID();
+
+      // שמירת הקובץ עצמו ל-IndexedDB (לוגי)
+      await saveFileToDB(newId, fileDataBase64);
+
+      // בניית אובייקט המסמך
+      const now = new Date();
+      const uploadedAt = now.toISOString().split("T")[0];
+      const year = now.getFullYear().toString();
+      const ownerEmail = normalizeEmail(getCurrentUserEmail() || "");
+
+      const newDoc = {
+        id: newId,
+        title: fileName,
+        originalFileName: fileName,
+        category: guessedCategory,
+        uploadedAt,
+        year,
+        org: "",
+        recipient: [],
+        sharedWith: [],
+        warrantyStart,
+        warrantyExpiresAt,
+        autoDeleteAfter,
+        mimeType: file.type,
+        hasFile: true,
+        downloadURL: null,
+        owner: ownerEmail,
+        _trashed: false,
+        lastModified: Date.now(),
+        lastModifiedBy: ownerEmail
+      };
+
+      // שמירה ב-allDocsData + בזיכרון היוזר
+      if (!window.allDocsData) window.allDocsData = [];
+      window.allDocsData.push(newDoc);
+      if (typeof setUserDocs === "function") {
+        if (!window.allUsersData) window.allUsersData = {};
+        setUserDocs(ownerEmail || userNow, window.allDocsData, window.allUsersData);
+      }
+
+      // 🌩️ מראה לענן – Firestore
+      if (isFirebaseAvailable()) {
+        try {
+          const docRef = window.fs.doc(window.db, "documents", newId);
+
+          const cleanDoc = {
+            id: newDoc.id,
+            title: newDoc.title,
+            originalFileName: newDoc.originalFileName,
+            category: newDoc.category,
+            uploadedAt: newDoc.uploadedAt,
+            year: newDoc.year,
+            org: newDoc.org || "",
+            recipient: newDoc.recipient || [],
+            sharedWith: newDoc.sharedWith || [],
+            warrantyStart: newDoc.warrantyStart || null,
+            warrantyExpiresAt: newDoc.warrantyExpiresAt || null,
+            autoDeleteAfter: newDoc.autoDeleteAfter || null,
+            mimeType: newDoc.mimeType,
+            hasFile: true,
+            owner: ownerEmail,
+            downloadURL: null,
+            deletedAt: null,
+            deletedBy: null,
+            lastModified: newDoc.lastModified,
+            lastModifiedBy: ownerEmail,
+            _trashed: false
+          };
+
+          await window.fs.setDoc(docRef, cleanDoc, { merge: true });
+          console.log("✅ Mirrored owner doc to Firestore:", newId);
+        } catch (e) {
+          console.error("❌ Firestore mirror failed:", e);
+        }
+      }
+
+      // הודעה יפה
+      let niceCat = guessedCategory && guessedCategory.trim()
+        ? guessedCategory.trim()
+        : "התיקייה";
+      showNotification(`הקובץ נוסף לתיקייה "${niceCat}" ✅`);
+
+      // רענון UI
+      const currentCat = categoryTitle.textContent;
+      if (currentCat === "אחסון משותף") {
+        openSharedView();
+      } else if (currentCat === "סל מחזור") {
+        openRecycleView();
+      } else if (!homeView.classList.contains("hidden")) {
+        renderHome();
+      } else {
+        openCategoryView(currentCat);
+      }
+
+      fileInput.value = "";
+
+    } catch (err) {
+      console.error("שגיאה בהעלאה:", err);
+      showNotification("הייתה בעיה בהעלאה. נסי שוב או קובץ אחר.", true);
+      hideLoading?.();
+    }
+  });
+}
 
 
 
