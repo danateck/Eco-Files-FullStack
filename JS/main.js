@@ -2734,48 +2734,48 @@ if (fileInput) {
       };
 
       // שמירה ב-allDocsData + בזיכרון היוזר
-      if (!window.allDocsData) window.allDocsData = [];
-      window.allDocsData.push(newDoc);
-      if (typeof setUserDocs === "function") {
-        if (!window.allUsersData) window.allUsersData = {};
-        setUserDocs(ownerEmail || userNow, window.allDocsData, window.allUsersData);
-      }
+      // if (!window.allDocsData) window.allDocsData = [];
+      // window.allDocsData.push(newDoc);
+      // if (typeof setUserDocs === "function") {
+      //   if (!window.allUsersData) window.allUsersData = {};
+      //   setUserDocs(ownerEmail || userNow, window.allDocsData, window.allUsersData);
+      // }
 
-      // 🌩️ מראה לענן – Firestore
-      if (isFirebaseAvailable()) {
-        try {
-          const docRef = window.fs.doc(window.db, "documents", newId);
+      // // 🌩️ מראה לענן – Firestore
+      // if (isFirebaseAvailable()) {
+      //   try {
+      //     const docRef = window.fs.doc(window.db, "documents", newId);
 
-          const cleanDoc = {
-            id: newDoc.id,
-            title: newDoc.title,
-            originalFileName: newDoc.originalFileName,
-            category: newDoc.category,
-            uploadedAt: newDoc.uploadedAt,
-            year: newDoc.year,
-            org: newDoc.org || "",
-            recipient: newDoc.recipient || [],
-            sharedWith: newDoc.sharedWith || [],
-            warrantyStart: newDoc.warrantyStart || null,
-            warrantyExpiresAt: newDoc.warrantyExpiresAt || null,
-            autoDeleteAfter: newDoc.autoDeleteAfter || null,
-            mimeType: newDoc.mimeType,
-            hasFile: true,
-            owner: ownerEmail,
-            downloadURL: null,
-            deletedAt: null,
-            deletedBy: null,
-            lastModified: newDoc.lastModified,
-            lastModifiedBy: ownerEmail,
-            _trashed: false
-          };
+      //     const cleanDoc = {
+      //       id: newDoc.id,
+      //       title: newDoc.title,
+      //       originalFileName: newDoc.originalFileName,
+      //       category: newDoc.category,
+      //       uploadedAt: newDoc.uploadedAt,
+      //       year: newDoc.year,
+      //       org: newDoc.org || "",
+      //       recipient: newDoc.recipient || [],
+      //       sharedWith: newDoc.sharedWith || [],
+      //       warrantyStart: newDoc.warrantyStart || null,
+      //       warrantyExpiresAt: newDoc.warrantyExpiresAt || null,
+      //       autoDeleteAfter: newDoc.autoDeleteAfter || null,
+      //       mimeType: newDoc.mimeType,
+      //       hasFile: true,
+      //       owner: ownerEmail,
+      //       downloadURL: null,
+      //       deletedAt: null,
+      //       deletedBy: null,
+      //       lastModified: newDoc.lastModified,
+      //       lastModifiedBy: ownerEmail,
+      //       _trashed: false
+      //     };
 
-          await window.fs.setDoc(docRef, cleanDoc, { merge: true });
-          console.log("✅ Mirrored owner doc to Firestore:", newId);
-        } catch (e) {
-          console.error("❌ Firestore mirror failed:", e);
-        }
-      }
+      //     await window.fs.setDoc(docRef, cleanDoc, { merge: true });
+      //     console.log("✅ Mirrored owner doc to Firestore:", newId);
+      //   } catch (e) {
+      //     console.error("❌ Firestore mirror failed:", e);
+      //   }
+      // }
 
       // 📡 שמירה גם בשרת Render (PostgreSQL)
       try {
