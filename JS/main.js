@@ -3697,6 +3697,7 @@ renderPending();
   }
 
 if (editForm) {
+  console.log("✅ editForm found, adding event listener");
   editForm.addEventListener("submit", async (ev) => {
     ev.preventDefault();
 
@@ -3705,7 +3706,8 @@ if (editForm) {
       return;
     }
 
-const idx = window.allDocsData.findIndex(d => d.id === currentlyEditingDocId);    if (idx === -1) {
+    const idx = window.allDocsData.findIndex(d => d.id === currentlyEditingDocId);
+    if (idx === -1) {
       closeEditModal();
       return;
     }
@@ -3722,7 +3724,7 @@ const idx = window.allDocsData.findIndex(d => d.id === currentlyEditingDocId);  
 
     // מה נשלח לשרת (שמות כמו בעמודות של PostgreSQL)
     const updatesForBackend = {
-      title:              edit_title.value.trim() || allDocsData[idx].title,
+      title:              edit_title.value.trim() || window.allDocsData[idx].title,
       org:                edit_org.value.trim(),
       year:               edit_year.value.trim(),
       recipient:          updatedRecipients,
@@ -3734,22 +3736,30 @@ const idx = window.allDocsData.findIndex(d => d.id === currentlyEditingDocId);  
     };
 
     try {
+      console.log("🔍 Starting update...");
+      console.log("🔍 currentlyEditingDocId:", currentlyEditingDocId);
+      console.log("🔍 window.allDocsData exists?", !!window.allDocsData);
+      console.log("🔍 window.updateDocument exists?", !!window.updateDocument);
+      console.log("🔍 updatesForBackend:", updatesForBackend);
+      
       if (window.updateDocument) {
         await window.updateDocument(currentlyEditingDocId, updatesForBackend);
+        console.log("✅ Backend update completed");
       }
 
       // לעדכן גם את האובייקט בזיכרון בפורמט שה-UI משתמש בו
       window.allDocsData[idx].title = updatesForBackend.title;
-window.allDocsData[idx].org = updatesForBackend.org;
-      allDocsData[idx].year              = updatesForBackend.year;
-      allDocsData[idx].recipient         = updatedRecipients;
-      allDocsData[idx].category          = updatesForBackend.category;
-      allDocsData[idx].sharedWith        = updatedShared;
-      allDocsData[idx].warrantyStart     = updatesForBackend.warranty_start;
-      allDocsData[idx].warrantyExpiresAt = updatesForBackend.warranty_expires_at;
-      allDocsData[idx].autoDeleteAfter   = updatesForBackend.auto_delete_after;
+      window.allDocsData[idx].org = updatesForBackend.org;
+      window.allDocsData[idx].year              = updatesForBackend.year;
+      window.allDocsData[idx].recipient         = updatedRecipients;
+      window.allDocsData[idx].category          = updatesForBackend.category;
+      window.allDocsData[idx].sharedWith        = updatedShared;
+      window.allDocsData[idx].warrantyStart     = updatesForBackend.warranty_start;
+      window.allDocsData[idx].warrantyExpiresAt = updatesForBackend.warranty_expires_at;
+      window.allDocsData[idx].autoDeleteAfter   = updatesForBackend.auto_delete_after;
 
-      setUserDocs(userNow, allDocsData, allUsersData);
+      setUserDocs(userNow, window.allDocsData, allUsersData);
+      console.log("✅ Local data updated");
 
       const currentCat = categoryTitle.textContent;
       if (currentCat === "אחסון משותף") {
@@ -3768,6 +3778,8 @@ window.allDocsData[idx].org = updatesForBackend.org;
       closeEditModal();
     }
   });
+} else {
+  console.error("❌ editForm NOT FOUND!");
 }
 
 
