@@ -408,7 +408,21 @@ function watchMyDocs() {
     if (typeof setUserDocs === "function" && typeof allUsersData !== "undefined" && typeof userNow !== "undefined") {
       setUserDocs(userNow, allDocsData, allUsersData);
     }
-    // Re-render the current view
+    
+    // ✅ Re-render ONLY if we're NOT on home view
+    const homeView = document.getElementById("homeView");
+    const isOnHomeView = homeView && !homeView.classList.contains("hidden");
+    
+    if (isOnHomeView) {
+      // אנחנו במסך הבית - רק נרענן את התיקיות אם צריך, אבל לא נעבור למסך אחר
+      console.log("🏠 On home view, staying here");
+      if (typeof renderHome === "function") {
+        renderHome();
+      }
+      return;
+    }
+    
+    // Re-render the current view (רק אם לא במסך הבית)
     if (typeof categoryTitle !== "undefined" && categoryTitle?.textContent) {
       const current = categoryTitle.textContent;
       if (current === "אחסון משותף" && typeof openSharedView === "function") {
@@ -417,11 +431,7 @@ function watchMyDocs() {
         openRecycleView();
       } else if (typeof openCategoryView === "function") {
         openCategoryView(current);
-      } else if (typeof renderHome === "function") {
-        renderHome();
       }
-    } else if (typeof renderHome === "function") {
-      renderHome();
     }
   };
 
@@ -3839,7 +3849,7 @@ if (editForm) {
     }
 
     if (!dataUrl) {
-      showNotification("הקובץ הזה לא שמור / גדול מדי או נמחק מהמכשיר. אבל הפרטים נשמרו.", true);
+      //showNotification("הקובץ הזה לא שמור / גדול מדי או נמחק מהמכשיר. אבל הפרטים נשמרו.", true);
       return;
     }
 
@@ -3965,6 +3975,33 @@ if (typeof window.updateInviteStatus === "function") {
   };
   
   console.log("✅ updateInviteStatus overridden");
+}
+
+// ═══ Override createSharedFolder ═══
+
+if (typeof createSharedFolder === "function") {
+  const originalCreateSharedFolder = createSharedFolder;
+  
+  window.createSharedFolder = async function(folderName, invitedEmails = []) {
+    console.log("📁 Creating shared folder:", folderName);
+    
+    // קרא לפונקציה המקורית
+    const newFolder = await originalCreateSharedFolder(folderName, invitedEmails);
+    
+    // הוסף לרשימה המקומית
+    if (!window.mySharedFolders) window.mySharedFolders = [];
+    window.mySharedFolders.push(newFolder);
+    
+    // שמור ב-cache
+    saveSharedFoldersToCache(window.mySharedFolders);
+    console.log("✅ Saved new folder to cache");
+    
+    return newFolder;
+  };
+  
+  console.log("✅ createSharedFolder overridden");
+} else {
+  console.warn("⚠️ createSharedFolder not found, cannot override");
 }
 
 // ═══ טעינה אוטומטית בהתחלה ═══
