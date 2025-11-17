@@ -1,19 +1,17 @@
 // ═══════════════════════════════════════════════════════════════════
-//     api-bridge-fixed.js - תיקון מלא לכל הבעיות!
+//        api-bridge-ULTIMATE-FIX.js - תיקון Authentication!
 // ═══════════════════════════════════════════════════════════════════
 
 const API_BASE = (location.hostname === 'localhost')
   ? 'http://localhost:8787'
-  : 'https://eco-files.onrender.com';
+  : 'https://eco-files.onrender.com'; // 👈 שני את זה ל-URL שלך!
 
-console.log("🔗 API Bridge (COMPLETE FIX) starting...");
+console.log("🔗 API Bridge (ULTIMATE) starting...");
 console.log("📍 API URL:", API_BASE);
 
-// ═══════════════════════════════════════════════════════════════════
-//                         AUTHENTICATION
-// ═══════════════════════════════════════════════════════════════════
-
+// ═══ Helper: Get user email ═══
 function getCurrentUser() {
+  // Try multiple ways to get the email
   if (typeof getCurrentUserEmail === "function") {
     const email = getCurrentUserEmail();
     if (email) return email.toLowerCase().trim();
@@ -31,34 +29,38 @@ function getCurrentUser() {
   return null;
 }
 
+// ═══ Helper: Get auth headers ═══
 async function getAuthHeaders() {
   const headers = {};
-  const userEmail = getCurrentUser();
   
+  // Get user email
+  const userEmail = getCurrentUser();
   if (!userEmail) {
     console.error("❌ No user email for headers!");
     return headers;
   }
   
   console.log("👤 User for request:", userEmail);
+  
+  // ✅ ALWAYS add X-Dev-Email (this is what the backend expects!)
   headers['X-Dev-Email'] = userEmail;
   
+  // Try to add Firebase token too (if available)
   if (window.auth?.currentUser) {
     try {
       const token = await window.auth.currentUser.getIdToken();
       headers['Authorization'] = `Bearer ${token}`;
       console.log("✅ Added Firebase token");
     } catch (err) {
-      console.warn('⚠️ Could not get Firebase token:', err.message);
+      console.warn('⚠️ Could not get Firebase token (using email only):', err.message);
     }
   }
   
+  console.log("📤 Headers:", Object.keys(headers));
   return headers;
 }
 
-// ═══════════════════════════════════════════════════════════════════
-//                         DOCUMENTS API
-// ═══════════════════════════════════════════════════════════════════
+// ═══ 1. Load Documents ═══
 
 async function loadDocuments() {
   const me = getCurrentUser();
@@ -71,8 +73,9 @@ async function loadDocuments() {
 
   try {
     const headers = await getAuthHeaders();
+    
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
     
     const res = await fetch(`${API_BASE}/api/docs`, { 
       headers,
@@ -88,10 +91,9 @@ async function loadDocuments() {
     }
     
     const list = await res.json();
-    console.log(`✅ Loaded ${list.length} documents from server`);
+    console.log(`✅ Loaded ${list.length} documents from Render`);
     
-    // Transform to match expected format
-    const docs = list.map(d => ({
+    return list.map(d => ({
       id: d.id,
       title: d.title || d.file_name,
       fileName: d.file_name,
@@ -109,28 +111,18 @@ async function loadDocuments() {
       _trashed: d.trashed || false,
       deletedAt: d.deleted_at,
       deletedBy: d.deleted_by,
-      sharedFolderId: d.shared_folder_id || null,
       hasFile: true,
       downloadURL: `${API_BASE}/api/docs/${d.id}/download`
     }));
     
-    // Update global cache
-    window.allDocsData = docs;
-    
-    // Sync to Firestore in background
-    syncDocsToFirestore(docs).catch(err => 
-      console.warn("⚠️ Firestore sync failed:", err)
-    );
-    
-    return docs;
-    
   } catch (error) {
-    console.error('❌ Server API failed:', error.message);
+    console.error('❌ Render API failed:', error.message);
     console.log("🔄 Falling back to Firestore...");
     return await loadFromFirestore(me);
   }
 }
 
+// Helper: Load from Firestore
 async function loadFromFirestore(userEmail) {
   if (!window.db || !window.fs) {
     console.error("❌ Firebase not available");
@@ -160,27 +152,18 @@ async function loadFromFirestore(userEmail) {
   }
 }
 
-async function syncDocsToFirestore(docs) {
-  if (!window.db || !window.fs) return;
-  
-  try {
-    for (const doc of docs) {
-      const docRef = window.fs.doc(window.db, "documents", doc.id);
-      await window.fs.setDoc(docRef, doc, { merge: true });
-    }
-    console.log("✅ Synced", docs.length, "documents to Firestore");
-  } catch (err) {
-    console.warn("⚠️ Firestore sync failed:", err);
-  }
-}
+// ═══ 2. Upload Document ═══
 
 async function uploadDocument(file, metadata = {}) {
   const me = getCurrentUser();
   if (!me) {
-    throw new Error("Not logged in");
+    const err = new Error("Not logged in");
+    console.error("❌", err);
+    throw err;
   }
 
   console.log("📤 Uploading file:", file.name);
+  console.log("📤 User:", me);
 
   try {
     const fd = new FormData();
@@ -190,13 +173,13 @@ async function uploadDocument(file, metadata = {}) {
     fd.append('year', metadata.year ?? String(new Date().getFullYear()));
     fd.append('org', metadata.org ?? '');
     fd.append('recipient', JSON.stringify(Array.isArray(metadata.recipient) ? metadata.recipient : []));
-    fd.append('sharedFolderId', metadata.sharedFolderId || '');
     
     if (metadata.warrantyStart) fd.append('warrantyStart', metadata.warrantyStart);
     if (metadata.warrantyExpiresAt) fd.append('warrantyExpiresAt', metadata.warrantyExpiresAt);
     if (metadata.autoDeleteAfter) fd.append('autoDeleteAfter', metadata.autoDeleteAfter);
 
     const headers = await getAuthHeaders();
+    console.log("📤 Uploading to:", `${API_BASE}/api/docs`);
     
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
@@ -230,7 +213,6 @@ async function uploadDocument(file, metadata = {}) {
       org: metadata.org ?? '',
       recipient: metadata.recipient || [],
       sharedWith: metadata.sharedWith || [],
-      sharedFolderId: metadata.sharedFolderId || null,
       owner: me,
       uploadedAt: result.uploaded_at || Date.now(),
       lastModified: result.uploaded_at || Date.now(),
@@ -241,8 +223,7 @@ async function uploadDocument(file, metadata = {}) {
     
     // Sync to Firestore
     if (window.db && window.fs) {
-      const docRef = window.fs.doc(window.db, "documents", doc.id);
-      await window.fs.setDoc(docRef, doc, { merge: true }).catch(err => 
+      syncToFirestore(result.id, doc).catch(err => 
         console.warn("⚠️ Firestore sync failed:", err)
       );
     }
@@ -260,11 +241,24 @@ async function uploadDocument(file, metadata = {}) {
   }
 }
 
+// Helper: Sync to Firestore
+async function syncToFirestore(docId, docData) {
+  if (!window.db || !window.fs) return;
+  
+  try {
+    const docRef = window.fs.doc(window.db, "documents", docId);
+    await window.fs.setDoc(docRef, docData, { merge: true });
+    console.log("✅ Synced to Firestore:", docId);
+  } catch (err) {
+    console.warn("⚠️ Firestore sync failed:", err);
+  }
+}
+
+// ═══ 3. Update Document ═══
+
 async function updateDocument(docId, updates) {
   const me = getCurrentUser();
   if (!me) throw new Error("Not logged in");
-  
-  console.log("📝 Updating document:", docId, updates);
   
   try {
     const headers = await getAuthHeaders();
@@ -287,15 +281,14 @@ async function updateDocument(docId, updates) {
       throw new Error(`Update failed: ${text}`);
     }
     
-    console.log('✅ Updated on server:', docId);
+    console.log('✅ Updated:', docId);
     
     // Update Firestore
     if (window.db && window.fs) {
       const docRef = window.fs.doc(window.db, "documents", docId);
       await window.fs.updateDoc(docRef, {
         ...updates,
-        lastModified: Date.now(),
-        lastModifiedBy: me
+        lastModified: Date.now()
       }).catch(err => console.warn("⚠️ Firestore update failed:", err));
     }
     
@@ -303,10 +296,7 @@ async function updateDocument(docId, updates) {
     if (Array.isArray(window.allDocsData)) {
       const idx = window.allDocsData.findIndex(d => d.id === docId);
       if (idx >= 0) {
-        Object.assign(window.allDocsData[idx], updates, { 
-          lastModified: Date.now(),
-          lastModifiedBy: me
-        });
+        Object.assign(window.allDocsData[idx], updates, { lastModified: Date.now() });
       }
     }
     
@@ -317,12 +307,15 @@ async function updateDocument(docId, updates) {
   }
 }
 
+// ═══ 4. Trash/Restore ═══
+
 async function markDocTrashed(docId, trashed) {
   const me = getCurrentUser();
   if (!me) throw new Error("Not logged in");
 
   let backendOk = false;
 
+  // קודם מנסים לדבר עם השרת – אבל לא מפילים את כל הפעולה אם יש בעיה
   try {
     const headers = await getAuthHeaders();
     headers["Content-Type"] = "application/json";
@@ -341,16 +334,26 @@ async function markDocTrashed(docId, trashed) {
 
     if (!res.ok) {
       const text = await res.text();
-      console.warn("⚠️ Trash failed on backend:", text);
+      console.warn("⚠️ Trash failed on backend, continuing locally:", text);
     } else {
       backendOk = true;
-      console.log('✅ Trashed on server:', docId);
     }
   } catch (error) {
-    console.warn("⚠️ Trash request failed:", error);
+    console.warn(
+      "⚠️ Trash request failed (network/CORS), continuing locally:",
+      error
+    );
   }
 
-  // Always update locally
+  // 🧠 מכאן והלאה – תמיד נעדכן לוקאלית, גם אם השרת נחנק
+
+  console.log(
+    `✅ ${trashed ? "Trashed" : "Restored"} locally:`,
+    docId,
+    backendOk ? "(backend OK)" : "(backend FAILED)"
+  );
+
+  // Update Firestore
   if (window.db && window.fs) {
     try {
       const docRef = window.fs.doc(window.db, "documents", docId);
@@ -363,6 +366,7 @@ async function markDocTrashed(docId, trashed) {
     }
   }
 
+  // Update local cache
   if (Array.isArray(window.allDocsData)) {
     const idx = window.allDocsData.findIndex((d) => d.id === docId);
     if (idx >= 0) {
@@ -371,9 +375,12 @@ async function markDocTrashed(docId, trashed) {
     }
   }
 
-  console.log(`✅ ${trashed ? "Trashed" : "Restored"} locally:`, docId);
   return { backendOk };
 }
+
+
+
+// ═══ 5. Delete Forever ═══
 
 async function deleteDocForever(docId) {
   const me = getCurrentUser();
@@ -381,6 +388,7 @@ async function deleteDocForever(docId) {
 
   let backendOk = false;
 
+  // מנסים למחוק בשרת – אבל לא נותנים לזה להפיל אותנו
   try {
     const headers = await getAuthHeaders();
 
@@ -396,19 +404,31 @@ async function deleteDocForever(docId) {
     clearTimeout(timeoutId);
 
     if (res.status === 404) {
-      console.warn("⚠️ Doc not found on server, deleting locally");
+      const text = await res.text();
+      console.warn(
+        "⚠️ Backend says doc not found or access denied on delete. Removing locally:",
+        text
+      );
     } else if (!res.ok) {
       const text = await res.text();
-      console.warn("⚠️ Delete failed on backend:", text);
+      console.warn("⚠️ Delete failed on backend, deleting locally:", text);
     } else {
       backendOk = true;
-      console.log('✅ Deleted on server:', docId);
     }
   } catch (error) {
-    console.warn("⚠️ Delete request failed:", error);
+    console.warn(
+      "⚠️ Delete request failed (network/CORS), deleting locally:",
+      error
+    );
   }
 
-  // Always delete locally
+  console.log(
+    "✅ Deleted locally:",
+    docId,
+    backendOk ? "(backend OK)" : "(backend FAILED)"
+  );
+
+  // Firestore
   if (window.db && window.fs) {
     try {
       const docRef = window.fs.doc(window.db, "documents", docId);
@@ -418,6 +438,7 @@ async function deleteDocForever(docId) {
     }
   }
 
+  // cache לוקאלי
   if (Array.isArray(window.allDocsData)) {
     const idx = window.allDocsData.findIndex((d) => d.id === docId);
     if (idx >= 0) {
@@ -425,32 +446,22 @@ async function deleteDocForever(docId) {
     }
   }
 
-  console.log("✅ Deleted locally:", docId);
   return { backendOk };
 }
+
+
+// ═══ 6. Download ═══
 
 async function downloadDocument(docId, fileName) {
   const me = getCurrentUser();
   if (!me) throw new Error("Not logged in");
   
-  console.log("📥 Downloading document:", docId);
-  
   try {
     const headers = await getAuthHeaders();
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
-    
-    const res = await fetch(`${API_BASE}/api/docs/${docId}/download`, { 
-      headers,
-      signal: controller.signal 
-    });
-    
-    clearTimeout(timeoutId);
+    const res = await fetch(`${API_BASE}/api/docs/${docId}/download`, { headers });
     
     if (!res.ok) {
-      console.error(`❌ Download failed: ${res.status}`);
-      throw new Error(`Download failed: ${res.status}`);
+      throw new Error('Download failed');
     }
     
     const blob = await res.blob();
@@ -470,342 +481,14 @@ async function downloadDocument(docId, fileName) {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════
-//                    SHARED FOLDERS API
-// ═══════════════════════════════════════════════════════════════════
+// ═══ Expose Globally ═══
 
-async function loadSharedFolders() {
-  const me = getCurrentUser();
-  if (!me) {
-    console.error('❌ Cannot load folders - not logged in');
-    return [];
-  }
-
-  console.log("📂 Loading shared folders...");
-
-  try {
-    const headers = await getAuthHeaders();
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-    
-    const res = await fetch(`${API_BASE}/api/shared-folders`, { 
-      headers,
-      signal: controller.signal 
-    });
-    
-    clearTimeout(timeoutId);
-    
-    if (!res.ok) {
-      const text = await res.text();
-      console.error(`❌ API error ${res.status}:`, text);
-      throw new Error(`API returned ${res.status}`);
-    }
-    
-    const folders = await res.json();
-    console.log(`✅ Loaded ${folders.length} shared folders from server`);
-    
-    // Sync to Firestore
-    syncFoldersToFirestore(folders).catch(err => 
-      console.warn("⚠️ Firestore folder sync failed:", err)
-    );
-    
-    return folders;
-    
-  } catch (error) {
-    console.error('❌ Server API failed:', error.message);
-    console.log("🔄 Falling back to Firestore...");
-    return await loadFoldersFromFirestore(me);
-  }
-}
-
-async function loadFoldersFromFirestore(userEmail) {
-  if (!window.db || !window.fs) {
-    console.error("❌ Firebase not available");
-    return [];
-  }
-  
-  try {
-    const col = window.fs.collection(window.db, "sharedFolders");
-    const q = window.fs.query(
-      col, 
-      window.fs.where("members", "array-contains", userEmail)
-    );
-    
-    const snap = await window.fs.getDocs(q);
-    const folders = [];
-    snap.forEach(doc => {
-      folders.push({ id: doc.id, ...doc.data() });
-    });
-    
-    console.log(`✅ Loaded ${folders.length} folders from Firestore`);
-    return folders;
-  } catch (err) {
-    console.error("❌ Firestore folder load failed:", err);
-    return [];
-  }
-}
-
-async function syncFoldersToFirestore(folders) {
-  if (!window.db || !window.fs) return;
-  
-  try {
-    for (const folder of folders) {
-      const folderRef = window.fs.doc(window.db, "sharedFolders", folder.id);
-      await window.fs.setDoc(folderRef, folder, { merge: true });
-    }
-    console.log("✅ Synced", folders.length, "folders to Firestore");
-  } catch (err) {
-    console.warn("⚠️ Firestore folder sync failed:", err);
-  }
-}
-
-async function createSharedFolder(name, description = '') {
-  const me = getCurrentUser();
-  if (!me) throw new Error("Not logged in");
-  
-  console.log("📁 Creating shared folder:", name);
-  
-  try {
-    const headers = await getAuthHeaders();
-    headers['Content-Type'] = 'application/json';
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-    
-    const res = await fetch(`${API_BASE}/api/shared-folders`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ name, description }),
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId);
-    
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Create folder failed: ${text}`);
-    }
-    
-    const folder = await res.json();
-    console.log('✅ Created folder:', folder.id);
-    
-    // Sync to Firestore
-    if (window.db && window.fs) {
-      const folderRef = window.fs.doc(window.db, "sharedFolders", folder.id);
-      await window.fs.setDoc(folderRef, folder).catch(err => 
-        console.warn("⚠️ Firestore sync failed:", err)
-      );
-    }
-    
-    return folder;
-    
-  } catch (error) {
-    console.error('❌ Create folder error:', error);
-    throw error;
-  }
-}
-
-async function updateSharedFolder(folderId, updates) {
-  const me = getCurrentUser();
-  if (!me) throw new Error("Not logged in");
-  
-  console.log("📝 Updating folder:", folderId, updates);
-  
-  try {
-    const headers = await getAuthHeaders();
-    headers['Content-Type'] = 'application/json';
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-    
-    const res = await fetch(`${API_BASE}/api/shared-folders/${folderId}`, {
-      method: 'PUT',
-      headers,
-      body: JSON.stringify(updates),
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId);
-    
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Update folder failed: ${text}`);
-    }
-    
-    console.log('✅ Updated folder on server:', folderId);
-    
-    // Update Firestore
-    if (window.db && window.fs) {
-      const folderRef = window.fs.doc(window.db, "sharedFolders", folderId);
-      await window.fs.updateDoc(folderRef, updates).catch(err => 
-        console.warn("⚠️ Firestore update failed:", err)
-      );
-    }
-    
-    return await res.json();
-  } catch (error) {
-    console.error('❌ Update folder error:', error);
-    throw error;
-  }
-}
-
-async function deleteSharedFolder(folderId) {
-  const me = getCurrentUser();
-  if (!me) throw new Error("Not logged in");
-  
-  console.log("🗑️ Deleting folder:", folderId);
-  
-  try {
-    const headers = await getAuthHeaders();
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-    
-    const res = await fetch(`${API_BASE}/api/shared-folders/${folderId}`, {
-      method: 'DELETE',
-      headers,
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId);
-    
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Delete folder failed: ${text}`);
-    }
-    
-    console.log('✅ Deleted folder on server:', folderId);
-    
-    // Delete from Firestore
-    if (window.db && window.fs) {
-      const folderRef = window.fs.doc(window.db, "sharedFolders", folderId);
-      await window.fs.deleteDoc(folderRef).catch(err => 
-        console.warn("⚠️ Firestore delete failed:", err)
-      );
-    }
-    
-    return { success: true };
-  } catch (error) {
-    console.error('❌ Delete folder error:', error);
-    throw error;
-  }
-}
-
-async function addMemberToFolder(folderId, email) {
-  const me = getCurrentUser();
-  if (!me) throw new Error("Not logged in");
-  
-  console.log("👥 Adding member to folder:", folderId, email);
-  
-  try {
-    const headers = await getAuthHeaders();
-    headers['Content-Type'] = 'application/json';
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-    
-    const res = await fetch(`${API_BASE}/api/shared-folders/${folderId}/members`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ email: email.toLowerCase().trim() }),
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId);
-    
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Add member failed: ${text}`);
-    }
-    
-    console.log('✅ Added member on server');
-    
-    // Update Firestore
-    if (window.db && window.fs) {
-      const folderRef = window.fs.doc(window.db, "sharedFolders", folderId);
-      await window.fs.updateDoc(folderRef, {
-        members: window.fs.arrayUnion(email.toLowerCase().trim())
-      }).catch(err => console.warn("⚠️ Firestore update failed:", err));
-    }
-    
-    return await res.json();
-  } catch (error) {
-    console.error('❌ Add member error:', error);
-    throw error;
-  }
-}
-
-async function removeMemberFromFolder(folderId, email) {
-  const me = getCurrentUser();
-  if (!me) throw new Error("Not logged in");
-  
-  console.log("👥 Removing member from folder:", folderId, email);
-  
-  try {
-    const headers = await getAuthHeaders();
-    headers['Content-Type'] = 'application/json';
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-    
-    const res = await fetch(`${API_BASE}/api/shared-folders/${folderId}/members`, {
-      method: 'DELETE',
-      headers,
-      body: JSON.stringify({ email: email.toLowerCase().trim() }),
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId);
-    
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Remove member failed: ${text}`);
-    }
-    
-    console.log('✅ Removed member on server');
-    
-    // Update Firestore - need to load, modify, and save since arrayRemove doesn't work well
-    if (window.db && window.fs) {
-      try {
-        const folderRef = window.fs.doc(window.db, "sharedFolders", folderId);
-        const folderSnap = await window.fs.getDoc(folderRef);
-        if (folderSnap.exists()) {
-          const data = folderSnap.data();
-          const members = (data.members || []).filter(m => m !== email.toLowerCase().trim());
-          await window.fs.updateDoc(folderRef, { members });
-        }
-      } catch (err) {
-        console.warn("⚠️ Firestore update failed:", err);
-      }
-    }
-    
-    return await res.json();
-  } catch (error) {
-    console.error('❌ Remove member error:', error);
-    throw error;
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//                    EXPOSE GLOBALLY
-// ═══════════════════════════════════════════════════════════════════
-
-// Documents
 window.loadDocuments = loadDocuments;
 window.uploadDocument = uploadDocument;
 window.updateDocument = updateDocument;
 window.markDocTrashed = markDocTrashed;
 window.deleteDocForever = deleteDocForever;
 window.downloadDocument = downloadDocument;
-
-// Shared Folders
-window.loadSharedFolders = loadSharedFolders;
-window.createSharedFolder = createSharedFolder;
-window.updateSharedFolder = updateSharedFolder;
-window.deleteSharedFolder = deleteSharedFolder;
-window.addMemberToFolder = addMemberToFolder;
-window.removeMemberFromFolder = removeMemberFromFolder;
 
 // Debug helper
 window.testAuth = async function() {
@@ -817,6 +500,5 @@ window.testAuth = async function() {
   return { user, headers };
 };
 
-console.log('✅ API Bridge (COMPLETE FIX) loaded!');
+console.log('✅ API Bridge (ULTIMATE FIX) loaded!');
 console.log('💡 Debug: Run testAuth() to check authentication');
-console.log('📂 Shared folders support enabled');

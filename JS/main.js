@@ -2777,6 +2777,28 @@ if (fileInput) {
         }
       }
 
+      // 📡 שמירה גם בשרת Render (PostgreSQL)
+      try {
+        if (window.uploadDocument) {
+          await window.uploadDocument(file, {
+            title: fileName,
+            category: guessedCategory,
+            year,
+            org: "",
+            recipient: newDoc.recipient || [],
+            warrantyStart,
+            warrantyExpiresAt,
+            autoDeleteAfter,
+          });
+        } else {
+          console.warn("⚠️ window.uploadDocument לא קיים");
+        }
+      } catch (e) {
+        console.error("❌ שגיאה בשמירה ל-Render:", e);
+        // לא מפילים את כל התהליך – כבר נשמר בפיירבייס
+      }
+
+
       // הודעה יפה
       let niceCat = guessedCategory && guessedCategory.trim()
         ? guessedCategory.trim()
