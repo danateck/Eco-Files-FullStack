@@ -108,48 +108,48 @@ function isFirebaseAvailable() {
 // ============================================
 // v9 modular version
 // v9 modular version
-async function loadDocuments() {
-  const me = getCurrentUserEmail();
-  console.log("📥 loadDocuments called for:", me);
+// async function loadDocuments() {
+//   const me = getCurrentUserEmail();
+//   console.log("📥 loadDocuments called for:", me);
   
-  if (!me) {
-    console.warn("❌ No user email, cannot load documents");
-    return [];
-  }
+//   if (!me) {
+//     console.warn("❌ No user email, cannot load documents");
+//     return [];
+//   }
   
-  if (!isFirebaseAvailable()) {
-    console.warn("❌ Firebase unavailable, cannot load documents");
-    return [];
-  }
+//   if (!isFirebaseAvailable()) {
+//     console.warn("❌ Firebase unavailable, cannot load documents");
+//     return [];
+//   }
 
-  const col = window.fs.collection(window.db, "documents");
-  const qOwned  = window.fs.query(col, window.fs.where("owner", "==", me));
-  const qShared = window.fs.query(col, window.fs.where("sharedWith", "array-contains", me));
+//   const col = window.fs.collection(window.db, "documents");
+//   const qOwned  = window.fs.query(col, window.fs.where("owner", "==", me));
+//   const qShared = window.fs.query(col, window.fs.where("sharedWith", "array-contains", me));
 
-  const [ownedSnap, sharedSnap] = await Promise.all([
-    window.fs.getDocs(qOwned),
-    window.fs.getDocs(qShared),
-  ]);
+//   const [ownedSnap, sharedSnap] = await Promise.all([
+//     window.fs.getDocs(qOwned),
+//     window.fs.getDocs(qShared),
+//   ]);
 
-  const map = new Map();
-  ownedSnap.forEach(d => {
-    const data = { id: d.id, ...d.data() };
-    console.log("📄 Owned document:", data.title || data.fileName, "ID:", d.id);
-    map.set(d.id, data);
-  });
+//   const map = new Map();
+//   ownedSnap.forEach(d => {
+//     const data = { id: d.id, ...d.data() };
+//     console.log("📄 Owned document:", data.title || data.fileName, "ID:", d.id);
+//     map.set(d.id, data);
+//   });
   
-  sharedSnap.forEach(d => { 
-    if (!map.has(d.id)) {
-      const data = { id: d.id, ...d.data() };
-      console.log("📄 Shared document:", data.title || data.fileName, "ID:", d.id);
-      map.set(d.id, data);
-    }
-  });
+//   sharedSnap.forEach(d => { 
+//     if (!map.has(d.id)) {
+//       const data = { id: d.id, ...d.data() };
+//       console.log("📄 Shared document:", data.title || data.fileName, "ID:", d.id);
+//       map.set(d.id, data);
+//     }
+//   });
 
-  const result = Array.from(map.values());
-  console.log("✅ Total documents loaded:", result.length);
-  return result;
-}
+//   const result = Array.from(map.values());
+//   console.log("✅ Total documents loaded:", result.length);
+//   return result;
+// }
 
 
 window.bootFromCloud = async function() {
