@@ -1526,7 +1526,7 @@ function buildDocCard(doc, mode) {
 
   const openFileButtonHtml = `
     <button class="doc-open-link" data-open-id="${doc.id}">
-      פתיחת קובץ
+      📥 הורדת קובץ
     </button>
   `;
 
@@ -3839,7 +3839,7 @@ if (editForm) {
     }
 
     if (!dataUrl) {
-      //showNotification("הקובץ הזה לא שמור / גדול מדי או נמחק מהמכשיר. אבל הפרטים נשמרו.", true);
+      showNotification("הקובץ הזה לא שמור / גדול מדי או נמחק מהמכשיר. אבל הפרטים נשמרו.", true);
       return;
     }
 
@@ -4168,15 +4168,25 @@ async function restoreDocument(id) {
 
 // ═══ תיקון 3: צפייה/פתיחת קובץ ═══
 async function viewDocument(doc) {
-  console.log("👁️ Viewing:", doc.title);
+  console.log("👁️ Downloading:", doc.title);
   
   try {
+    // הצגת הודעה שמתחיל להוריד
+    if (typeof showNotification === "function") {
+      showNotification("מוריד את הקובץ... 📥");
+    }
+    
     // תמיד קודם מנסים דרך Render (עם headers)
     if (window.downloadDocument && typeof window.downloadDocument === "function") {
       await window.downloadDocument(
         doc.id,
         doc.fileName || doc.title || "document"
       );
+      
+      // הודעת הצלחה
+      if (typeof showNotification === "function") {
+        showNotification("הקובץ הורד בהצלחה! ✅");
+      }
       return;
     }
 
@@ -4189,13 +4199,17 @@ async function viewDocument(doc) {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
+      
+      if (typeof showNotification === "function") {
+        showNotification("הקובץ הורד בהצלחה! ✅");
+      }
       return;
     }
 
-    showNotification("הקובץ לא זמין לצפייה", true);
+    showNotification("הקובץ לא זמין להורדה", true);
   } catch (error) {
-    console.error("❌ View error:", error);
-    showNotification("שגיאה בפתיחת הקובץ", true);
+    console.error("❌ Download error:", error);
+    showNotification("שגיאה בהורדת הקובץ", true);
   }
 }
 

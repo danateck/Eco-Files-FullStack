@@ -536,23 +536,29 @@ async function downloadDocument(docId, fileName) {
     const blob = await res.blob();
     const url = window.URL.createObjectURL(blob);
 
-    // אם זה PDF – נפתח בטאב חדש (מציג יפה)
-    if (contentType.includes("pdf")) {
-      window.open(url, "_blank");
-    } else {
-      // לכל מקרה, נשים סיומת .pdf אם אין סיומת
-      let safeName = fileName || "document.pdf";
-      if (!safeName.toLowerCase().includes(".")) {
+    // 💾 תמיד נוריד את הקובץ (גם PDF) - עובד טוב יותר במובייל!
+    let safeName = fileName || "document";
+    
+    // אם אין סיומת, נוסיף לפי סוג הקובץ
+    if (!safeName.includes(".")) {
+      if (contentType.includes("pdf")) {
         safeName += ".pdf";
+      } else if (contentType.includes("image")) {
+        const ext = contentType.split("/")[1]?.split(";")[0] || "jpg";
+        safeName += `.${ext}`;
+      } else if (contentType.includes("word") || contentType.includes("document")) {
+        safeName += ".docx";
+      } else {
+        safeName += ".file";
       }
-
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = safeName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
     }
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = safeName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 
     window.URL.revokeObjectURL(url);
     console.log("✅ Downloaded:", docId);
