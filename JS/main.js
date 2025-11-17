@@ -99,6 +99,77 @@ function getCurrentUserEmail() {
   return raw.trim().toLowerCase();
 }
 
+
+// ═══ פונקציות עיצוב תאריכים ═══
+
+function formatDate(dateValue) {
+  if (!dateValue) return "-";
+  
+  try {
+    let date;
+    
+    // המרה לאובייקט Date
+    if (typeof dateValue === 'number') {
+      date = new Date(dateValue);
+    } else if (typeof dateValue === 'string') {
+      date = new Date(dateValue);
+    } else if (dateValue instanceof Date) {
+      date = dateValue;
+    } else {
+      return "-";
+    }
+    
+    // בדיקת תקינות
+    if (isNaN(date.getTime())) {
+      return "-";
+    }
+    
+    // פורמט: DD/MM/YYYY HH:MM
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
+  } catch (e) {
+    console.error("Error formatting date:", e);
+    return "-";
+  }
+}
+
+function formatDateShort(dateValue) {
+  if (!dateValue) return "-";
+  
+  try {
+    let date;
+    
+    if (typeof dateValue === 'number') {
+      date = new Date(dateValue);
+    } else if (typeof dateValue === 'string') {
+      date = new Date(dateValue);
+    } else if (dateValue instanceof Date) {
+      date = dateValue;
+    } else {
+      return "-";
+    }
+    
+    if (isNaN(date.getTime())) {
+      return "-";
+    }
+    
+    // פורמט: DD/MM/YYYY (בלי שעה)
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    
+    return `${day}/${month}/${year}`;
+  } catch (e) {
+    console.error("Error formatting date:", e);
+    return "-";
+  }
+
+}
 function isFirebaseAvailable() {
   return !!(window.db && window.fs && typeof window.fs.collection === "function");
 }
@@ -652,7 +723,7 @@ async function uploadDocumentWithStorage(file, metadata = {}, forcedId=null) {
     fileName: file.name,
     fileType: file.type,
     fileSize: file.size,
-    uploadedAt: Date.now(),
+uploadedAt: new Date().toISOString(),
     downloadURL: downloadURL || null,
     deletedAt: null,
     deletedBy: null,
@@ -967,7 +1038,7 @@ async function syncAllLocalUsersToFirestore() {
     if (success) count++;
   }
   
-  showNotification(`✅ ${count} משתמשים סונכרנו ל-Firestore`);
+  //showNotification(`✅ ${count} משתמשים סונכרנו ל-Firestore`);
 }
 
  syncAllLocalUsersToFirestore();
@@ -1444,10 +1515,10 @@ function buildDocCard(doc, mode) {
   const warrantyBlock =
     (doc.category && doc.category.includes("אחריות")) ?
     `
-      <span>הועלה ב: ${doc.uploadedAt || "-"}</span>
-      <span>תאריך קנייה: ${doc.warrantyStart || "-"}</span>
-      <span>תוקף אחריות עד: ${doc.warrantyExpiresAt || "-"}</span>
-      <span>מחיקה אוטומטית אחרי: ${doc.autoDeleteAfter || "-"}</span>
+      <span>הועלה ב: ${formatDate(doc.uploadedAt)}</span>
+<span>תאריך קנייה: ${formatDateShort(doc.warrantyStart)}</span>
+<span>תוקף אחריות עד: ${formatDateShort(doc.warrantyExpiresAt)}</span>
+<span>מחיקה אוטומטית אחרי: ${formatDateShort(doc.autoDeleteAfter)}</span>
     `
     : `
       <span>הועלה ב: ${doc.uploadedAt || "-"}</span>
