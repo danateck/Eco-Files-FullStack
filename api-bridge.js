@@ -243,8 +243,8 @@ async function uploadDocument(file, metadata = {}) {
   recipient: metadata.recipient || [],
   sharedWith: metadata.sharedWith || [],
   owner: me,
-  uploadedAt: result.uploaded_at || Date.now(),
-  lastModified: result.uploaded_at || Date.now(),
+  uploadedAt: result.uploaded_at || new Date().toISOString(),
+  lastModified: result.uploaded_at || new Date().toISOString(),
   _trashed: false,
   hasFile: true,
   downloadURL: `${API_BASE}/api/docs/${result.id}/download`,
@@ -254,7 +254,6 @@ async function uploadDocument(file, metadata = {}) {
   warrantyExpiresAt: metadata.warrantyExpiresAt || null,
   autoDeleteAfter: metadata.autoDeleteAfter || null
 };
-
 
     
     // Sync to Firestore
