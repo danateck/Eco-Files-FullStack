@@ -112,14 +112,15 @@ async function loadDocuments() {
   deletedAt: d.deleted_at,
   deletedBy: d.deleted_by,
 
-  // ✅ השדות החדשים:
-  warrantyStart: d.warranty_start || null,
-  warrantyExpiresAt: d.warranty_expires_at || null,
-  autoDeleteAfter: d.auto_delete_after || null,
+  // ⭐ שדות אחריות מהשרת:
+  warrantyStart: d.warranty_start || d.warrantyStart || null,
+  warrantyExpiresAt: d.warranty_expires_at || d.warrantyExpiresAt || null,
+  autoDeleteAfter: d.auto_delete_after || d.autoDeleteAfter || null,
 
   hasFile: true,
   downloadURL: `${API_BASE}/api/docs/${d.id}/download`
 }));
+
 
     
   } catch (error) {
@@ -223,15 +224,15 @@ async function uploadDocument(file, metadata = {}) {
   uploadedAt: result.uploaded_at || Date.now(),
   lastModified: result.uploaded_at || Date.now(),
   _trashed: false,
-
-  // ✅ שדות אחריות מה-metadata:
-  warrantyStart: metadata.warrantyStart ?? null,
-  warrantyExpiresAt: metadata.warrantyExpiresAt ?? null,
-  autoDeleteAfter: metadata.autoDeleteAfter ?? null,
-
   hasFile: true,
-  downloadURL: `${API_BASE}/api/docs/${result.id}/download`
+  downloadURL: `${API_BASE}/api/docs/${result.id}/download`,
+
+  // ⭐ גם במסמך המקומי אחרי העלאה:
+  warrantyStart: metadata.warrantyStart || null,
+  warrantyExpiresAt: metadata.warrantyExpiresAt || null,
+  autoDeleteAfter: metadata.autoDeleteAfter || null
 };
+
 
     
     // Sync to Firestore
