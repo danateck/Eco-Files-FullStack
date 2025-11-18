@@ -997,6 +997,13 @@ async function syncUserToFirestore(email, password = "") {
 
 async function checkUserExistsInFirestore(email) {
   const key = email.trim().toLowerCase();
+  
+  // בדיקה שיש email תקין
+  if (!key || key === "") {
+    console.warn("checkUserExistsInFirestore: empty email");
+    return false;
+  }
+  
   console.log("בודק משתמש ב-Firestore:", key);
   
   // אם Firebase לא זמין, בדוק ב-localStorage
@@ -1302,6 +1309,13 @@ async function addMemberToSharedFolder(folderId, memberEmail, folderName, ownerE
 async function fetchFolderMembersFromOwner(ownerEmail, folderId) {
   if (!isFirebaseAvailable()) return [];
   const ownerKey = normalizeEmail(ownerEmail || "");
+  
+  // בדיקה שיש owner email תקין
+  if (!ownerKey || ownerKey.trim() === "") {
+    console.warn("fetchFolderMembersFromOwner: no valid owner email");
+    return [];
+  }
+  
   const ownerRef = window.fs.doc(window.db, "users", ownerKey);
   const snap = await window.fs.getDoc(ownerRef);
   if (!snap.exists()) return [];
@@ -1314,6 +1328,13 @@ async function fetchFolderMembersFromOwner(ownerEmail, folderId) {
 function watchFolderMembersFromOwner(ownerEmail, folderId, onChange) {
   if (!isFirebaseAvailable()) return () => {};
   const ownerKey = normalizeEmail(ownerEmail || "");
+  
+  // בדיקה שיש owner email תקין
+  if (!ownerKey || ownerKey.trim() === "") {
+    console.warn("watchFolderMembersFromOwner: no valid owner email");
+    return () => {};
+  }
+  
   const ownerRef = window.fs.doc(window.db, "users", ownerKey);
   const unsub = window.fs.onSnapshot(ownerRef, (snap) => {
     const data = snap.data() || {};
