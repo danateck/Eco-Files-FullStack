@@ -3875,38 +3875,119 @@ membersBar.querySelector("#detail_inv_btn").addEventListener("click", async () =
 
     // --- שינוי שם (לכל החברים) ---
     if (renameId) {
-      const newName = prompt("שם חדש לתיקייה:", me.sharedFolders[renameId]?.name || "");
-      if (!newName) return;
+      const folder = window.mySharedFolders?.find(f => f.id === renameId);
+      const currentName = folder?.name || me.sharedFolders?.[renameId]?.name || "";
+      const newName = prompt("שם חדש לתיקייה:", currentName);
+      if (!newName || newName.trim() === "") return;
 
-      for (const [, u] of Object.entries(allUsersData)) {
-        if (u.sharedFolders && u.sharedFolders[renameId]) {
-          u.sharedFolders[renameId].name = newName.trim();
+      console.log("✏️ Renaming folder:", { renameId, currentName, newName });
+      showLoading("משנה שם...");
+
+      try {
+        // 🔥 עדכון ב-Firestore
+        if (isFirebaseAvailable()) {
+          console.log("📡 Updating in Firestore...");
+          const folderRef = window.fs.doc(window.db, "sharedFolders", renameId);
+          await window.fs.updateDoc(folderRef, {
+            name: newName.trim(),
+            lastModified: Date.now(),
+            lastModifiedBy: myEmail
+          });
+          console.log("✅ Folder renamed in Firestore");
+        } else {
+          console.warn("⚠️ Firebase not available, updating only locally");
         }
-        (u.incomingShareRequests || []).forEach(r => { if (r.folderId === renameId) r.folderName = newName; });
-        (u.outgoingShareRequests || []).forEach(r => { if (r.folderId === renameId) r.folderName = newName; });
+
+        // עדכון מקומי
+        for (const [, u] of Object.entries(allUsersData)) {
+          if (u.sharedFolders && u.sharedFolders[renameId]) {
+            u.sharedFolders[renameId].name = newName.trim();
+          }
+          (u.incomingShareRequests || []).forEach(r => { if (r.folderId === renameId) r.folderName = newName; });
+          (u.outgoingShareRequests || []).forEach(r => { if (r.folderId === renameId) r.folderName = newName; });
+        }
+        saveAllUsersDataToStorage(allUsersData);
+
+        // רענן את window.mySharedFolders
+        if (typeof loadSharedFolders === "function") {
+          const folders = await loadSharedFolders();
+          window.mySharedFolders = folders;
+          saveSharedFoldersToCache(folders);
+          console.log("✅ Reloaded shared folders from Firestore");
+        }
+
+        hideLoading();
+        renderSharedFoldersList();
+        showNotification("שם התיקייה עודכן ✅");
+      } catch (err) {
+        console.error("❌ Rename failed:", err);
+        hideLoading();
+        showNotification("שגיאה בשינוי שם התיקייה: " + err.message, true);
       }
-      saveAllUsersDataToStorage(allUsersData);
-      renderSharedFoldersList();
-      showNotification("שם התיקייה עודכן");
       return;
     }
 
     // --- מחיקה ---
     if (delId) {
-      const fname = me.sharedFolders[delId]?.name || "";
+      const folder = window.mySharedFolders?.find(f => f.id === delId);
+      const fname = folder?.name || me.sharedFolders?.[delId]?.name || "תיקייה";
       if (!confirm(`למחוק לצמיתות את התיקייה "${fname}"? (המסמכים לא יימחקו, רק ינותק השיוך)`)) return;
-      if (typeof deleteSharedFolderEverywhere === "function") {
-        deleteSharedFolderEverywhere(delId);
-      } else {
-        // Fallback: מחיקה רק אצלי
-        delete me.sharedFolders[delId];
-        for (const d of (allUsersData[userNow].docs || [])) {
-          if (d.sharedFolderId === delId) d.sharedFolderId = null;
+
+      console.log("🗑️ Deleting folder:", { delId, fname });
+      showLoading("מוחק תיקייה...");
+
+      try {
+        // 🔥 מחיקה מ-Firestore
+        if (isFirebaseAvailable()) {
+          console.log("📡 Deleting from Firestore...");
+          
+          // מחק את התיקייה עצמה
+          const folderRef = window.fs.doc(window.db, "sharedFolders", delId);
+          await window.fs.deleteDoc(folderRef);
+          console.log("✅ Folder deleted from Firestore");
+
+          // מחק את כל המסמכים המשותפים בתיקייה
+          const sharedDocsCol = window.fs.collection(window.db, "sharedDocs");
+          const q = window.fs.query(sharedDocsCol, window.fs.where("folderId", "==", delId));
+          const snap = await window.fs.getDocs(q);
+          const deletePromises = [];
+          snap.forEach(doc => {
+            deletePromises.push(window.fs.deleteDoc(doc.ref));
+          });
+          await Promise.all(deletePromises);
+          console.log(`✅ Deleted ${deletePromises.length} shared docs`);
+        } else {
+          console.warn("⚠️ Firebase not available, deleting only locally");
         }
-        saveAllUsersDataToStorage(allUsersData);
+
+        // מחיקה מקומית
+        if (typeof deleteSharedFolderEverywhere === "function") {
+          deleteSharedFolderEverywhere(delId);
+        } else {
+          // Fallback: מחיקה רק אצלי
+          delete me.sharedFolders[delId];
+          for (const d of (allUsersData[userNow].docs || [])) {
+            if (d.sharedFolderId === delId) d.sharedFolderId = null;
+          }
+          saveAllUsersDataToStorage(allUsersData);
+        }
+
+        // רענן את window.mySharedFolders
+        if (typeof loadSharedFolders === "function") {
+          const folders = await loadSharedFolders();
+          window.mySharedFolders = folders;
+          saveSharedFoldersToCache(folders);
+          console.log("✅ Reloaded shared folders after deletion");
+        }
+
+        hideLoading();
+        showNotification("התיקייה נמחקה. המסמכים נשארו בארכיונים של בעליהם. ✅");
+        renderSharedFoldersList();
+      } catch (err) {
+        console.error("❌ Delete failed:", err);
+        hideLoading();
+        showNotification("שגיאה במחיקת התיקייה: " + err.message, true);
       }
-      showNotification("התיקייה הוסרה. המסמכים נשארו בארכיונים של בעליהם.");
-      renderSharedFoldersList();
       return;
     }
   });
