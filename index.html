@@ -1450,40 +1450,46 @@ element.style {
 
 
 
+/* ===== סידור דף תיקייה משותפת ===== */
 
-
-/* ===== תיקייה משותפת – פריסה כמו במסך הקטן ===== */
-
-/* ה־wrapper החום – תמיד טור אחד קבוע במרכז */
-.shared-view .shared-container {
-  max-width: 900px;
+/* גורם לכל העמוד להיות בעמודה אחת במרכז */
+.shared-view {
   width: 100%;
-  margin: 14px auto 0;
-  padding: 0 16px;
   display: flex;
-  flex-direction: column;   /* אחד מתחת לשני */
-  align-items: stretch;     /* כל בלוק ברוחב מלא */
-  gap: 16px;
+  justify-content: center;
+  padding: 20px 0;
 }
 
-/* כל בלוק (בקשות / תיקיות / מסמכים) */
-.shared-block {
+/* קונטיינר מרכזי צר */
+.shared-view .shared-container {
   width: 100%;
+  max-width: 900px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 20px;
+  padding: 0 20px;
   box-sizing: border-box;
 }
 
-/* ===== מסמכים משותפים – גריד רספונסיבי ===== */
+/* שלושת המלבנים החומים הראשונים – תמיד אחד אחרי השני */
+.shared-block,
+.shared-view .participants-section,
+.shared-view .upload-section,
+.shared-view .shared-title-bar {
+  width: 100%;
+}
 
-/* רק רשימת המסמכים המשותפים תהיה grid */
+/* ===== גריד למסמכים משותפים ===== */
 #sharedDocsList {
-  display:flex;
+  width: 100%;
+  display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 20px;
-  width: 100%;
   margin-top: 10px;
 }
 
-/* תיקיות משותפות – יישארו בטור אחד (כמו במסך הקטן) */
+/* תיקיות משותפות (אם יש) – טור אחד כמו במסך קטן */
 #sharedFoldersGrid {
   display: flex;
   flex-direction: column;
