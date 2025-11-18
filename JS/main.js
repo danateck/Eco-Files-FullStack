@@ -3253,15 +3253,42 @@ wrap.className = "shared-container";
     document.body.appendChild(overlay);
 
     panel.querySelector("#mk_close").onclick = () => overlay.remove();
-    panel.querySelector("#mk_create").onclick = () => {
+    panel.querySelector("#mk_create").onclick = async () => {
       const name = (panel.querySelector("#mk_name").value || "").trim();
       if (!name) { showNotification("צריך שם תיקייה", true); return; }
-      const fid = crypto.randomUUID();
-      me.sharedFolders[fid] = { name, owner: myEmail, members: [myEmail] };
-      saveAllUsersDataToStorage(allUsersData);
-      overlay.remove();
-      renderSharedFoldersList();
-      showNotification(`נוצרה תיקייה "${name}"`);
+      
+      console.log("🔵 Creating folder via modal:", name);
+      
+      // ✅ השתמש בפונקציה החדשה שלנו!
+      try {
+        if (typeof window.createSharedFolder === "function") {
+          console.log("✅ Using window.createSharedFolder");
+          const newFolder = await window.createSharedFolder(name, []);
+          console.log("✅ Folder created:", newFolder);
+          
+          overlay.remove();
+          
+          // רענן את הרשימה
+          if (typeof renderSharedFoldersList === "function") {
+            renderSharedFoldersList();
+          }
+          
+          showNotification(`נוצרה תיקייה "${name}"`);
+        } else {
+          console.error("❌ window.createSharedFolder not found!");
+          
+          // Fallback לשיטה הישנה
+          const fid = crypto.randomUUID();
+          me.sharedFolders[fid] = { name, owner: myEmail, members: [myEmail] };
+          saveAllUsersDataToStorage(allUsersData);
+          overlay.remove();
+          renderSharedFoldersList();
+          showNotification(`נוצרה תיקייה "${name}" (שיטה ישנה)`);
+        }
+      } catch (err) {
+        console.error("❌ Error creating folder:", err);
+        showNotification("שגיאה ביצירת תיקייה", true);
+      }
     };
   }
 
@@ -3269,16 +3296,19 @@ wrap.className = "shared-container";
 
   // ===== רינדור תיקיות =====
   function renderSharedFoldersList() {
+    console.log("🎨 renderSharedFoldersList called");
     listWrap.innerHTML = "";
 
-    const sfs = me.sharedFolders || {};
-    const entries = Object.entries(sfs);
-    if (!entries.length) {
+    // ✅ טען מ-window.mySharedFolders (לא מ-me.sharedFolders הישן!)
+    const folders = window.mySharedFolders || [];
+    console.log("📂 Folders to render:", folders.length);
+    
+    if (folders.length === 0) {
       listWrap.innerHTML = `<div style="opacity:.7">אין עדיין תיקיות משותפות</div>`;
       return;
     }
 
-    for (const [fid, folder] of entries) {
+    for (const folder of folders) {
       const roleLabel = (folder.owner?.toLowerCase() === (myEmail||"").toLowerCase()) ? "owner" : "member";
       const row = document.createElement("div");
       row.className = "sf-card";
@@ -3286,16 +3316,18 @@ wrap.className = "shared-container";
         <div class="sf-ico">📁</div>
         <div class="sf-main">
           <div class="sf-title">${folder.name}</div>
-          <div class="sf-meta">Role: ${roleLabel}</div>
+          <div class="sf-meta">Role: ${roleLabel} • Created: ${new Date(folder.createdAt).toLocaleDateString('he-IL')}</div>
         </div>
         <div class="sf-actions">
-          <button data-open="${fid}" class="btn-min">פתח</button>
-          <button data-rename="${fid}" class="btn-min">שנה שם</button>
-          <button data-delete="${fid}" class="btn-min btn-danger">מחק</button>
+          <button data-open="${folder.id}" class="btn-min">פתח</button>
+          <button data-rename="${folder.id}" class="btn-min">שנה שם</button>
+          <button data-delete="${folder.id}" class="btn-min btn-danger">מחק</button>
         </div>
       `;
       listWrap.appendChild(row);
     }
+    
+    console.log("✅ Rendered", folders.length, "folders");
   }
 
 
