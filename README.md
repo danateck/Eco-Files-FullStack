@@ -1,4 +1,4 @@
-# Eco‑Files Full‑Stack (Like Totally‑Spy) — Free Stack
+# Eco‑Files Full‑Stack
 
 - Frontend: your existing Eco‑Files (GitHub Pages OK)
 - Backend: Node/Express (server/)
