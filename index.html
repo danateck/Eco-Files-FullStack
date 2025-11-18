@@ -873,171 +873,189 @@ body.dark-mode .sidebar {
 /* ==== Shared (Cozy) ==== */
 .shared-manage { display:grid; gap:16px; }
 
+/* ===== Shared Folder Layout - קבוע לכל הגדלים ===== */
 .cozy-head {
-  display:flex; align-items:center; justify-content:space-between;
-  background:#2e2512; color:#d6e6df; border:1px solid #2d3b3b;
-  border-radius:14px; padding:12px 14px; box-shadow:0 12px 28px rgba(0,0,0,.22);
-}
-.cozy-head h3 { margin:0; font-size:1rem; font-weight:700; letter-spacing:.3px; }
-.btn-cozy {
-  background:#2e2512; color:#fff; border:1px solid #2e5a5a;
-  border-radius:10px; padding:.55rem .8rem; font-weight:600; cursor:pointer;
-  box-shadow:0 10px 24px rgba(0,0,0,.28); transition:.18s;
-}
-.btn-cozy:hover { filter:brightness(1.08); transform:translateY(-1px); }
-
-
-
-
-.sf-card {
-  width: 100% !important ;
-  max-width: 900px !important; /* מאפשר להם להיות רחבים מאוד */
-  display:grid; grid-template-columns:56px 1fr auto; gap:14px;
-  align-items:center; background:#2e2512; color:#cfe2df;
-  border:1px solid #515e56; border-radius:16px; padding:14px !important ;
-  box-shadow:0 16px 34px rgba(0,0,0,.25);
-  margin: 6px 0 !important;  
-}
-.sf-ico {
-  width:42px; height:42px; border-radius:12px; display:grid; place-items:center;
-  background:#112020; border:1px solid #515e56; font-size:18px;
-}
-.sf-main { display:flex; flex-direction:column; gap:4px; min-width:0; }
-.sf-title { font-size:1rem; font-weight:700; color:#e8f3f1; margin:0; }
-.sf-meta { font-size:.8rem; color:#98b1ad; }
-.sf-actions { display:flex; gap:8px; flex-wrap:wrap; }
-
-.btn-min {
-  background:#101a1a; color:#d7e5e3; border:1px solid #2b3c3c;
-  border-radius:10px; padding:.42rem .6rem; font-size:.78rem; cursor:pointer;
-}
-.btn-min:hover { background:#132020; }
-.btn-danger {
-  background:#321515; color:#ffd9d9; border:1px solid #733a3a;
-}
-.btn-danger:hover { background:#3a1717; }
-
-.pending-wrap {
-  background:#0b1010; border:1px solid #515e56; border-radius:14px; padding:12px;
-  display:grid; gap:10px; color:#cfe2df; box-shadow:0 12px 28px rgba(0,0,0,.22);
-}
-.pending-row { display:flex; gap:8px; align-items:center; justify-content:space-between; }
-/* ===== Responsive shared layout ===== */
-.shared-container{
-  max-width: min(1840px, 98vw);
-  margin: 0 auto;
-    margin-top: 14px !important;
-  padding: clamp(10px, 2vw, 24px);
-  display: grid !important;
-  align-items:start !important;
-  justify-content: center !important;
-  gap: clamp(12px, 2vw, 22px);
-}
-
-
-/* תיבות/כרטיסים ימלאו את הרוחב הזמין */
-.pending-wrap,
-.cozy-head
-
-{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #2e2512;
+  color: #d6e6df;
+  border: 1px solid #2d3b3b;
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 12px 28px rgba(0,0,0,.22);
   width: 100%;
+  box-sizing: border-box;
+  margin-top: 14px;
 }
 
+.cozy-head h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: .3px;
+}
 
+.btn-cozy {
+  background: #2e2512;
+  color: #fff;
+  border: 1px solid #2e5a5a;
+  border-radius: 10px;
+  padding: .55rem .8rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(0,0,0,.28);
+  transition: .18s;
+  white-space: nowrap;
+}
 
-/* פעולות בתיקייה – לעטוף בשבירה יפה במובייל */
-.sf-actions{
+.btn-cozy:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+/* תיקיות משותפות - כרטיסים */
+.sf-card {
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #2e2512;
+  color: #cfe2df;
+  border: 1px solid #515e56;
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 16px 34px rgba(0,0,0,.25);
+  margin: 6px 0;
+}
+
+.sf-ico {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: #112020;
+  border: 1px solid #515e56;
+  font-size: 18px;
+}
+
+.sf-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.sf-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #e8f3f1;
+  margin: 0;
+}
+
+.sf-meta {
+  font-size: .8rem;
+  color: #98b1ad;
+}
+
+.sf-actions {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-start;
 }
 
-/* כותרת עם כפתור בצד – רספונסיבי */
-.cozy-head{
-  display:flex; align-items:center; justify-content:space-between;
-  background:#2e2512; color:#d6e6df; border:1px solid #515e56;
-  border-radius:14px; padding:12px 14px; box-shadow:0 12px 28px rgba(0,0,0,.22);
+.btn-min {
+  background: #101a1a;
+  color: #d7e5e3;
+  border: 1px solid #2b3c3c;
+  border-radius: 10px;
+  padding: .42rem .6rem;
+  font-size: .78rem;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
-/* בקשות ממתינות – תיבה מלאה רוחב */
-.pending-wrap{
-  background:#2e2512; border:1px solid #243030; border-radius:14px;
-  padding:14px; color:#cfe2df; box-shadow:0 12px 28px rgba(0,0,0,.22);
+.btn-min:hover {
+  background: #132020;
 }
 
-/* כפתורים */
-.btn-cozy{
-  background:#2e2512; color:#fff; border:1px solid #515e56;
-  border-radius:10px; padding:.55rem .8rem; font-weight:600; cursor:pointer;
-  box-shadow:0 10px 24px rgba(0,0,0,.28); transition:.18s;
-}
-.btn-cozy:hover{ filter:brightness(1.08); transform:translateY(-1px); }
-
-.btn-min{
-  background:#2e2512; color:#d7e5e3; border:1px solid #515e56;
-  border-radius:10px; padding:.42rem .6rem; font-size:.88rem; cursor:pointer;
-}
-.btn-min:hover{ background:#132020; }
-.btn-danger{ background:#321515; color:#ffd9d9; border:1px solid #733a3a; }
-.btn-danger:hover{ background:#3a1717; }
-
-/* טיפוגרפיה קטנה לשורות משנה */
-.sf-title{ font-size:1.05rem; font-weight:700; color:#e8f3f1; margin:0; }
-.sf-meta{ font-size:.9rem; color:#98b1ad; }
-
-/* התאמות רוחב למסכים גדולים */
-@media (min-width: 1200px){
-  .shared-container{ max-width: 1280px !important;}
+.btn-danger {
+  background: #321515;
+  color: #ffd9d9;
+  border: 1px solid #733a3a;
 }
 
-/* התאמות מובייל */
-@media (max-width: 560px){
-  .cozy-head{ flex-direction: column; align-items: stretch; gap: 10px; }
-  .sf-actions{ justify-content: stretch; }
+.btn-danger:hover {
+  background: #3a1717;
 }
-/* כשאנחנו במצב אחסון משותף, docsList לא יהיה grid של כרטיסים */
-.docs-list.shared-mode {
-  display: block;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)) !important;
-  gap: 16px !important;
 
+/* בקשות ממתינות */
+.pending-wrap {
+  background: #2e2512;
+  border: 1px solid #243030;
+  border-radius: 14px;
+  padding: 14px;
+  color: #cfe2df;
+  box-shadow: 0 12px 28px rgba(0,0,0,.22);
   width: 100%;
+  box-sizing: border-box;
+  margin-top: 14px;
 }
 
-
-/* ריווח בין הבלוקים השחורים (עובד גם אם העטיפה שונה) */
-.cozy-head,
-.pending-wrap
- {
-  margin-top: 14px !important;    /* רווח מלמעלה לכל בלוק */
-}
-
-
-
-
-
+/* Container ראשי */
 .shared-container {
-    display: flex !important
-;
-    margin-right: 20px !important;
-    flex-wrap: wrap;
-    align-content: center;
-    align-items: flex-end;
-    flex-direction: row;
+  max-width: 900px;
+  width: 100%;
+  margin: 14px auto 0;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* מסמכים משותפים - Grid רספונסיבי */
+.docs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  width: 100%;
+  margin-top: 14px;
+}
+
+/* במובייל - עמודה אחת */
+@media (max-width: 640px) {
+  .docs-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .cozy-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  
+  .cozy-head > div {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+  }
+  
+  .btn-cozy {
+    flex: 1;
+  }
 }
 
 
+/* SF List - רשימת תיקיות */
 .sf-list {
-    display: flex !important;
-    gap: 16px !important;
-    width: 100%;
-    flex-wrap: nowrap;
-    grid-template-columns: repeat(auto-fit, minmax(550px, 1fr)) !important;
-    margin-right: 29px !important;
-    flex-direction: column;
-    align-content: stretch;
-    align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
 }
 
 /* אם עדיין לא מספיק, אפשר להגדיל את המרחק */
