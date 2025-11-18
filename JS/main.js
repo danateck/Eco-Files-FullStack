@@ -640,6 +640,23 @@ async function addDocumentToSharedFolder(docId, folderId) {
     });
   }
   
+  // 🔥 חשוב! צור רשומה ב-sharedDocs collection
+  console.log("📤 Creating sharedDocs record for:", docId, "in folder:", folderId);
+  await upsertSharedDocRecord({
+    id: docData.id || docId,
+    title: docData.title || docData.file_name || "מסמך",
+    fileName: docData.file_name || docData.title || "מסמך",
+    category: docData.category || [],
+    uploadedAt: docData.uploaded_at || docData.uploadedAt || Date.now(),
+    warrantyStart: docData.warranty_start || docData.warrantyStart || null,
+    warrantyExpiresAt: docData.warranty_expires_at || docData.warrantyExpiresAt || null,
+    org: docData.org || "",
+    year: docData.year || "",
+    recipient: docData.recipient || []
+  }, folderId);
+  
+  console.log("✅ Document added to shared folder and sharedDocs collection");
+  
   return { success: true };
 }
 
