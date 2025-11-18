@@ -4,6 +4,13 @@ import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.13.0/fir
 
 const auth = getAuth();
 
+// API Base URL for backend
+const API_BASE = (location.hostname === 'localhost')
+  ? 'http://localhost:8787'
+  : 'https://eco-files.onrender.com';
+
+console.log("📍 API URL:", API_BASE);
+
 // Wait for Firebase globals
 function waitForFirebase() {
   return new Promise((resolve) => {
@@ -3532,16 +3539,40 @@ const paintMembers = (arr = []) => {
   chips.innerHTML = arr.map(email => `<span class="btn-min" style="cursor:default">${email}</span>`).join("");
 };
 
-// first paint + live updates
+// 🔥 טען חברים מה-sharedFolders collection (לא מ-users!)
 if (isFirebaseAvailable()) {
-  // one-time fetch
-  fetchFolderMembersFromOwner(ownerEmailForThisFolder, openId)
-    .then(paintMembers)
-    .catch(err => console.warn("fetchFolderMembersFromOwner failed", err));
+  // one-time fetch מ-sharedFolders collection
+  (async () => {
+    try {
+      const folderRef = window.fs.doc(window.db, "sharedFolders", openId);
+      const folderSnap = await window.fs.getDoc(folderRef);
+      if (folderSnap.exists()) {
+        const folderData = folderSnap.data();
+        const members = folderData.members || [];
+        paintMembers(members);
+        console.log("✅ Loaded members from sharedFolders collection:", members);
+      } else {
+        console.warn("⚠️ Folder not found in sharedFolders collection");
+        paintMembers([]);
+      }
+    } catch (err) {
+      console.error("❌ Failed to load members:", err);
+      paintMembers([]);
+    }
+  })();
 
-  // live
+  // live updates
   if (window._stopMembersWatch) try { window._stopMembersWatch(); } catch(e) {}
-  window._stopMembersWatch = watchFolderMembersFromOwner(ownerEmailForThisFolder, openId, paintMembers);
+  window._stopMembersWatch = (() => {
+    const folderRef = window.fs.doc(window.db, "sharedFolders", openId);
+    return window.fs.onSnapshot(folderRef, (snap) => {
+      if (snap.exists()) {
+        const folderData = snap.data();
+        const members = folderData.members || [];
+        paintMembers(members);
+      }
+    }, (err) => console.error("watchMembers error", err));
+  })();
 } else {
   // offline fallback from local cache
   paintMembers(me.sharedFolders[openId]?.members || []);
@@ -3554,9 +3585,68 @@ const docsHead = document.createElement("div");
 docsHead.className = "cozy-head";
 docsHead.innerHTML = `
   <h3 style="margin:0;">מסמכים משותפים</h3>
-  <button id="refresh_docs_btn" class="btn-cozy">🔄 רענן רשימה</button>
+  <div style="display:flex;gap:8px;">
+    <button id="upload_to_shared_btn" class="btn-cozy">📤 העלה מסמך</button>
+    <button id="refresh_docs_btn" class="btn-cozy">🔄 רענן רשימה</button>
+  </div>
 `;
 docsList.appendChild(docsHead);
+
+// טיפול בהעלאת מסמך לתיקייה משותפת
+const uploadToSharedBtn = docsHead.querySelector("#upload_to_shared_btn");
+uploadToSharedBtn.addEventListener("click", async () => {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "*/*";
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    showLoading(`מעלה ${file.name}...`);
+    
+    try {
+      // העלאה ל-Firestore Storage או לשרת
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("title", file.name);
+      formData.append("sharedFolderId", openId); // 🔥 חשוב!
+      
+      const response = await fetch(`${API_BASE}/api/docs`, {
+        method: "POST",
+        headers: {
+          "X-Dev-Email": myEmail
+        },
+        body: formData
+      });
+      
+      if (!response.ok) throw new Error("Upload failed");
+      
+      const uploadedDoc = await response.json();
+      console.log("✅ Document uploaded:", uploadedDoc);
+      
+      // הוסף לרשימת המסמכים המשותפים ב-Firestore
+      await upsertSharedDocRecord({
+        id: uploadedDoc.id,
+        title: file.name,
+        fileName: file.name,
+        uploadedAt: Date.now(),
+        category: [],
+        recipient: []
+      }, openId);
+      
+      hideLoading();
+      showNotification("המסמך הועלה בהצלחה! ✅");
+      
+      // רענן את רשימת המסמכים
+      await loadAndDisplayDocs();
+    } catch (err) {
+      console.error("Upload error:", err);
+      hideLoading();
+      showNotification("שגיאה בהעלאת המסמך", true);
+    }
+  };
+  input.click();
+});
 
 // קונטיינר הכרטיסיות – גריד רספונסיבי
 const docsBox = document.createElement("div");
