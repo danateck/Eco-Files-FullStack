@@ -590,72 +590,137 @@ async function shareDocument(docId, recipientEmails) {
 // Add document to shared folder
 async function addDocumentToSharedFolder(docId, folderId) {
   const me = getCurrentUserEmail();
-  if (!me || !isFirebaseAvailable()) throw new Error("User not logged in");
+  console.log("📂 addDocumentToSharedFolder called:", { docId, folderId, me });
+  
+  if (!me || !isFirebaseAvailable()) {
+    console.error("❌ User not logged in or Firebase not available");
+    throw new Error("User not logged in");
+  }
 
   // Get the folder
   const folderRef = window.fs.doc(window.db, "sharedFolders", folderId);
   const folderSnap = await window.fs.getDoc(folderRef);
   
-  if (!folderSnap.exists()) throw new Error("Folder not found");
+  if (!folderSnap.exists()) {
+    console.error("❌ Folder not found:", folderId);
+    throw new Error("Folder not found");
+  }
   
   const folderData = folderSnap.data();
+  console.log("📁 Folder data:", folderData);
   
   // Check if user is a member
   if (!folderData.members?.includes(me)) {
+    console.error("❌ User not a member:", { me, members: folderData.members });
     throw new Error("You are not a member of this folder");
   }
   
-  // Get the document
-  const docRef = window.fs.doc(window.db, "documents", docId);
-  const docSnap = await window.fs.getDoc(docRef);
+  // 🔥 חשוב! נסה למצוא את המסמך - קודם ב-documents, אחר כך ב-localStorage
+  let docData = null;
   
-  if (!docSnap.exists()) throw new Error("Document not found");
+  // נסה ב-Firestore documents collection
+  try {
+    const docRef = window.fs.doc(window.db, "documents", docId);
+    const docSnap = await window.fs.getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      docData = docSnap.data();
+      console.log("✅ Found document in Firestore:", docData);
+    } else {
+      console.warn("⚠️ Document not found in Firestore, trying localStorage...");
+    }
+  } catch (err) {
+    console.warn("⚠️ Error fetching from Firestore:", err);
+  }
   
-  const docData = docSnap.data();
+  // אם לא מצאנו ב-Firestore, נסה ב-localStorage
+  if (!docData) {
+    console.log("🔍 Searching in localStorage...");
+    const allUsers = loadAllUsersDataFromStorage();
+    const currentUser = getCurrentUser();
+    const userData = allUsers[currentUser];
+    
+    if (userData && userData.docs) {
+      const localDoc = userData.docs.find(d => d.id === docId);
+      if (localDoc) {
+        docData = localDoc;
+        console.log("✅ Found document in localStorage:", docData);
+      }
+    }
+  }
+  
+  if (!docData) {
+    console.error("❌ Document not found anywhere:", docId);
+    throw new Error("Document not found");
+  }
   
   // Only owner can add to folder
-  if (docData.owner !== me) {
+  const docOwner = normalizeEmail(docData.owner || me);
+  if (docOwner !== me) {
+    console.error("❌ Not document owner:", { docOwner, me });
     throw new Error("Only the document owner can add it to folders");
   }
   
-  // Update document with folder reference
-  const folders = docData.sharedFolders || [];
-  if (!folders.includes(folderId)) {
-    folders.push(folderId);
-    await window.fs.updateDoc(docRef, { 
-      sharedFolders: folders,
-      lastModified: Date.now(),
-      lastModifiedBy: me
-    });
+  // 🔥 חשוב! צור רשומה ב-sharedDocs collection ישירות
+  console.log("📤 Creating sharedDocs record...");
+  try {
+    await upsertSharedDocRecord({
+      id: docData.id || docId,
+      title: docData.title || docData.fileName || docData.file_name || "מסמך",
+      fileName: docData.fileName || docData.file_name || docData.title || "מסמך",
+      category: docData.category || [],
+      uploadedAt: docData.uploadedAt || docData.uploaded_at || Date.now(),
+      warrantyStart: docData.warrantyStart || docData.warranty_start || null,
+      warrantyExpiresAt: docData.warrantyExpiresAt || docData.warranty_expires_at || null,
+      org: docData.org || "",
+      year: docData.year || "",
+      recipient: docData.recipient || []
+    }, folderId);
+    
+    console.log("✅ sharedDocs record created successfully");
+  } catch (err) {
+    console.error("❌ Failed to create sharedDocs record:", err);
+    throw err;
+  }
+  
+  // Update document in Firestore if it exists there
+  try {
+    const docRef = window.fs.doc(window.db, "documents", docId);
+    const docSnap = await window.fs.getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      const folders = docSnap.data().sharedFolders || [];
+      if (!folders.includes(folderId)) {
+        folders.push(folderId);
+        await window.fs.updateDoc(docRef, { 
+          sharedFolders: folders,
+          lastModified: Date.now(),
+          lastModifiedBy: me
+        });
+        console.log("✅ Updated document in Firestore");
+      }
+    }
+  } catch (err) {
+    console.warn("⚠️ Could not update document in Firestore:", err);
   }
   
   // Update folder with document reference
-  const docs = folderData.documents || [];
-  if (!docs.includes(docId)) {
-    docs.push(docId);
-    await window.fs.updateDoc(folderRef, { 
-      documents: docs,
-      lastModified: Date.now(),
-      lastModifiedBy: me
-    });
+  try {
+    const docs = folderData.documents || [];
+    if (!docs.includes(docId)) {
+      docs.push(docId);
+      await window.fs.updateDoc(folderRef, { 
+        documents: docs,
+        lastModified: Date.now(),
+        lastModifiedBy: me
+      });
+      console.log("✅ Updated folder with document reference");
+    }
+  } catch (err) {
+    console.warn("⚠️ Could not update folder:", err);
   }
   
-  // 🔥 חשוב! צור רשומה ב-sharedDocs collection
-  console.log("📤 Creating sharedDocs record for:", docId, "in folder:", folderId);
-  await upsertSharedDocRecord({
-    id: docData.id || docId,
-    title: docData.title || docData.file_name || "מסמך",
-    fileName: docData.file_name || docData.title || "מסמך",
-    category: docData.category || [],
-    uploadedAt: docData.uploaded_at || docData.uploadedAt || Date.now(),
-    warrantyStart: docData.warranty_start || docData.warrantyStart || null,
-    warrantyExpiresAt: docData.warranty_expires_at || docData.warrantyExpiresAt || null,
-    org: docData.org || "",
-    year: docData.year || "",
-    recipient: docData.recipient || []
-  }, folderId);
-  
-  console.log("✅ Document added to shared folder and sharedDocs collection");
+  console.log("✅ Document added to shared folder successfully");
   
   return { success: true };
 }
