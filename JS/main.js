@@ -2059,6 +2059,69 @@ window.openSharedView = function() {
   if (homeView) homeView.classList.add("hidden");
   if (categoryView) categoryView.classList.remove("hidden");
   
+  // ✅ הוסף event listener לכפתור יצירת תיקייה
+  setTimeout(() => {
+    const createBtn = document.getElementById("sf_create_open");
+    if (createBtn) {
+      console.log("✅ Adding event listener to create button");
+      
+      createBtn.addEventListener("click", async () => {
+        console.log("🔵 Create folder button clicked");
+        
+        const name = prompt("שם התיקייה החדשה:");
+        if (!name || !name.trim()) {
+          console.log("⚠️ No name provided");
+          return;
+        }
+        
+        console.log("🔵 Creating folder:", name);
+        
+        try {
+          if (typeof window.createSharedFolder === "function") {
+            const newFolder = await window.createSharedFolder(name.trim(), []);
+            console.log("✅ Folder created:", newFolder);
+            console.log("✅ window.mySharedFolders:", window.mySharedFolders);
+            
+            alert(`התיקייה "${name}" נוצרה בהצלחה! ✅`);
+            
+            // רענן את התצוגה
+            window.openSharedView();
+          } else {
+            console.error("❌ window.createSharedFolder not found");
+            alert("שגיאה: הפונקציה לא נמצאה");
+          }
+        } catch (err) {
+          console.error("❌ Error creating folder:", err);
+          alert("שגיאה: " + err.message);
+        }
+      });
+    } else {
+      console.error("❌ Create button not found");
+    }
+  }, 100);
+  
+  // הצג תיקיות קיימות
+  setTimeout(() => {
+    const listDiv = document.getElementById("sf_list");
+    if (listDiv && window.mySharedFolders && window.mySharedFolders.length > 0) {
+      console.log("📂 Rendering", window.mySharedFolders.length, "folders");
+      listDiv.innerHTML = "";
+      
+      window.mySharedFolders.forEach(folder => {
+        const folderCard = document.createElement("div");
+        folderCard.style.cssText = "padding:15px; border:1px solid #2b3c3c; border-radius:8px; margin-bottom:10px; background:#101a1a; cursor:pointer;";
+        folderCard.innerHTML = `
+          <div style="font-weight:600; margin-bottom:5px;">📁 ${folder.name}</div>
+          <div style="opacity:0.7; font-size:12px;">Owner: ${folder.owner}</div>
+          <div style="opacity:0.5; font-size:11px;">Created: ${new Date(folder.createdAt).toLocaleDateString('he-IL')}</div>
+        `;
+        listDiv.appendChild(folderCard);
+      });
+    } else {
+      console.log("📭 No folders to display");
+    }
+  }, 150);
+  
   console.log("✅ Shared view rendered");
 };
 
@@ -3912,7 +3975,7 @@ if (editForm) {
     }
 
     if (!dataUrl) {
-      //showNotification("הקובץ הזה לא שמור / גדול מדי או נמחק מהמכשיר. אבל הפרטים נשמרו.", true);
+      showNotification("הקובץ הזה לא שמור / גדול מדי או נמחק מהמכשיר. אבל הפרטים נשמרו.", true);
       return;
     }
 
