@@ -3596,14 +3596,6 @@ async function renderPending() {
       // 🔥 יצירת Container עבור שלושת הבלוקים הראשונים
       const topBlocksContainer = document.createElement("div");
       topBlocksContainer.className = "shared-top-blocks";
-      topBlocksContainer.style.cssText = `
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-        width: 100%;
-        max-width: 900px;
-        margin: 0 auto 20px;
-      `;
       docsList.appendChild(topBlocksContainer);
 
       // שורת "משתתפים" + הוספה
