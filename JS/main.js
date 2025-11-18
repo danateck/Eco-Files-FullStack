@@ -3732,12 +3732,7 @@ uploadToSharedBtn.addEventListener("click", async () => {
 
 // קונטיינר הכרטיסיות – גריד רספונסיבי
 const docsBox = document.createElement("div");
-docsBox.style.display = "grid";
-docsBox.style.gap = "24px";
 docsBox.className = "docs-grid";
-docsBox.style.gridTemplateColumns = "repeat(auto-fit, minmax(260px, 1fr))";
-docsBox.style.alignItems = "start";
-docsBox.style.justifyItems = "stretch";
 docsList.appendChild(docsBox);
 
 

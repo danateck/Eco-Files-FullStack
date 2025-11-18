@@ -1026,7 +1026,7 @@ body.dark-mode .sidebar {
   margin-top: 14px;
 }
 
-/* Container ראשי */
+/* Container ראשי - ממורכז באמצע */
 .shared-container {
   max-width: 900px;
   width: 100%;
@@ -1034,16 +1034,38 @@ body.dark-mode .sidebar {
   padding: 0 16px;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 0;
+}
+
+/* כל הבלוקים החומים - רוחב מלא */
+.cozy-head,
+.pending-wrap,
+.sf-list {
+  width: 100%;
+  max-width: 900px;
 }
 
 /* מסמכים משותפים - Grid רספונסיבי */
 .docs-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
+  gap: 20px;
   width: 100%;
-  margin-top: 14px;
+  max-width: 1200px;
+  margin: 14px auto 0;
+  padding: 0;
+}
+
+/* כשנמצאים בתצוגת תיקייה משותפת ספציפית */
+.docs-list.shared-mode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 16px;
 }
 
 /* במובייל - עמודה אחת */
