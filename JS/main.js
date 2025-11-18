@@ -3766,6 +3766,27 @@ pendingBox.addEventListener("click", async (ev) => {
     openSharedView();
   }
 }
+      
+      // 🔥 רענן את רשימת התיקיות המשותפות מ-Firestore
+      console.log("🔄 Reloading shared folders after accepting invite...");
+      if (typeof loadSharedFolders === "function") {
+        try {
+          const folders = await loadSharedFolders();
+          if (folders && folders.length > 0) {
+            window.mySharedFolders = folders;
+            saveSharedFoldersToCache(folders);
+            console.log("✅ Shared folders reloaded:", folders.length);
+            
+            // רענן את ה-UI אם אנחנו בתצוגת תיקיות משותפות
+            if (categoryTitle.textContent === "אחסון משותף") {
+              openSharedView();
+            }
+          }
+        } catch (err) {
+          console.warn("⚠️ Could not reload folders:", err);
+        }
+      }
+      
       showNotification("הצטרפת לתיקייה המשותפת ✔️");
     } else {
       showNotification("שגיאה בהצטרפות, נסי שוב", true);
