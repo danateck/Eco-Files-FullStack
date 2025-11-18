@@ -4296,7 +4296,7 @@ if (editForm) {
     }
 
     if (!dataUrl) {
-      showNotification("הקובץ הזה לא שמור / גדול מדי או נמחק מהמכשיר. אבל הפרטים נשמרו.", true);
+      //showNotification("הקובץ הזה לא שמור / גדול מדי או נמחק מהמכשיר. אבל הפרטים נשמרו.", true);
       return;
     }
 
