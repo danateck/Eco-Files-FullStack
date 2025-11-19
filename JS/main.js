@@ -1412,19 +1412,25 @@ if (mode !== "recycle") {
         showLoading("מסיר מסמך מהתיקייה...");
         const urlParams = new URLSearchParams(window.location.search);
         console.log("🔍 Debug - Attempting to get folderId...");
-let folderId = urlParams.get('sharedFolder');
-
-// 🆕 נפילה ל-ID ששמרנו גלובלית אם אין בפרמטרים
-if (!folderId && window.currentSharedFolderId) {
-  folderId = window.currentSharedFolderId;
-        console.log("🔍 Debug - folderId found:", folderId);
-}
-
-if (!folderId) {
-  hideLoading();
-  showNotification("שגיאה: לא נמצא מזהה תיקייה", true);
-  return;
-}
+        console.log("🔍 Debug - URL:", window.location.href);
+        
+        let folderId = urlParams.get('sharedFolder');
+        console.log("🔍 Debug - folderId from URL:", folderId);
+        
+        // נפילה ל-ID ששמרנו גלובלית אם אין בפרמטרים
+        if (!folderId && window.currentSharedFolderId) {
+          folderId = window.currentSharedFolderId;
+          console.log("🔍 Debug - Using global folderId:", folderId);
+        }
+        
+        if (!folderId) {
+          console.log("❌ Debug - No folderId found!");
+          hideLoading();
+          showNotification("שגיאה: לא נמצא מזהה תיקייה", true);
+          return;
+        }
+        
+        console.log("✅ Debug - Final folderId:", folderId);
 
         if (isFirebaseAvailable()) {
           // מצא את כל הרשומות של המסמך הזה בתיקייה
@@ -3537,13 +3543,17 @@ if (editForm) {
       if (currentSharedFolder) {
         console.log("🔄 Returning to shared folder:", currentSharedFolder);
         closeEditModal();
+        
         if (typeof window.openSharedFolder === "function") {
           await window.openSharedFolder(currentSharedFolder);
-          const url = new URL(window.location); url.searchParams.set("sharedFolder", currentSharedFolder); window.location.href = url.toString();
-          window.location.reload();
+        } else {
+          const url = new URL(window.location); 
+          url.searchParams.set("sharedFolder", currentSharedFolder); 
+          window.location.href = url.toString();
         }
+        
         showNotification("המסמך עודכן בהצלחה ✅");
-        return; // ← חשוב! עצור כאן
+        return;
       }
       // תיקיות רגילות
       if (currentCat === "אחסון משותף") {
