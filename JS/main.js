@@ -3734,31 +3734,18 @@ if (typeof window.updateInviteStatus === "function") {
 if (typeof window.bootFromCloud !== "undefined") {
   const originalBoot = window.bootFromCloud;
   window.bootFromCloud = async function() {
-    console.log("🚀 Boot with shared folders - ALWAYS LOAD FROM FIRESTORE");
-    // טען מסמכים רגילים
+    console.log("🚀 Boot with shared folders - load home as usual");
+    // קודם כל – מסך הבית הרגיל
     await originalBoot();
-    // 🔥 טען תיקיות משותפות ישירות מ-Firestore (לא מ-cache!)
-    console.log("📂 Loading shared folders from Firestore...");
+
+    // רק טוענים את התיקיות המשותפות לזיכרון + cache, בלי לפתוח מסך
+    console.log("📂 Loading shared folders from Firestore (background only).");
     try {
       if (typeof loadSharedFolders === "function") {
         const folders = await loadSharedFolders();
         console.log("📥 Loaded from Firestore:", folders?.length || 0, "folders");
-        if (folders && folders.length > 0) {
-          window.mySharedFolders = folders;
-          console.log("✅ Set window.mySharedFolders:", folders.length);
-          // שמור גם ב-cache (לעתיד)
-          saveSharedFoldersToCache(folders);
-          // עדכן UI
-          if (typeof renderSharedFoldersUI === "function") {
-            console.log("🎨 Rendering UI...");
-            renderSharedFoldersUI(folders);
-          } else {
-            console.warn("⚠️ renderSharedFoldersUI not found");
-          }
-        } else {
-          console.log("📭 No shared folders found in Firestore");
-          window.mySharedFolders = [];
-        }
+        window.mySharedFolders = folders || [];
+        saveSharedFoldersToCache(window.mySharedFolders);
       } else {
         console.error("❌ loadSharedFolders function not found!");
       }
@@ -3767,8 +3754,9 @@ if (typeof window.bootFromCloud !== "undefined") {
       window.mySharedFolders = [];
     }
   };
-  console.log("✅ bootFromCloud overridden for shared folders");
+  console.log("✅ bootFromCloud overridden (no auto-switch to shared view)");
 }
+
 // ═══ טעינה ידנית (אם bootFromCloud לא קיים) ═══
 if (!window.bootFromCloud) {
   // אם אין bootFromCloud, נסה לטעון כשהדף נטען
@@ -4028,17 +4016,9 @@ console.log("✅ All functions fixed and loaded!");
 
 
 // 🧩 FIX: פונקציה בסיסית ל-renderSharedFoldersUI כדי שלא תהיה שגיאה
-window.renderSharedFoldersUI = window.renderSharedFoldersUI || function(folders = []) {
-  // נשמור את התיקיות בזיכרון הגלובלי
+window.renderSharedFoldersUI = function(folders = []) {
   window.mySharedFolders = Array.isArray(folders) ? folders : [];
-  console.log("📂 renderSharedFoldersUI stub - got", window.mySharedFolders.length, "folders");
-
-  // אם יש פונקציה שמציגה את מסך האחסון המשותף – נפעיל אותה
-  if (typeof window.openSharedView === "function") {
-    try {
-      window.openSharedView();
-    } catch (e) {
-      console.warn("⚠️ openSharedView failed inside renderSharedFoldersUI:", e);
-    }
-  }
+  console.log("📂 renderSharedFoldersUI stub - got", window.mySharedFolders.length);
+  // בכוונה לא פותח אוטומטית את האחסון המשותף
+  // את תיכנסי אליו רק כשאת לוחצת בתפריט צד
 };
