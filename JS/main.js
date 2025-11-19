@@ -1724,6 +1724,7 @@ function buildDocCard(doc, mode) {
   const actions = card.querySelector(".doc-actions");
 
 if (mode !== "recycle") {
+  // כפתור עריכה
   const editBtn = document.createElement("button");
   editBtn.className = "doc-action-btn";
   editBtn.textContent = "עריכה ✏️";
@@ -1731,55 +1732,87 @@ if (mode !== "recycle") {
     if (typeof window.openEditModal === "function") {
       window.openEditModal(doc);
     } else {
-      console.warn("openEditModal not available on window");
+      console.warn("openEditModal not available");
     }
   });
   actions.appendChild(editBtn);
 
-
-    const trashBtn = document.createElement("button");
-    trashBtn.className = "doc-action-btn danger";
-    trashBtn.textContent = "העבר לסל מחזור 🗑️";
-    trashBtn.addEventListener("click", async () => {
+  // כפתור מחיקה/סל מחזור
+  const trashBtn = document.createElement("button");
+  trashBtn.className = "doc-action-btn danger";
+  trashBtn.textContent = mode === "shared" ? "הסר מהתיקייה 🗑️" : "העבר לסל מחזור 🗑️";
+  trashBtn.addEventListener("click", async () => {
+    if (mode === "shared") {
+      // 🔥 מחיקה מתיקייה משותפת
+      const confirmDel = confirm("האם להסיר מסמך זה מהתיקייה המשותפת?");
+      if (!confirmDel) return;
+      
       try {
-        // אם api-bridge הגדיר window.markDocTrashed – נשתמש בו, אחרת בפונקציה המקומית
-        if (window.markDocTrashed && window.markDocTrashed !== markDocTrashed) {
-          await window.markDocTrashed(doc.id, true);
-        } else {
-          await markDocTrashed(doc.id, true);
+        showLoading("מסיר מסמך...");
+        
+        const urlParams = new URLSearchParams(window.location.search);
+        const folderId = urlParams.get('sharedFolder');
+        
+        if (folderId && isFirebaseAvailable()) {
+          const docRef = window.fs.doc(window.db, "sharedDocs", `${folderId}_${doc.id}`);
+          await window.fs.deleteDoc(docRef);
+          console.log("✅ Document removed from shared folder");
         }
-      } catch (err) {
-        console.error("❌ Trash failed:", err);
-        if (typeof showNotification === "function") {
-          showNotification("שגיאה בהעברה לסל מחזור", true);
+        
+        hideLoading();
+        showNotification("המסמך הוסר מהתיקייה המשותפת");
+        
+        // רענן
+        if (typeof loadAndDisplayDocs === "function") {
+          await loadAndDisplayDocs();
+        } else {
+          window.location.reload();
         }
         return;
+      } catch (err) {
+        console.error("❌ Remove failed:", err);
+        hideLoading();
+        showNotification("שגיאה בהסרת המסמך", true);
+        return;
       }
-
-      const categoryTitle = document.getElementById("categoryTitle");
-      const currentCat = categoryTitle?.textContent || "";
-
-      if (!currentCat || currentCat === "ראשי" || currentCat === "הכל") {
-        if (typeof renderHome === "function") renderHome();
-      } else if (currentCat === "סל מחזור") {
-        if (typeof openRecycleView === "function") openRecycleView();
+    }
+    
+    // מסמכים רגילים - העבר לסל מחזור
+    try {
+      if (window.markDocTrashed && window.markDocTrashed !== markDocTrashed) {
+        await window.markDocTrashed(doc.id, true);
       } else {
-        if (typeof openCategoryView === "function") openCategoryView(currentCat);
+        await markDocTrashed(doc.id, true);
       }
-    });
+    } catch (err) {
+      console.error("❌ Trash failed:", err);
+      showNotification("שגיאה בהעברה לסל מחזור", true);
+      return;
+    }
 
-    actions.appendChild(trashBtn);
+    const categoryTitle = document.getElementById("categoryTitle");
+    const currentCat = categoryTitle?.textContent || "";
 
-    // כפתור תיקייה משותפת – הגרסה החדשה עם modal
+    if (!currentCat || currentCat === "ראשי" || currentCat === "הכל") {
+      if (typeof renderHome === "function") renderHome();
+    } else if (currentCat === "סל מחזור") {
+      if (typeof openRecycleView === "function") openRecycleView();
+    } else {
+      if (typeof openCategoryView === "function") openCategoryView(currentCat);
+    }
+  });
+  actions.appendChild(trashBtn);
+
+  // כפתור העברה לתיקייה משותפת - רק אם לא כבר בתיקייה משותפת
+  if (mode !== "shared") {
     const shareBtn = document.createElement("button");
     shareBtn.className = "doc-action-btn";
     shareBtn.textContent = "הכנס לתיקייה משותפת 📤";
     shareBtn.addEventListener("click", async () => {
       try {
         const folders = await loadSharedFolders();
-
         if (folders.length === 0) {
-          showNotification("אין לך תיקיות משותפות. צור תיקייה חדשה תחילה!");
+          showNotification("אין לך תיקיות משותפות");
           return;
         }
 
@@ -1791,28 +1824,18 @@ if (mode !== "recycle") {
                 <button class="modal-close" onclick="document.getElementById('shareFolderModal').remove()">✖</button>
               </div>
               <div class="scroll-area" style="max-height: 400px;">
-                <p style="margin-bottom: 1rem; color: #666;">בחר לאיזו תיקייה להוסיף את המסמך "${doc.title || doc.fileName}"</p>
+                <p style="margin-bottom: 1rem;">בחר לאיזו תיקייה להוסיף את המסמך "${doc.title || doc.fileName}"</p>
                 <div style="display: flex; flex-direction: column; gap: 0.5rem;">
                   ${folders.map(folder => `
                     <button 
                       class="folder-select-btn" 
                       data-folder-id="${folder.id}"
-                      style="
-                        padding: 1rem;
-                        border: 1px solid #ddd;
-                        border-radius: 8px;
-                        background: #fff;
-                        cursor: pointer;
-                        text-align: right;
-                        transition: all 0.2s;
-                      "
-                      onmouseover="this.style.borderColor='#4CAF50'; this.style.background='#f0f9f0'"
-                      onmouseout="this.style.borderColor='#ddd'; this.style.background='#fff'"
+                      style="padding: 1rem; border: 1px solid #ddd; border-radius: 8px; background: #fff; cursor: pointer; text-align: right;"
+                      onmouseover="this.style.borderColor='#4CAF50'"
+                      onmouseout="this.style.borderColor='#ddd'"
                     >
-                      <div style="font-weight: 600; margin-bottom: 0.25rem;">📁 ${folder.name}</div>
-                      <div style="font-size: 0.85rem; color: #666;">
-                        ${folder.members?.length || 0} חברים • יצר: ${folder.owner}
-                      </div>
+                      <div style="font-weight: 600;">📁 ${folder.name}</div>
+                      <div style="font-size: 0.85rem; color: #666;">${folder.members?.length || 0} חברים</div>
                     </button>
                   `).join('')}
                 </div>
@@ -1830,25 +1853,24 @@ if (mode !== "recycle") {
           btn.addEventListener("click", async () => {
             const folderId = btn.dataset.folderId;
             const folder = folders.find(f => f.id === folderId);
-
             try {
               await addDocumentToSharedFolder(doc.id, folderId);
               showNotification(`המסמך נוסף לתיקייה "${folder.name}"!`);
               document.getElementById("shareFolderModal").remove();
             } catch (error) {
-              console.error("Error adding to folder:", error);
-              showNotification("שגיאה בהוספת המסמך לתיקייה", true);
+              console.error("Error:", error);
+              showNotification("שגיאה בהוספת המסמך", true);
             }
           });
         });
       } catch (error) {
-        console.error("Error loading folders:", error);
-        showNotification("שגיאה בטעינת התיקיות המשותפות", true);
+        console.error("Error:", error);
+        showNotification("שגיאה בטעינת התיקיות", true);
       }
     });
     actions.appendChild(shareBtn);
-
-  } else {
+  }
+} else {
     // מצב סל מחזור
     const restoreBtn = document.createElement("button");
     restoreBtn.className = "doc-action-btn restore";
@@ -4374,6 +4396,11 @@ if (typeof window.openSharedFolder === "function") {
   window.openSharedFolder = async function(folderId) {
     console.log("📂 Opening shared folder:", folderId);
     
+    // 🔥 עדכן URL עם sharedFolder parameter
+    const url = new URL(window.location);
+    url.searchParams.set('sharedFolder', folderId);
+    window.history.pushState({}, '', url);
+    
     // קרא לפונקציה המקורית
     const result = await originalOpenSharedFolder(folderId);
     
@@ -4734,7 +4761,81 @@ console.log("✅ All functions fixed and loaded!");
 
 
 
-
+// 🔥 תמיכה בפתיחת קבצים לכל החברים בתיקייה משותפת
+(function() {
+  document.addEventListener('click', async (e) => {
+    const target = e.target;
+    
+    // בדוק אם זה כפתור פתיחת קובץ
+    if (target.classList.contains('doc-open-link')) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const docId = target.dataset.openId;
+      if (!docId) {
+        console.error("❌ No document ID");
+        return;
+      }
+      
+      // בדוק אם זה בתיקייה משותפת
+      const urlParams = new URLSearchParams(window.location.search);
+      const sharedFolderId = urlParams.get('sharedFolder');
+      
+      if (sharedFolderId) {
+        console.log("🔍 Opening shared doc:", docId);
+        
+        try {
+          showLoading("טוען מסמך...");
+          
+          // נסה לטעון מ-Firestore
+          if (isFirebaseAvailable()) {
+            const docRef = window.fs.doc(window.db, "sharedDocs", `${sharedFolderId}_${docId}`);
+            const docSnap = await window.fs.getDoc(docRef);
+            
+            if (docSnap.exists()) {
+              const docData = docSnap.data();
+              console.log("📄 Found document:", docData);
+              
+              if (docData.fileUrl) {
+                window.open(docData.fileUrl, '_blank');
+                hideLoading();
+                showNotification("פותח קובץ...");
+                return;
+              }
+            }
+          }
+          
+          // אם לא מצאנו ב-Firestore, נסה API
+          const currentEmail = getCurrentUserEmail();
+          const response = await fetch(`${API_BASE}/api/docs/${docId}`, {
+            headers: {
+              "X-Dev-Email": currentEmail
+            }
+          });
+          
+          if (response.ok) {
+            const doc = await response.json();
+            if (doc.fileUrl) {
+              window.open(doc.fileUrl, '_blank');
+              hideLoading();
+              return;
+            }
+          }
+          
+          hideLoading();
+          showNotification("לא נמצא קישור לקובץ", true);
+          
+        } catch (err) {
+          console.error("❌ Error opening doc:", err);
+          hideLoading();
+          showNotification("שגיאה בפתיחת המסמך", true);
+        }
+      }
+    }
+  });
+  
+  console.log("✅ Shared document opener installed");
+})();
 
 
 
