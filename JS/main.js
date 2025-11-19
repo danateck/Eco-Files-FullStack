@@ -1411,12 +1411,19 @@ if (mode !== "recycle") {
       try {
         showLoading("מסיר מסמך מהתיקייה...");
         const urlParams = new URLSearchParams(window.location.search);
-        const folderId = urlParams.get('sharedFolder');
-        if (!folderId) {
-          hideLoading();
-          showNotification("שגיאה: לא נמצא מזהה תיקייה", true);
-          return;
-        }
+let folderId = urlParams.get('sharedFolder');
+
+// 🆕 נפילה ל-ID ששמרנו גלובלית אם אין בפרמטרים
+if (!folderId && window.currentSharedFolderId) {
+  folderId = window.currentSharedFolderId;
+}
+
+if (!folderId) {
+  hideLoading();
+  showNotification("שגיאה: לא נמצא מזהה תיקייה", true);
+  return;
+}
+
         if (isFirebaseAvailable()) {
           // מצא את כל הרשומות של המסמך הזה בתיקייה
           const col = window.fs.collection(window.db, "sharedDocs");
@@ -3673,13 +3680,19 @@ function loadSharedFoldersFromCache() {
 if (typeof window.openSharedFolder === "function") {
   const originalOpenSharedFolder = window.openSharedFolder;
   window.openSharedFolder = async function(folderId) {
-    console.log("📂 Opening shared folder:", folderId);
+    console.log("📂 openSharedFolder overridden with URL param:", folderId);
+
+    // 🆕 נשמור את מזהה התיקייה בגלובלי
+    window.currentSharedFolderId = folderId;
+
     // 🔥 עדכן URL עם sharedFolder parameter
     const url = new URL(window.location);
     url.searchParams.set('sharedFolder', folderId);
     window.history.pushState({}, '', url);
+
     // קרא לפונקציה המקורית
     const result = await originalOpenSharedFolder(folderId);
+
     // שמור את רשימת התיקיות
     if (window.mySharedFolders && Array.isArray(window.mySharedFolders)) {
       saveSharedFoldersToCache(window.mySharedFolders);
@@ -3688,6 +3701,7 @@ if (typeof window.openSharedFolder === "function") {
   };
   console.log("✅ openSharedFolder overridden");
 }
+
 // ═══ Override acceptShareInvite ═══
 if (typeof window.updateInviteStatus === "function") {
   const originalUpdateInvite = window.updateInviteStatus;
@@ -4009,3 +4023,22 @@ console.log("✅ All functions fixed and loaded!");
   });
   console.log("✅ Shared document opener installed");
 })();
+
+
+
+
+// 🧩 FIX: פונקציה בסיסית ל-renderSharedFoldersUI כדי שלא תהיה שגיאה
+window.renderSharedFoldersUI = window.renderSharedFoldersUI || function(folders = []) {
+  // נשמור את התיקיות בזיכרון הגלובלי
+  window.mySharedFolders = Array.isArray(folders) ? folders : [];
+  console.log("📂 renderSharedFoldersUI stub - got", window.mySharedFolders.length, "folders");
+
+  // אם יש פונקציה שמציגה את מסך האחסון המשותף – נפעיל אותה
+  if (typeof window.openSharedView === "function") {
+    try {
+      window.openSharedView();
+    } catch (e) {
+      console.warn("⚠️ openSharedView failed inside renderSharedFoldersUI:", e);
+    }
+  }
+};
