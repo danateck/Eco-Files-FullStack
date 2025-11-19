@@ -1411,11 +1411,13 @@ if (mode !== "recycle") {
       try {
         showLoading("מסיר מסמך מהתיקייה...");
         const urlParams = new URLSearchParams(window.location.search);
+        console.log("🔍 Debug - Attempting to get folderId...");
 let folderId = urlParams.get('sharedFolder');
 
 // 🆕 נפילה ל-ID ששמרנו גלובלית אם אין בפרמטרים
 if (!folderId && window.currentSharedFolderId) {
   folderId = window.currentSharedFolderId;
+        console.log("🔍 Debug - folderId found:", folderId);
 }
 
 if (!folderId) {
@@ -3537,9 +3539,10 @@ if (editForm) {
         closeEditModal();
         if (typeof window.openSharedFolder === "function") {
           await window.openSharedFolder(currentSharedFolder);
-        } else {
+          const url = new URL(window.location); url.searchParams.set("sharedFolder", currentSharedFolder); window.location.href = url.toString();
           window.location.reload();
         }
+        showNotification("המסמך עודכן בהצלחה ✅");
         return; // ← חשוב! עצור כאן
       }
       // תיקיות רגילות
