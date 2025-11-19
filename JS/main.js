@@ -4930,6 +4930,7 @@ console.log("✅ All functions fixed and loaded!");
 
 
 // 🔥 פתיחת מסמכים בתיקייה משותפת - עובד לכל החברים!
+// 🔥 פתיחת מסמכים בתיקייה משותפת - מתוקן!
 (function setupSharedDocOpener() {
   console.log("📂 Installing shared doc opener...");
   
@@ -4937,19 +4938,18 @@ console.log("✅ All functions fixed and loaded!");
     const btn = e.target.closest('.doc-open-link');
     if (!btn) return;
     
-    e.preventDefault();
-    e.stopPropagation();
-    
     const docId = btn.dataset.openId;
-    if (!docId) {
-      showNotification("שגיאה: לא נמצא מזהה", true);
-      return;
-    }
+    if (!docId) return; // תן למערכת הרגילה לטפל
     
     const urlParams = new URLSearchParams(window.location.search);
     const sharedFolderId = urlParams.get('sharedFolder');
     
-    if (!sharedFolderId) return; // לא בתיקייה משותפת
+    // 🔥 רק אם זה בתיקייה משותפת - טפל בזה
+    if (!sharedFolderId) return; // תן למערכת הרגילה לטפל
+    
+    // רק עכשיו עצור את ברירת המחדל
+    e.preventDefault();
+    e.stopPropagation();
     
     console.log("🔍 Opening shared doc:", docId, "from folder:", sharedFolderId);
     
@@ -4975,11 +4975,7 @@ console.log("✅ All functions fixed and loaded!");
             hideLoading();
             showNotification("פותח מסמך... 📄");
             return;
-          } else {
-            console.warn("⚠️ No fileUrl in doc");
           }
-        } else {
-          console.warn("⚠️ Doc not found in sharedDocs");
         }
       }
       
