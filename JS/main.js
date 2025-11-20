@@ -3085,15 +3085,17 @@ async function renderPending() {
             });
             if (!response.ok) throw new Error("Upload failed");
             const uploadedDoc = await response.json();
-            console.log("✅ Document uploaded:", uploadedDoc);
-            await upsertSharedDocRecord({
-              id: uploadedDoc.id,
-              title: file.name,
-              fileName: file.name,
-              uploadedAt: Date.now(),
-              category: [],
-              recipient: []
-            }, openId);
+console.log("✅ Document uploaded:", uploadedDoc);
+await upsertSharedDocRecord({
+  id: uploadedDoc.id,
+  title: file.name,
+  fileName: file.name,
+  uploadedAt: Date.now(),
+  category: [],
+  recipient: [],
+  fileUrl: uploadedDoc.fileUrl || uploadedDoc.file_url || uploadedDoc.downloadURL || ""
+}, openId);
+
             hideLoading();
             showNotification("המסמך הועלה בהצלחה! ✅");
             await loadAndDisplayDocs();
@@ -3602,41 +3604,29 @@ if (editForm) {
   }
   // העלאת קובץ ושמירה (Metadata -> localStorage, קובץ -> IndexedDB)
   // פתיחת קובץ מה-IndexedDB
+// פתיחת קובץ מה-IndexedDB למסמכים האישיים בלבד (לא לתיקייה משותפת)
 document.addEventListener("click", async (ev) => {
   const btn = ev.target.closest("[data-open-id]");
   if (!btn) return;
+
+  // אם אנחנו בתוך תיקייה משותפת – לתת לליסנר השני (doc-open-link) לטפל
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get("sharedFolder")) {
+    return;
+  }
 
   const docId = btn.getAttribute("data-open-id");
   const docsArr = Array.isArray(window.allDocsData) ? window.allDocsData : [];
   const docObj = docsArr.find(d => d.id === docId);
 
   if (!docObj) {
+    console.warn("doc not found in allDocsData", { docId });
     if (typeof showNotification === "function") {
       showNotification("לא נמצא המסמך", true);
     }
-    console.error("doc not found in allDocsData", { docId });
     return;
   }
 
-  // אם יש פונקציה מרכזית לצפייה – נשתמש בה
-  if (typeof window.viewDocument === "function") {
-    try {
-      await window.viewDocument(docObj);
-      return;
-    } catch (err) {
-      console.warn("viewDocument failed, falling back:", err);
-    }
-  }
-
-  // fallback 1 – URL מהענן (fileUrl / downloadURL)
-  const fileUrl = docObj.fileUrl || docObj.downloadURL;
-  if (fileUrl) {
-    console.log("📂 Opening URL (fallback):", fileUrl);
-    window.open(fileUrl, "_blank");
-    return;
-  }
-
-  // fallback 2 – IndexedDB למי שהעלה מהמחשב שלו
   let dataUrl = null;
   try {
     if (typeof loadFileFromDB === "function") {
@@ -3646,25 +3636,22 @@ document.addEventListener("click", async (ev) => {
     console.error("שגיאה בשליפת קובץ מה-DB:", e);
   }
 
-  if (dataUrl) {
-    const a = document.createElement("a");
-    a.href = dataUrl;
-    a.download =
-      docObj.originalFileName ||
-      docObj.fileName ||
-      docObj.title ||
-      "file";
-    a.target = "_blank";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+  // אם אין קובץ מקומי – נסה לפתוח מענן אם יש URL
+  if (!dataUrl) {
+    const url = docObj.fileUrl || docObj.downloadURL;
+    if (url) {
+      window.open(url, "_blank");
+    }
     return;
   }
 
-  if (typeof showNotification === "function") {
-    showNotification("הקובץ לא זמין במכשיר הזה ולא נמצא URL בענן", true);
-  }
-  console.warn("No way to open document", docObj);
+  const a = document.createElement("a");
+  a.href = dataUrl;
+  a.download = docObj.originalFileName || docObj.fileName || "file";
+  a.target = "_blank";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 });
 
 
@@ -4007,66 +3994,81 @@ document.addEventListener('click', function(e) {
 // 🎯 האזנה גלובלית לכפתור "שחזור" בסל המחזור
 console.log("✅ All functions fixed and loaded!");
 // 🔥 תמיכה בפתיחת קבצים לכל החברים בתיקייה משותפת
+// 🔥 תמיכה בפתיחת קבצים לכל החברים בתיקייה משותפת
 (function() {
   document.addEventListener('click', async (e) => {
     const target = e.target;
-    // בדוק אם זה כפתור פתיחת קובץ
-    if (target.classList.contains('doc-open-link')) {
-      e.preventDefault();
-      e.stopPropagation();
-      const docId = target.dataset.openId;
-      if (!docId) {
-        console.error("❌ No document ID");
+    if (!target.classList.contains('doc-open-link')) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const docId = target.dataset.openId;
+    if (!docId) {
+      console.error("❌ No document ID on button");
+      return;
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const sharedFolderId = urlParams.get('sharedFolder');
+
+    // אם לא בתיקייה משותפת – לא מתערב, נותן לליסנר הרגיל לעבוד
+    if (!sharedFolderId) {
+      return;
+    }
+
+    console.log("🔍 Opening shared doc:", docId, "in folder:", sharedFolderId);
+
+    try {
+      if (!isFirebaseAvailable()) {
+        if (typeof showNotification === "function") {
+          showNotification("Firebase לא זמין - לא ניתן לפתוח מסמך משותף", true);
+        }
         return;
       }
-      // בדוק אם זה בתיקייה משותפת
-      const urlParams = new URLSearchParams(window.location.search);
-      const sharedFolderId = urlParams.get('sharedFolder');
-      if (sharedFolderId) {
-        console.log("🔍 Opening shared doc:", docId);
-        try {
-          showLoading("טוען מסמך...");
-          // נסה לטעון מ-Firestore
-          if (isFirebaseAvailable()) {
-            const docRef = window.fs.doc(window.db, "sharedDocs", `${sharedFolderId}_${docId}`);
-            const docSnap = await window.fs.getDoc(docRef);
-            if (docSnap.exists()) {
-              const docData = docSnap.data();
-              console.log("📄 Found document:", docData);
-              if (docData.fileUrl) {
-                window.open(docData.fileUrl, '_blank');
-                hideLoading();
-                showNotification("פותח קובץ...");
-                return;
-              }
-            }
-          }
-          // אם לא מצאנו ב-Firestore, נסה API
-          const currentEmail = getCurrentUserEmail();
-          const response = await fetch(`${API_BASE}/api/docs/${docId}`, {
-            headers: {
-              "X-Dev-Email": currentEmail
-            }
-          });
-          if (response.ok) {
-            const doc = await response.json();
-            if (doc.fileUrl) {
-              window.open(doc.fileUrl, '_blank');
-              hideLoading();
-              return;
-            }
-          }
-          hideLoading();
-          showNotification("לא נמצא קישור לקובץ", true);
-        } catch (err) {
-          console.error("❌ Error opening doc:", err);
-          hideLoading();
-          showNotification("שגיאה בפתיחת המסמך", true);
+
+      if (typeof showLoading === "function") {
+        showLoading("טוען מסמך משותף...");
+      }
+
+      // כאן docId הוא ה-ID של הרשומה ב-sharedDocs (recId)
+      const docRef = window.fs.doc(window.db, "sharedDocs", docId);
+      const docSnap = await window.fs.getDoc(docRef);
+
+      if (!docSnap.exists()) {
+        console.error("❌ sharedDocs doc not found:", docId);
+        if (typeof hideLoading === "function") hideLoading();
+        if (typeof showNotification === "function") {
+          showNotification("לא נמצא מסמך משותף", true);
         }
+        return;
+      }
+
+      const docData = docSnap.data();
+      console.log("📄 Shared doc data:", docData);
+
+      const fileUrl = docData.fileUrl || docData.file_url || docData.downloadURL;
+      if (fileUrl) {
+        window.open(fileUrl, "_blank");
+        if (typeof hideLoading === "function") hideLoading();
+        if (typeof showNotification === "function") {
+          showNotification("פותח קובץ...");
+        }
+        return;
+      }
+
+      if (typeof hideLoading === "function") hideLoading();
+      if (typeof showNotification === "function") {
+        showNotification("לא נמצא קישור לקובץ במסמך המשותף", true);
+      }
+    } catch (err) {
+      console.error("❌ Error opening shared doc:", err);
+      if (typeof hideLoading === "function") hideLoading();
+      if (typeof showNotification === "function") {
+        showNotification("שגיאה בפתיחת המסמך המשותף", true);
       }
     }
   });
-  console.log("✅ Shared document opener installed");
 })();
 
 
