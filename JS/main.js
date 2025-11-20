@@ -4067,7 +4067,7 @@ console.log("✅ All functions fixed and loaded!");
         console.warn("❌ No sharedDocs record for", { folderId, docId });
         if (typeof hideLoading === "function") hideLoading();
         if (typeof showNotification === "function") {
-          showNotification("לא נמצא המסמך בתיקייה המשותפת", true);
+            //showNotification("לא נמצא המסמך בתיקייה המשותפת", true);
         }
         return;
       }
