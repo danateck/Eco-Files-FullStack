@@ -1410,22 +1410,18 @@ if (mode !== "recycle") {
       if (!confirmDel) return;
       try {
         showLoading("מסיר מסמך מהתיקייה...");
-        const urlParams = new URLSearchParams(window.location.search);
-        console.log("🔍 Debug - Attempting to get folderId...");
-        console.log("🔍 Debug - URL:", window.location.href);
-        
-        let folderId = urlParams.get('sharedFolder');
-        console.log("🔍 Debug - folderId from URL:", folderId);
-        
-        // נפילה ל-ID ששמרנו גלובלית אם אין בפרמטרים
-        if (!folderId && window.currentSharedFolderId) {
-          folderId = window.currentSharedFolderId;
-          console.log("🔍 Debug - Using global folderId:", folderId);
+
+        // 🧭 קבל folderId בצורה חכמה
+        let folderId = null;
+        if (typeof getCurrentFolderId === "function") {
+          folderId = getCurrentFolderId();
+        } else {
+          const urlParams = new URLSearchParams(window.location.search);
+          folderId = urlParams.get("sharedFolder");
         }
-        
+
         if (!folderId) {
-          console.log("❌ Debug - No folderId found!");
-          hideLoading();
+          if (typeof hideLoading === "function") hideLoading();
           showNotification("שגיאה: לא נמצא מזהה תיקייה", true);
           return;
         }
@@ -2989,6 +2985,20 @@ async function renderPending() {
     const delId    = t.getAttribute?.("data-delete");
    // --- פתיחת עמוד תיקייה ---
     if (openId) {
+      // 🧭 שמור מזהה תיקייה חcurrent
+      if (typeof trackCurrentFolder === "function") {
+        trackCurrentFolder(openId);
+      }
+
+      // 🧭 עדכן URL עם ?sharedFolder=...
+      try {
+        const url = new URL(window.location);
+        url.searchParams.set("sharedFolder", openId);
+        window.history.pushState({}, "", url);
+      } catch (e) {
+        console.warn("Cannot update URL with sharedFolder", e);
+      }
+
       categoryTitle.textContent = me.sharedFolders[openId]?.name || "תיקייה משותפת";
       // 🔥 נקה והוסף קלאס
       docsList.innerHTML = "";
@@ -3605,22 +3615,28 @@ if (editForm) {
   // העלאת קובץ ושמירה (Metadata -> localStorage, קובץ -> IndexedDB)
   // פתיחת קובץ מה-IndexedDB
 // פתיחת קובץ מה-IndexedDB למסמכים האישיים בלבד (לא לתיקייה משותפת)
+// פתיחת קובץ מה-IndexedDB למסמכים האישיים בלבד (לא לתיקייה משותפת)
 document.addEventListener("click", async (ev) => {
   const btn = ev.target.closest("[data-open-id]");
   if (!btn) return;
 
-  // אם אנחנו בתוך תיקייה משותפת – לתת לליסנר השני (doc-open-link) לטפל
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get("sharedFolder")) {
+  // אם אנחנו בתיקייה משותפת – הליסנר של shared יטפל
+  let folderId = null;
+  if (typeof getCurrentFolderId === "function") {
+    folderId = getCurrentFolderId();
+  } else {
+    const urlParams = new URLSearchParams(window.location.search);
+    folderId = urlParams.get("sharedFolder");
+  }
+  if (folderId) {
     return;
   }
 
   const docId = btn.getAttribute("data-open-id");
   const docsArr = Array.isArray(window.allDocsData) ? window.allDocsData : [];
-  const docObj = docsArr.find(d => d.id === docId);
+  const docObj = docsArr.find((d) => d.id === docId);
 
   if (!docObj) {
-    console.warn("doc not found in allDocsData", { docId });
     if (typeof showNotification === "function") {
       showNotification("לא נמצא המסמך", true);
     }
@@ -3636,7 +3652,7 @@ document.addEventListener("click", async (ev) => {
     console.error("שגיאה בשליפת קובץ מה-DB:", e);
   }
 
-  // אם אין קובץ מקומי – נסה לפתוח מענן אם יש URL
+  // אם אין קובץ מקומי – נסה מענן אם יש URL
   if (!dataUrl) {
     const url = docObj.fileUrl || docObj.downloadURL;
     if (url) {
@@ -3647,12 +3663,14 @@ document.addEventListener("click", async (ev) => {
 
   const a = document.createElement("a");
   a.href = dataUrl;
-  a.download = docObj.originalFileName || docObj.fileName || "file";
+  a.download =
+    docObj.originalFileName || docObj.fileName || docObj.title || "file";
   a.target = "_blank";
   document.body.appendChild(a);
   a.click();
   a.remove();
 });
+
 
 
 });
@@ -3995,10 +4013,24 @@ document.addEventListener('click', function(e) {
 console.log("✅ All functions fixed and loaded!");
 // 🔥 תמיכה בפתיחת קבצים לכל החברים בתיקייה משותפת
 // 🔥 תמיכה בפתיחת קבצים לכל החברים בתיקייה משותפת
-(function() {
-  document.addEventListener('click', async (e) => {
-    const target = e.target;
-    if (!target.classList.contains('doc-open-link')) return;
+// 🔥 פתיחת קבצים בתיקייה משותפת – ל-OWNER ולחברים
+(function () {
+  document.addEventListener("click", async (e) => {
+    const target = e.target.closest(".doc-open-link");
+    if (!target) return;
+
+    // אם אנחנו לא בתוך תיקייה משותפת – שלא יתערב
+    let folderId = null;
+    if (typeof getCurrentFolderId === "function") {
+      folderId = getCurrentFolderId();
+    } else {
+      const urlParams = new URLSearchParams(window.location.search);
+      folderId = urlParams.get("sharedFolder");
+    }
+    if (!folderId) {
+      // לא בתיקייה משותפת – הליסנרים האחרים מטפלים
+      return;
+    }
 
     e.preventDefault();
     e.stopPropagation();
@@ -4009,57 +4041,56 @@ console.log("✅ All functions fixed and loaded!");
       return;
     }
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const sharedFolderId = urlParams.get('sharedFolder');
+    console.log("🔍 Opening shared doc:", { folderId, docId });
 
-    // אם לא בתיקייה משותפת – לא מתערב, נותן לליסנר הרגיל לעבוד
-    if (!sharedFolderId) {
+    if (!isFirebaseAvailable()) {
+      if (typeof showNotification === "function") {
+        showNotification("Firebase לא זמין - לא ניתן לפתוח מסמך משותף", true);
+      }
       return;
     }
 
-    console.log("🔍 Opening shared doc:", docId, "in folder:", sharedFolderId);
-
     try {
-      if (!isFirebaseAvailable()) {
-        if (typeof showNotification === "function") {
-          showNotification("Firebase לא זמין - לא ניתן לפתוח מסמך משותף", true);
-        }
-        return;
-      }
-
       if (typeof showLoading === "function") {
         showLoading("טוען מסמך משותף...");
       }
 
-      // כאן docId הוא ה-ID של הרשומה ב-sharedDocs (recId)
-      const docRef = window.fs.doc(window.db, "sharedDocs", docId);
-      const docSnap = await window.fs.getDoc(docRef);
+      const col = window.fs.collection(window.db, "sharedDocs");
+      const q = window.fs.query(
+        col,
+        window.fs.where("folderId", "==", folderId),
+        window.fs.where("id", "==", docId)
+      );
+      const snap = await window.fs.getDocs(q);
 
-      if (!docSnap.exists()) {
-        console.error("❌ sharedDocs doc not found:", docId);
+      if (snap.empty) {
+        console.warn("❌ No sharedDocs record for", { folderId, docId });
         if (typeof hideLoading === "function") hideLoading();
         if (typeof showNotification === "function") {
-          showNotification("לא נמצא מסמך משותף", true);
+          showNotification("לא נמצא המסמך בתיקייה המשותפת", true);
         }
         return;
       }
 
-      const docData = docSnap.data();
-      console.log("📄 Shared doc data:", docData);
+      const docSnap = snap.docs[0];
+      const data = docSnap.data();
+      console.log("📄 Shared doc data:", data);
 
-      const fileUrl = docData.fileUrl || docData.file_url || docData.downloadURL;
-      if (fileUrl) {
-        window.open(fileUrl, "_blank");
+      const fileUrl =
+        data.fileUrl || data.file_url || data.downloadURL || data.url;
+
+      if (!fileUrl) {
         if (typeof hideLoading === "function") hideLoading();
         if (typeof showNotification === "function") {
-          showNotification("פותח קובץ...");
+          showNotification("לא נמצא קישור לקובץ במסמך המשותף", true);
         }
         return;
       }
 
+      window.open(fileUrl, "_blank");
       if (typeof hideLoading === "function") hideLoading();
       if (typeof showNotification === "function") {
-        showNotification("לא נמצא קישור לקובץ במסמך המשותף", true);
+        showNotification("פותח קובץ...");
       }
     } catch (err) {
       console.error("❌ Error opening shared doc:", err);
@@ -4070,6 +4101,7 @@ console.log("✅ All functions fixed and loaded!");
     }
   });
 })();
+
 
 
 
