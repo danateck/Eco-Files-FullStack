@@ -3602,34 +3602,57 @@ if (editForm) {
   }
   // העלאת קובץ ושמירה (Metadata -> localStorage, קובץ -> IndexedDB)
   // פתיחת קובץ מה-IndexedDB
-  document.addEventListener("click", async (ev) => {
-    const btn = ev.target.closest("[data-open-id]");
-    if (!btn) return;
-    const docId = btn.getAttribute("data-open-id");
-    const docObj = allDocsData.find(d => d.id === docId);
-    if (!docObj) {
-      showNotification("לא נמצא המסמך", true);
-      return;
-    }
-    // נטען את ה-dataURL מתוך IndexedDB
-    let dataUrl = null;
-    try {
+document.addEventListener("click", async (ev) => {
+  const btn = ev.target.closest("[data-open-id]");
+  if (!btn) return;
+
+  const docId = btn.getAttribute("data-open-id");
+  const docsArr = window.allDocsData || [];
+  const docObj = docsArr.find(d => d.id === docId);
+
+  if (!docObj) {
+    showNotification("לא נמצא המסמך", true);
+    return;
+  }
+
+  // 1️⃣ ניסיון לפתוח מקומי (IndexedDB) – אם זה אותו מחשב שהעלה
+  let dataUrl = null;
+  try {
+    if (typeof loadFileFromDB === "function") {
       dataUrl = await loadFileFromDB(docObj.id);
-    } catch (e) {
-      console.error("שגיאה בשליפת קובץ מה-DB:", e);
     }
-    if (!dataUrl) {
-      //showNotification("הקובץ הזה לא שמור / גדול מדי או נמחק מהמכשיר. אבל הפרטים נשמרו.", true);
-      return;
-    }
+  } catch (e) {
+    console.error("שגיאה בשליפת קובץ מה-DB:", e);
+  }
+
+  if (dataUrl) {
     const a = document.createElement("a");
     a.href = dataUrl;
-    a.download = docObj.originalFileName || "file";
+    a.download = docObj.originalFileName || docObj.fileName || docObj.title || "file";
     a.target = "_blank";
     document.body.appendChild(a);
     a.click();
     a.remove();
-  });
+    return;
+  }
+
+  // 2️⃣ אם אין קובץ מקומי – לפתוח מהענן לפי downloadURL
+  if (docObj.downloadURL) {
+    window.open(docObj.downloadURL, "_blank");
+    return;
+  }
+
+  // 3️⃣ fallback לשרת Node (eco-files.onrender.com) אם יש ID
+  if (typeof API_BASE !== "undefined" && docObj.id) {
+    const url = `${API_BASE}/api/docs/${encodeURIComponent(docObj.id)}/download`;
+    window.open(url, "_blank");
+    return;
+  }
+
+  // 4️⃣ אין בכלל איך לפתוח
+  showNotification("לא נמצא קובץ להצגה (לא מקומי ולא בענן)", true);
+});
+
 });
 window.addEventListener("firebase-ready", () => {
    console.log("🔥 Firebase ready → booting app");
@@ -4090,14 +4113,16 @@ async function saveDocumentEdit() {
     }
 
     // עדכן ב-allDocsData - זה החשוב!
-    const docIndex = (window.allDocsData || []).findIndex(d => d.id === id);
-    if (docIndex !== -1) {
-      window.allDocsData[docIndex] = {
-        ...window.allDocsData[docIndex],
-        ...updates
-      };
-      console.log("✅ allDocsData updated");
-    }
+   // עדכן ב-allDocsData - זה החשוב!
+const docIndex = (window.allDocsData || []).findIndex(d => d.id === id);
+if (docIndex !== -1) {
+  window.allDocsData[docIndex] = {
+    ...window.allDocsData[docIndex],
+    ...updates
+  };
+  console.log("✅ allDocsData updated");
+}
+
 
     // עדכן ב-localStorage
     const currentUser = getCurrentUserEmail();
