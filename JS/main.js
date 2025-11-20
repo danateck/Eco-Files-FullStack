@@ -3881,41 +3881,47 @@ async function restoreDocument(id) {
 }
 // ═══ תיקון 3: צפייה/פתיחת קובץ ═══
 async function viewDocument(doc) {
-  console.log("👁️ Downloading:", doc.title);
+  console.log("👁️ Opening document:", doc.id, doc.title);
   try {
-    // הצגת הודעה שמתחיל להוריד
-    if (typeof showNotification === "function") {
-      showNotification("מוריד את הקובץ... 📥");
+    if (typeof showLoading === "function") {
+      showLoading("פותח מסמך...");
     }
+    
     // תמיד קודם מנסים דרך Render (עם headers)
     if (window.downloadDocument && typeof window.downloadDocument === "function") {
-      await window.downloadDocument(
-        doc.id,
-        doc.fileName || doc.title || "document"
-      );
-      // הודעת הצלחה
+      try {
+        await window.downloadDocument(
+          doc.id,
+          doc.fileName || doc.title || "document"
+        );
+        if (typeof hideLoading === "function") hideLoading();
+        if (typeof showNotification === "function") {
+          showNotification("הקובץ הורד בהצלחה! ✅");
+        }
+        return;
+      } catch (apiError) {
+        console.warn("⚠️ API failed, trying direct URL:", apiError);
+      }
+    }
+    
+    // תמיכה גם ב-fileUrl וגם ב-downloadURL
+    const fileUrl = doc.fileUrl || doc.downloadURL;
+    
+    if (fileUrl) {
+      console.log("📂 Opening URL:", fileUrl);
+      window.open(fileUrl, "_blank");
+      if (typeof hideLoading === "function") hideLoading();
       if (typeof showNotification === "function") {
-        showNotification("הקובץ הורד בהצלחה! ✅");
+        showNotification("המסמך נפתח ✅");
       }
       return;
     }
-    // אם משום מה אין downloadDocument – ננסה ישירות מה-URL (פיירבייס ישן)
-    if (doc.downloadURL) {
-      const a = document.createElement("a");
-      a.href = doc.downloadURL;
-      a.target = "_blank";
-      a.download = doc.fileName || doc.title || "document";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      if (typeof showNotification === "function") {
-        showNotification("הקובץ הורד בהצלחה! ✅");
-      }
-      return;
-    }
+    
+    if (typeof hideLoading === "function") hideLoading();
     showNotification("הקובץ לא זמין להורדה", true);
   } catch (error) {
     console.error("❌ Download error:", error);
+    if (typeof hideLoading === "function") hideLoading();
     showNotification("שגיאה בהורדת הקובץ", true);
   }
 }
@@ -3963,190 +3969,94 @@ document.addEventListener('click', function(e) {
 // 🎯 האזנה גלובלית לכפתור "שחזור" בסל המחזור
 console.log("✅ All functions fixed and loaded!");
 // 🔥 תמיכה בפתיחת קבצים לכל החברים בתיקייה משותפת
-// ═══════════════════════════════════════════════════════════
-// 🔧 תיקונים ל-main.js - 3 בעיות עיקריות
-// ═══════════════════════════════════════════════════════════
-
-// ────────────────────────────────────────────────────────────
-// תיקון #1: פתיחת מסמכים בתיקיות משותפות
-// ────────────────────────────────────────────────────────────
-
-// 🔥 החלף את הקוד בשורות 3966-4026 בזה:
-
 (function() {
   document.addEventListener('click', async (e) => {
     const target = e.target;
-    
     // בדוק אם זה כפתור פתיחת קובץ
     if (target.classList.contains('doc-open-link')) {
       e.preventDefault();
       e.stopPropagation();
-      
       const docId = target.dataset.openId;
       if (!docId) {
         console.error("❌ No document ID");
         return;
       }
-
-      console.log("🔍 Opening document:", docId);
-      
-      try {
-        showLoading("טוען מסמך...");
-        
-        // 1️⃣ קודם נסה למצוא את המסמך ב-allDocsData
-        let doc = (window.allDocsData || []).find(d => d.id === docId);
-        
-        if (doc) {
-          console.log("✅ Found in allDocsData:", doc.title);
-          await viewDocument(doc);
-          hideLoading();
-          return;
-        }
-
-        // 2️⃣ אם לא מצאנו, נסה לטעון מ-Firestore
-        if (isFirebaseAvailable()) {
-          const docRef = window.fs.doc(window.db, "documents", docId);
-          const docSnap = await window.fs.getDoc(docRef);
-          
-          if (docSnap.exists()) {
-            doc = { id: docSnap.id, ...docSnap.data() };
-            console.log("✅ Found in Firestore:", doc.title);
-            
-            // בדוק אם למשתמש יש הרשאה
-            const currentEmail = getCurrentUserEmail();
-            const hasAccess = (
-              doc.owner === currentEmail ||
-              (doc.sharedWith && doc.sharedWith.includes(currentEmail))
-            );
-            
-            if (!hasAccess) {
+      // בדוק אם זה בתיקייה משותפת
+      const urlParams = new URLSearchParams(window.location.search);
+      const sharedFolderId = urlParams.get('sharedFolder');
+      if (sharedFolderId) {
+        console.log("🔍 Opening shared doc:", docId);
+        try {
+          showLoading("טוען מסמך...");
+          // נסה לטעון מ-Firestore
+          if (isFirebaseAvailable()) {
+            const docRef = window.fs.doc(window.db, "sharedDocs", `${sharedFolderId}_${docId}`);
+            const docSnap = await window.fs.getDoc(docRef);
+            if (docSnap.exists()) {
+              const docData = docSnap.data();
+              console.log("📄 Found document:", docData);
+              if (docData.fileUrl) {
+                window.open(docData.fileUrl, '_blank');
+                hideLoading();
+                showNotification("פותח קובץ...");
+                return;
+              }
+            }
+          }
+          // אם לא מצאנו ב-Firestore, נסה API
+          const currentEmail = getCurrentUserEmail();
+          const response = await fetch(`${API_BASE}/api/docs/${docId}`, {
+            headers: {
+              "X-Dev-Email": currentEmail
+            }
+          });
+          if (response.ok) {
+            const doc = await response.json();
+            if (doc.fileUrl) {
+              window.open(doc.fileUrl, '_blank');
               hideLoading();
-              showNotification("אין לך הרשאה לצפות במסמך זה", true);
               return;
             }
-            
-            await viewDocument(doc);
-            hideLoading();
-            return;
           }
-        }
-
-        // 3️⃣ אם עדיין לא מצאנו, נסה API
-        const currentEmail = getCurrentUserEmail();
-        const response = await fetch(`${API_BASE}/api/docs/${docId}`, {
-          headers: {
-            "X-Dev-Email": currentEmail
-          }
-        });
-        
-        if (response.ok) {
-          doc = await response.json();
-          console.log("✅ Found via API:", doc.title);
-          await viewDocument(doc);
           hideLoading();
-          return;
+          showNotification("לא נמצא קישור לקובץ", true);
+        } catch (err) {
+          console.error("❌ Error opening doc:", err);
+          hideLoading();
+          showNotification("שגיאה בפתיחת המסמך", true);
         }
-
-        // 4️⃣ לא מצאנו בשום מקום
-        hideLoading();
-        showNotification("לא נמצא מסמך זה או אין לך הרשאה", true);
-        
-      } catch (err) {
-        console.error("❌ Error opening doc:", err);
-        hideLoading();
-        showNotification("שגיאה בפתיחת המסמך", true);
       }
     }
   });
-  
-  console.log("✅ Fixed shared document opener installed");
+  console.log("✅ Shared document opener installed");
 })();
 
 
-// ────────────────────────────────────────────────────────────
-// תיקון #2: שמירת עריכת מסמך
-// ────────────────────────────────────────────────────────────
 
-// 🔥 החלף/הוסף את הפונקציה updateDocumentInFirestore:
 
-async function updateDocumentInFirestore(docId, updates) {
-  console.log("💾 Updating document:", docId, updates);
-  
-  if (!docId) {
-    console.error("❌ No document ID provided");
-    throw new Error("מזהה מסמך חסר");
-  }
+// 🧩 FIX: פונקציה בסיסית ל-renderSharedFoldersUI כדי שלא תהיה שגיאה
+window.renderSharedFoldersUI = function(folders = []) {
+  window.mySharedFolders = Array.isArray(folders) ? folders : [];
+  console.log("📂 renderSharedFoldersUI stub - got", window.mySharedFolders.length);
+  // בכוונה לא פותח אוטומטית את האחסון המשותף
+  // את תיכנסי אליו רק כשאת לוחצת בתפריט צד
+};
 
-  if (!isFirebaseAvailable()) {
-    console.error("❌ Firebase not available");
-    throw new Error("Firebase לא זמין");
-  }
+// ═══════════════════════════════════════════════════════════
+// תיקונים נוספים - דנה 2024
+// ═══════════════════════════════════════════════════════════
 
-  try {
-    // 1️⃣ עדכן ב-Firestore
-    const docRef = window.fs.doc(window.db, "documents", docId);
-    
-    // הכן את העדכון עם timestamp
-    const updateData = {
-      ...updates,
-      updatedAt: Date.now()
-    };
-    
-    await window.fs.updateDoc(docRef, updateData);
-    console.log("✅ Updated in Firestore");
-
-    // 2️⃣ עדכן ב-allDocsData המקומי
-    const docIndex = (window.allDocsData || []).findIndex(d => d.id === docId);
-    
-    if (docIndex !== -1) {
-      // עדכן את המסמך הקיים
-      window.allDocsData[docIndex] = {
-        ...window.allDocsData[docIndex],
-        ...updateData
-      };
-      console.log("✅ Updated in allDocsData");
-    } else {
-      // אם לא נמצא, טען מחדש מ-Firestore
-      console.log("⚠️ Document not in allDocsData, reloading...");
-      const docSnap = await window.fs.getDoc(docRef);
-      if (docSnap.exists()) {
-        const doc = { id: docSnap.id, ...docSnap.data() };
-        window.allDocsData.push(doc);
-        console.log("✅ Added to allDocsData");
-      }
-    }
-
-    // 3️⃣ עדכן ב-localStorage/memory
-    const currentUser = getCurrentUserEmail();
-    if (currentUser && typeof setUserDocs === 'function') {
-      setUserDocs(currentUser, window.allDocsData, window.allUsersData);
-    }
-
-    // 4️⃣ רענן את התצוגה
-    console.log("🎨 Refreshing view after update");
-    if (typeof window.renderHome === 'function') {
-      window.renderHome();
-    }
-
-    showNotification("המסמך עודכן בהצלחה ✅");
-    return true;
-    
-  } catch (error) {
-    console.error("❌ Error updating document:", error);
-    showNotification("שגיאה בעדכון המסמך", true);
-    throw error;
-  }
-}
-
-// גם החלף את saveDocumentEdit:
+// תיקון #2: saveDocumentEdit - שמירה מלאה
 async function saveDocumentEdit() {
+  console.log("💾 saveDocumentEdit started");
+  
   const id = document.getElementById("edit_doc_id")?.value;
   const title = document.getElementById("edit_title")?.value?.trim();
   const category = document.getElementById("edit_category")?.value;
   const notes = document.getElementById("edit_notes")?.value?.trim();
   const warranty = document.getElementById("edit_warranty")?.value;
 
-  console.log("💾 saveDocumentEdit called:", { id, title, category, notes, warranty });
+  console.log("📝 Values:", { id, title, category });
 
   if (!id) {
     showNotification("מזהה מסמך חסר", true);
@@ -4159,7 +4069,7 @@ async function saveDocumentEdit() {
   }
 
   try {
-    showLoading("שומר שינויים...");
+    if (typeof showLoading === "function") showLoading("שומר...");
 
     const updates = {
       title,
@@ -4168,41 +4078,113 @@ async function saveDocumentEdit() {
       updatedAt: Date.now()
     };
 
-    // הוסף תאריך אחריות רק אם הוזן
     if (warranty) {
       updates.warrantyEnd = warranty;
     }
 
     // עדכן ב-Firestore
-    await updateDocumentInFirestore(id, updates);
+    if (isFirebaseAvailable()) {
+      const docRef = window.fs.doc(window.db, "documents", id);
+      await window.fs.updateDoc(docRef, updates);
+      console.log("✅ Firestore updated");
+    }
 
-    // סגור את המודל
-    closeModal("editDocModal");
-    
-    hideLoading();
-    showNotification("המסמך עודכן בהצלחה ✅");
-    
-    console.log("✅ Document edit saved successfully");
+    // עדכן ב-allDocsData - זה החשוב!
+    const docIndex = (window.allDocsData || []).findIndex(d => d.id === id);
+    if (docIndex !== -1) {
+      window.allDocsData[docIndex] = {
+        ...window.allDocsData[docIndex],
+        ...updates
+      };
+      console.log("✅ allDocsData updated");
+    }
+
+    // עדכן ב-localStorage
+    const currentUser = getCurrentUserEmail();
+    if (currentUser && typeof setUserDocs === 'function') {
+      setUserDocs(currentUser, window.allDocsData, window.allUsersData);
+    }
+
+    // סגור מודל
+    if (typeof closeModal === 'function') {
+      closeModal("editDocModal");
+    }
+
+    if (typeof hideLoading === "function") hideLoading();
+    showNotification("המסמך עודכן ✅");
+
+    // רענן תצוגה
+    if (typeof window.renderHome === 'function') {
+      window.renderHome();
+    } else if (typeof renderHome === 'function') {
+      renderHome();
+    }
 
   } catch (error) {
-    console.error("❌ Error saving edit:", error);
-    hideLoading();
-    showNotification("שגיאה בשמירת השינויים", true);
+    console.error("❌ Save error:", error);
+    if (typeof hideLoading === "function") hideLoading();
+    showNotification("שגיאה בשמירה: " + error.message, true);
   }
 }
 
+// תיקון #3: getCurrentFolderId - מציאת folderId
+function getCurrentFolderId() {
+  console.log("🔍 Looking for folderId");
+  
+  // 1. מה-URL
+  const urlParams = new URLSearchParams(window.location.search);
+  let folderId = urlParams.get('sharedFolder') || urlParams.get('folderId');
+  if (folderId) {
+    console.log("✅ Found in URL:", folderId);
+    return folderId;
+  }
+  
+  // 2. מה-hash
+  const hash = window.location.hash;
+  const hashMatch = hash.match(/folder[=/]([^&/]+)/);
+  if (hashMatch) {
+    console.log("✅ Found in hash:", hashMatch[1]);
+    return hashMatch[1];
+  }
+  
+  // 3. מ-window
+  if (window.currentFolderId) {
+    console.log("✅ Found in window:", window.currentFolderId);
+    return window.currentFolderId;
+  }
+  
+  // 4. מ-sessionStorage
+  const stored = sessionStorage.getItem('currentFolderId');
+  if (stored) {
+    console.log("✅ Found in storage:", stored);
+    return stored;
+  }
+  
+  console.warn("❌ No folderId found");
+  return null;
+}
 
-// ────────────────────────────────────────────────────────────
-// תיקון #3: הסרת מסמך מתיקייה משותפת
-// ────────────────────────────────────────────────────────────
+// תיקון #3: trackCurrentFolder - מעקב אחרי folderId
+function trackCurrentFolder(folderId) {
+  if (folderId) {
+    console.log("📌 Tracking folder:", folderId);
+    window.currentFolderId = folderId;
+    sessionStorage.setItem('currentFolderId', folderId);
+  }
+}
 
-// 🔥 הוסף פונקציה חדשה להסרת מסמך מתיקייה:
-
-async function removeDocFromFolder(docId, folderId) {
-  console.log("🗑️ Removing doc from folder:", docId, folderId);
+// תיקון #3: עדכון removeDocFromFolder
+async function removeDocFromFolder(docId, folderId = null) {
+  console.log("🗑️ Removing doc from folder:", docId);
+  
+  // אם אין folderId, נסה למצוא
+  if (!folderId) {
+    folderId = getCurrentFolderId();
+  }
   
   if (!docId || !folderId) {
     showNotification("פרטים חסרים", true);
+    console.error("Missing:", { docId, folderId });
     return;
   }
 
@@ -4212,116 +4194,88 @@ async function removeDocFromFolder(docId, folderId) {
   }
 
   try {
-    showLoading("מסיר מסמך מהתיקייה...");
+    if (typeof showLoading === 'function') showLoading("מסיר...");
 
-    // 1️⃣ טען את התיקייה
     const folderRef = window.fs.doc(window.db, "sharedFolders", folderId);
-    const folderSnap = await window.fs.getDoc(folderRef);
+    const snap = await window.fs.getDoc(folderRef);
     
-    if (!folderSnap.exists()) {
-      throw new Error("התיקייה לא נמצאה");
+    if (!snap.exists()) {
+      throw new Error("תיקייה לא נמצאה");
     }
 
-    const folderData = folderSnap.data();
+    const data = snap.data();
     const currentEmail = getCurrentUserEmail();
 
-    // 2️⃣ בדוק הרשאות - רק הבעלים יכול להסיר
-    if (folderData.owner !== currentEmail) {
-      hideLoading();
-      showNotification("רק בעל התיקייה יכול להסיר מסמכים", true);
+    if (data.owner !== currentEmail) {
+      if (typeof hideLoading === 'function') hideLoading();
+      showNotification("רק בעלים יכול להסיר", true);
       return;
     }
 
-    // 3️⃣ הסר את המסמך מרשימת המסמכים
-    let docsList = folderData.docs || [];
-    const originalLength = docsList.length;
-    docsList = docsList.filter(d => d !== docId);
+    let docs = data.docs || [];
+    const before = docs.length;
     
-    if (docsList.length === originalLength) {
-      hideLoading();
-      showNotification("המסמך לא נמצא בתיקייה", true);
+    docs = docs.filter(d => {
+      if (typeof d === 'object' && d.id) return d.id !== docId;
+      return d !== docId;
+    });
+    
+    if (docs.length === before) {
+      if (typeof hideLoading === 'function') hideLoading();
+      showNotification("המסמך לא בתיקייה", true);
       return;
     }
 
-    // 4️⃣ עדכן את התיקייה ב-Firestore
     await window.fs.updateDoc(folderRef, {
-      docs: docsList,
+      docs,
       updatedAt: Date.now()
     });
 
-    console.log("✅ Document removed from folder");
+    console.log("✅ Removed:", before, "→", docs.length);
+    
+    if (typeof hideLoading === 'function') hideLoading();
+    showNotification("המסמך הוסר ✅");
 
-    // 5️⃣ עדכן את התצוגה
-    hideLoading();
-    showNotification("המסמך הוסר מהתיקייה ✅");
-
-    // טען מחדש את התיקייה
     if (typeof openSharedFolder === 'function') {
       await openSharedFolder(folderId);
+    } else if (typeof window.openSharedFolder === 'function') {
+      await window.openSharedFolder(folderId);
     }
 
   } catch (error) {
-    console.error("❌ Error removing doc from folder:", error);
-    hideLoading();
-    showNotification("שגיאה בהסרת המסמך מהתיקייה", true);
+    console.error("❌ Remove error:", error);
+    if (typeof hideLoading === 'function') hideLoading();
+    showNotification("שגיאה בהסרה: " + error.message, true);
   }
 }
 
-// הוסף כפתור "הסר מתיקייה" לכרטיס המסמך
-// בפונקציה שמציירת את המסמכים בתיקייה משותפת, הוסף:
+// חיבור לwindow
+window.saveDocumentEdit = saveDocumentEdit;
+window.getCurrentFolderId = getCurrentFolderId;
+window.trackCurrentFolder = trackCurrentFolder;
+window.removeDocFromFolder = removeDocFromFolder;
 
-function addRemoveFromFolderButton(docCard, docId, folderId) {
-  const removeBtn = document.createElement('button');
-  removeBtn.className = 'btn-secondary';
-  removeBtn.textContent = '🗑️ הסר מתיקייה';
-  removeBtn.style.marginTop = '0.5rem';
+console.log("✅ All fixes loaded successfully!");
+console.log("✅ תיקון 1: פתיחת מסמכים (fileUrl support)");
+console.log("✅ תיקון 2: שמירת עריכה מלאה");
+console.log("✅ תיקון 3: מציאת folderId אוטומטית");
+
+// תיקון: wrapper ל-openSharedFolder שמוסיף tracking
+(function() {
+  const originalOpenSharedFolder = window.openSharedFolder;
   
-  removeBtn.onclick = async (e) => {
-    e.stopPropagation();
+  window.openSharedFolder = async function(folderId) {
+    // קודם track את הfolderId
+    trackCurrentFolder(folderId);
     
-    const confirm = await showConfirmDialog(
-      "האם להסיר מסמך זה מהתיקייה?",
-      "המסמך עצמו לא יימחק, רק יוסר מהתיקייה המשותפת"
-    );
-    
-    if (confirm) {
-      await removeDocFromFolder(docId, folderId);
+    // אז קרא לפונקציה המקורית
+    if (originalOpenSharedFolder) {
+      return await originalOpenSharedFolder(folderId);
+    } else {
+      console.warn("⚠️ openSharedFolder not defined yet");
     }
   };
   
-  docCard.appendChild(removeBtn);
-}
+  console.log("✅ openSharedFolder wrapper installed");
+})();
 
-// פונקציית עזר לדיאלוג אישור
-function showConfirmDialog(title, message) {
-  return new Promise((resolve) => {
-    const confirmed = confirm(`${title}\n\n${message}`);
-    resolve(confirmed);
-  });
-}
-
-
-// ────────────────────────────────────────────────────────────
-// 🎯 הוספת הפונקציות החדשות ל-window
-// ────────────────────────────────────────────────────────────
-
-window.updateDocumentInFirestore = updateDocumentInFirestore;
-window.saveDocumentEdit = saveDocumentEdit;
-window.removeDocFromFolder = removeDocFromFolder;
-window.addRemoveFromFolderButton = addRemoveFromFolderButton;
-
-console.log("✅ All 3 fixes loaded successfully!");
-console.log("✅ תיקון 1: פתיחת מסמכים בתיקיות משותפות");
-console.log("✅ תיקון 2: שמירת עריכת מסמכים");
-console.log("✅ תיקון 3: הסרת מסמכים מתיקיות");
-
-
-
-
-// 🧩 FIX: פונקציה בסיסית ל-renderSharedFoldersUI כדי שלא תהיה שגיאה
-window.renderSharedFoldersUI = function(folders = []) {
-  window.mySharedFolders = Array.isArray(folders) ? folders : [];
-  console.log("📂 renderSharedFoldersUI stub - got", window.mySharedFolders.length);
-  // בכוונה לא פותח אוטומטית את האחסון המשותף
-  // את תיכנסי אליו רק כשאת לוחצת בתפריט צד
-};
