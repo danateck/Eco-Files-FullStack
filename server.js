@@ -28,7 +28,7 @@ app.use(cors({
   origin: ['https://danateck.github.io', 'http://localhost:3000', 'http://127.0.0.1:5500'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Dev-Email', 'X-User-Email'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Dev-Email', 'X-User-Email', 'X-Folder-Id', 'X-Shared-Access'],
   exposedHeaders: ['Content-Length', 'Content-Type'],
   maxAge: 86400
 }));
