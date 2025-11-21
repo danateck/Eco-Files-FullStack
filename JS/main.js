@@ -4473,7 +4473,7 @@ console.log("✅ תיקון 3: מציאת folderId אוטומטית");
 
 
 
-// 🔧 פתיחת קבצים בתיקייה משותפת - גרסה מתוקנת (בלי headers מיוחדים)
+// 🔧 פתיחת קבצים בתיקייה משותפת בלבד
 (function () {
   const oldHandler = window._sharedDocClickHandler;
   if (oldHandler) {
@@ -4484,16 +4484,15 @@ console.log("✅ תיקון 3: מציאת folderId אוטומטית");
     const target = e.target.closest(".doc-open-link");
     if (!target) return;
 
-    // בדיקה אם בתיקייה משותפת
-    let folderId = null;
-    if (typeof getCurrentFolderId === "function") {
-      folderId = getCurrentFolderId();
-    } else {
-      const urlParams = new URLSearchParams(window.location.search);
-      folderId = urlParams.get("sharedFolder");
-    }
+    // 🔑 בדיקה אם אנחנו בתיקייה משותפת - רק לפי URL!
+    const urlParams = new URLSearchParams(window.location.search);
+    const folderId = urlParams.get("sharedFolder");
     
-    if (!folderId) return; // לא בתיקייה משותפת
+    // אם אין sharedFolder ב-URL - לא מתערבים!
+    if (!folderId) {
+      console.log("📂 Not in shared folder, using default handler");
+      return; // תן ל-handler הרגיל לטפל
+    }
 
     e.preventDefault();
     e.stopPropagation();
@@ -4530,20 +4529,21 @@ console.log("✅ תיקון 3: מציאת folderId אוטומטית");
         return;
       }
 
-      // 🔑 שליחת בקשה עם ה-email של המשתמש הנוכחי בלבד
       const currentEmail = typeof getCurrentUserEmail === "function" 
         ? getCurrentUserEmail() 
         : "";
 
       const headers = { "X-Dev-Email": currentEmail };
 
-      console.log("📤 Fetching with email:", currentEmail);
+      console.log("📤 Fetching:", fileUrl);
+      console.log("📤 User:", currentEmail);
 
       const resp = await fetch(fileUrl, { headers });
 
       if (resp.status === 403) {
         if (typeof hideLoading === "function") hideLoading();
-        showNotification("אין לך הרשאה לפתוח את המסמך. בקש מהבעלים לשתף אותו.", true);
+        // 🔧 הודעה יותר ברורה
+        showNotification("אין הרשאה. המסמך צריך להיות משותף איתך מחדש.", true);
         return;
       }
 
@@ -4556,7 +4556,6 @@ console.log("✅ תיקון 3: מציאת folderId אוטומטית");
       window.open(blobUrl, "_blank");
       
       if (typeof hideLoading === "function") hideLoading();
-      console.log("✅ File opened!");
 
     } catch (err) {
       console.error("❌ Error:", err);
@@ -4567,10 +4566,8 @@ console.log("✅ תיקון 3: מציאת folderId אוטומטית");
 
   window._sharedDocClickHandler = handleSharedDocClick;
   document.addEventListener("click", handleSharedDocClick, true);
-  console.log("✅ Shared doc click handler loaded!");
+  console.log("✅ Shared folder handler loaded!");
 })();
-
-
 
 
 
