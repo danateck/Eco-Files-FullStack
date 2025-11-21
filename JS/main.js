@@ -566,6 +566,7 @@ try {
     console.warn("⚠️ Could not update document in Firestore:", err);
   }
   // Update folder with document reference
+    // Update folder with document reference
   try {
     const docs = folderData.documents || [];
     if (!docs.includes(docId)) {
@@ -580,31 +581,34 @@ try {
   } catch (err) {
     console.warn("⚠️ Could not update folder:", err);
   }
-    // --- NEW: update backend shared_with so folder members can download via API ---
+
+  // 🔥 חדש: לעדכן גם את ה-backend כדי שחברי התיקייה יוכלו לפתוח את המסמך
   try {
-    // כל החברים בתיקייה (בלי דופליקטים, בלי הרווחים ועם lowercase)
-    const folderMembers = Array.isArray(folderData.members)
-      ? [...new Set(folderData.members.map(normalizeEmail).filter(Boolean))]
-      : [];
+    if (typeof window.updateDocument === "function") {
+      // כל החברים בתיקייה (normalize + בלי כפילויות)
+      const folderMembers = Array.isArray(folderData.members)
+        ? [...new Set(folderData.members.map(normalizeEmail).filter(Boolean))]
+        : [];
 
-    // מי כבר משותף במסמך (אם יש)
-    const existingShared = Array.isArray(docData.sharedWith)
-      ? docData.sharedWith.map(normalizeEmail).filter(Boolean)
-      : [];
+      // אם למסמך יש כבר sharedWith בפיירבייס
+      const existingShared = Array.isArray(docData.sharedWith)
+        ? docData.sharedWith.map(normalizeEmail).filter(Boolean)
+        : [];
 
-    // לא לכלול את בעלת המסמך פעמיים
-    const mergedShared = [...new Set(
-      [...existingShared, ...folderMembers].filter(e => e && e !== docOwner)
-    )];
+      // מאחדים את הרשימות, בלי בעלת המסמך ובלי כפילויות
+      const mergedShared = [...new Set(
+        [...existingShared, ...folderMembers].filter(e => e && e !== docOwner)
+      )];
 
-    console.log("📤 Updating backend shared_with:", mergedShared);
-
-    // קריאה ל-API דרך updateDocument (מ-api-bridge.js)
-    if (typeof updateDocument === "function") {
-      await updateDocument(docId, { shared_with: mergedShared });
-      console.log("✅ Backend shared_with updated for doc:", docId);
+      if (mergedShared.length > 0) {
+        console.log("📤 Updating backend shared_with:", mergedShared);
+        await window.updateDocument(docId, { shared_with: mergedShared });
+        console.log("✅ Backend shared_with updated for doc:", docId);
+      } else {
+        console.log("ℹ️ No shared_with to sync to backend");
+      }
     } else {
-      console.warn("⚠️ updateDocument is not available – cannot sync shared_with to backend");
+      console.warn("⚠️ window.updateDocument not available – cannot sync shared_with to backend");
     }
   } catch (err) {
     console.warn("⚠️ Could not update backend shared_with:", err);
@@ -613,6 +617,7 @@ try {
   console.log("✅ Document added to shared folder successfully");
   return { success: true };
 }
+
 // ============================================
 // FIX 6: Get documents for specific category with user filter
 // ============================================
