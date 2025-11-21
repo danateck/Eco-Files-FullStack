@@ -526,24 +526,23 @@ async function addDocumentToSharedFolder(docId, folderId) {
   }
   // 🔥 חשוב! צור רשומה ב-sharedDocs collection ישירות
   console.log("📤 Creating sharedDocs record...");
-  try {
-   await upsertSharedDocRecord({
-  id: docData.id || docId,
-  title: docData.title || docData.fileName || docData.file_name || "מסמך",
-  fileName: docData.fileName || docData.file_name || docData.title || "מסמך",
-  category: docData.category || [],
-  uploadedAt: docData.uploadedAt || docData.uploaded_at || Date.now(),
-  warrantyStart: docData.warrantyStart || docData.warranty_start || null,
-  warrantyExpiresAt: docData.warrantyExpiresAt || docData.warranty_expires_at || null,
-  org: docData.org || "",
-  year: docData.year || "",
-  recipient: docData.recipient || [],
-  // 👇👇 זה החלק החשוב
-  fileUrl: docData.downloadURL || docData.fileUrl || docData.file_url || null
-}, folderId);
-
-    console.log("✅ sharedDocs record created successfully");
-  } catch (err) {
+try {
+  await upsertSharedDocRecord({
+    id: docData.id || docId,
+    title: docData.title || docData.fileName || docData.file_name || "מסמך",
+    fileName: docData.fileName || docData.file_name || docData.title || "מסמך",
+    category: docData.category || [],
+    uploadedAt: docData.uploadedAt || docData.uploaded_at || Date.now(),
+    warrantyStart: docData.warrantyStart || docData.warranty_start || null,
+    warrantyExpiresAt: docData.warrantyExpiresAt || docData.warranty_expires_at || null,
+    org: docData.org || "",
+    year: docData.year || "",
+    recipient: docData.recipient || [],
+    // 🔥 שורה חדשה – לשמור גם את הקישור לקובץ
+    fileUrl: docData.downloadURL || docData.fileUrl || docData.file_url || null
+  }, folderId);
+  console.log("✅ sharedDocs record created successfully");
+} catch (err) {
     console.error("❌ Failed to create sharedDocs record:", err);
     throw err;
   }
@@ -4113,7 +4112,7 @@ console.log("✅ All functions fixed and loaded!");
         return;
       }
 
-      const docSnap = snap.docs[0];
+           const docSnap = snap.docs[0];
       const data = docSnap.data();
       console.log("📄 Shared doc data:", data);
 
@@ -4128,11 +4127,37 @@ console.log("✅ All functions fixed and loaded!");
         return;
       }
 
-      window.open(fileUrl, "_blank");
-      if (typeof hideLoading === "function") hideLoading();
-      if (typeof showNotification === "function") {
-        showNotification("פותח קובץ...");
+      // 👇 אם הקישור הוא ל־API של eco-files (onrender) – נפתח עם fetch ו־X-Dev-Email
+      const apiBase = (typeof API_BASE === "string") ? API_BASE : "";
+
+      try {
+        let openUrl = fileUrl;
+
+        if (apiBase && fileUrl.startsWith(apiBase)) {
+          const email = (typeof getCurrentUserEmail === "function")
+            ? getCurrentUserEmail()
+            : null;
+
+          const headers = {};
+          if (email) headers["X-Dev-Email"] = email;
+
+          const resp = await fetch(fileUrl, { headers });
+          if (!resp.ok) {
+            throw new Error("Download via API failed: " + resp.status);
+          }
+
+          const blob = await resp.blob();
+          openUrl = URL.createObjectURL(blob);
+        }
+
+        window.open(openUrl, "_blank");
+      } finally {
+        if (typeof hideLoading === "function") hideLoading();
+        if (typeof showNotification === "function") {
+          showNotification("פותח קובץ...");
+        }
       }
+
     } catch (err) {
       console.error("❌ Error opening shared doc:", err);
       if (typeof hideLoading === "function") hideLoading();
