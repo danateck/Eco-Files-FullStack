@@ -528,22 +528,17 @@ async function addDocumentToSharedFolder(docId, folderId) {
   console.log("📤 Creating sharedDocs record...");
   try {
     await upsertSharedDocRecord({
-  id: docData.id || docId,
-  title: docData.title || docData.fileName || docData.file_name || "מסמך",
-  fileName: docData.fileName || docData.file_name || docData.title || "מסמך",
-  category: docData.category || [],
-  uploadedAt: docData.uploadedAt || docData.uploaded_at || Date.now(),
-  warrantyStart: docData.warrantyStart || docData.warranty_start || null,
-  warrantyExpiresAt: docData.warrantyExpiresAt || docData.warranty_expires_at || null,
-  org: docData.org || "",
-  year: docData.year || "",
-  recipient: docData.recipient || [],
-  // 👇 כאן הקסם – שומרים את ה־URL של הקובץ גם ברשומת sharedDocs
-  fileUrl: docData.downloadURL || docData.fileUrl || docData.file_url || null,
-  // 👈 שומרים גם מי הבעלים המקורי
-  _ownerEmail: docData.owner || normalizeEmail(getCurrentUserEmail() || "")
-}, folderId);
-
+      id: docData.id || docId,
+      title: docData.title || docData.fileName || docData.file_name || "מסמך",
+      fileName: docData.fileName || docData.file_name || docData.title || "מסמך",
+      category: docData.category || [],
+      uploadedAt: docData.uploadedAt || docData.uploaded_at || Date.now(),
+      warrantyStart: docData.warrantyStart || docData.warranty_start || null,
+      warrantyExpiresAt: docData.warrantyExpiresAt || docData.warranty_expires_at || null,
+      org: docData.org || "",
+      year: docData.year || "",
+      recipient: docData.recipient || []
+    }, folderId);
     console.log("✅ sharedDocs record created successfully");
   } catch (err) {
     console.error("❌ Failed to create sharedDocs record:", err);
@@ -1429,51 +1424,26 @@ function buildDocCard(doc, mode) {
   `;
   const actions = card.querySelector(".doc-actions");
 if (mode !== "recycle") {
-  // מי המשתמש הנוכחי ומי הבעלים של המסמך
-  const meEmail = normalizeEmail(getCurrentUserEmail?.() || userNow || "");
-  const ownerEmail = normalizeEmail(
-    doc.ownerEmail || doc.owner || doc._ownerEmail || ""
-  );
-  const isSharedNonOwner =
-    mode === "shared" && ownerEmail && meEmail && ownerEmail !== meEmail;
-
   // כפתור עריכה
   const editBtn = document.createElement("button");
   editBtn.className = "doc-action-btn";
   editBtn.textContent = "עריכה ✏️";
-
-  if (isSharedNonOwner) {
-    // 👇 חבר בתיקייה שאינו בעלים – רק הודעה
-    editBtn.addEventListener("click", () => {
-      if (typeof showNotification === "function") {
-        showNotification("רק הבעלים של המסמך יכול לערוך אותו", true);
-      } else {
-        alert("רק הבעלים של המסמך יכול לערוך אותו");
-      }
-    });
-  } else {
-    // 👇 הבעלים / מסמך רגיל – עריכה כרגיל
-    editBtn.addEventListener("click", () => {
-      if (typeof window.openEditModal === "function") {
-        window.openEditModal(doc);
-      } else {
-        console.warn("openEditModal not available");
-      }
-    });
-  }
+  editBtn.addEventListener("click", () => {
+    if (typeof window.openEditModal === "function") {
+      window.openEditModal(doc);
+    } else {
+      console.warn("openEditModal not available");
+    }
+  });
   actions.appendChild(editBtn);
-
-  // כפתור מחיקה/סל מחזור – משאירים כמו שיש לך
+  // כפתור מחיקה/סל מחזור
   const trashBtn = document.createElement("button");
   trashBtn.className = "doc-action-btn danger";
-  trashBtn.textContent =
-    mode === "shared" ? "הסר מהתיקייה 🗑️" : "העבר לסל מחזור 🗑️";
-  trashBtn.addEventListener("click", async () => {
+  trashBtn.textContent = mode === "shared" ? "הסר מהתיקייה 🗑️" : "העבר לסל מחזור 🗑️";
+   trashBtn.addEventListener("click", async () => {
     // 🔥 אם זה בתיקייה משותפת - הסר רק מהתיקייה!
     if (mode === "shared") {
-      const confirmDel = confirm(
-        "האם להסיר מסמך זה מהתיקייה המשותפת?\n(המסמך המקורי לא יימחק)"
-      );
+      const confirmDel = confirm("האם להסיר מסמך זה מהתיקייה המשותפת?\n(המסמך המקורי לא יימחק)");
       if (!confirmDel) return;
       try {
         showLoading("מסיר מסמך מהתיקייה...");
@@ -1492,7 +1462,7 @@ if (mode !== "recycle") {
           showNotification("שגיאה: לא נמצא מזהה תיקייה", true);
           return;
         }
-
+        
         console.log("✅ Debug - Final folderId:", folderId);
 
         if (isFirebaseAvailable()) {
@@ -1506,7 +1476,7 @@ if (mode !== "recycle") {
           const snap = await window.fs.getDocs(q);
           // מחק את כל הרשומות
           const deletePromises = [];
-          snap.forEach((docSnap) => {
+          snap.forEach(docSnap => {
             deletePromises.push(window.fs.deleteDoc(docSnap.ref));
           });
           await Promise.all(deletePromises);
@@ -1531,13 +1501,9 @@ if (mode !== "recycle") {
         return;
       }
     }
-
     // 🔥 מסמכים רגילים (לא משותפים) - העבר לסל מחזור
     try {
-      if (
-        window.markDocTrashed &&
-        window.markDocTrashed !== markDocTrashed
-      ) {
+      if (window.markDocTrashed && window.markDocTrashed !== markDocTrashed) {
         await window.markDocTrashed(doc.id, true);
       } else {
         await markDocTrashed(doc.id, true);
@@ -1554,12 +1520,10 @@ if (mode !== "recycle") {
     } else if (currentCat === "סל מחזור") {
       if (typeof openRecycleView === "function") openRecycleView();
     } else {
-      if (typeof openCategoryView === "function")
-        openCategoryView(currentCat);
+      if (typeof openCategoryView === "function") openCategoryView(currentCat);
     }
   });
   actions.appendChild(trashBtn);
-
   // כפתור העברה לתיקייה משותפת - רק אם לא כבר בתיקייה משותפת
   if (mode !== "shared") {
     const shareBtn = document.createElement("button");
@@ -1582,9 +1546,7 @@ if (mode !== "recycle") {
               <div class="scroll-area" style="max-height: 400px;">
                 <p style="margin-bottom: 1rem;">בחר לאיזו תיקייה להוסיף את המסמך "${doc.title || doc.fileName}"</p>
                 <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                  ${folders
-                    .map(
-                      (folder) => `
+                  ${folders.map(folder => `
                     <button 
                       class="folder-select-btn" 
                       data-folder-id="${folder.id}"
@@ -1595,9 +1557,7 @@ if (mode !== "recycle") {
                       <div style="font-weight: 600;">📁 ${folder.name}</div>
                       <div style="font-size: 0.85rem; color: #666;">${folder.members?.length || 0} חברים</div>
                     </button>
-                  `
-                    )
-                    .join("")}
+                  `).join('')}
                 </div>
               </div>
               <div class="modal-foot">
@@ -1607,10 +1567,10 @@ if (mode !== "recycle") {
           </div>
         `;
         document.body.insertAdjacentHTML("beforeend", modalHTML);
-        document.querySelectorAll(".folder-select-btn").forEach((btn) => {
+        document.querySelectorAll(".folder-select-btn").forEach(btn => {
           btn.addEventListener("click", async () => {
             const folderId = btn.dataset.folderId;
-            const folder = folders.find((f) => f.id === folderId);
+            const folder = folders.find(f => f.id === folderId);
             try {
               await addDocumentToSharedFolder(doc.id, folderId);
               showNotification(`המסמך נוסף לתיקייה "${folder.name}"!`);
@@ -1628,8 +1588,7 @@ if (mode !== "recycle") {
     });
     actions.appendChild(shareBtn);
   }
-}
- else {
+} else {
     // מצב סל מחזור
     const restoreBtn = document.createElement("button");
     restoreBtn.className = "doc-action-btn restore";
@@ -3153,7 +3112,7 @@ async function renderPending() {
               body: formData
             });
             if (!response.ok) throw new Error("Upload failed");
-       const uploadedDoc = await response.json();
+            const uploadedDoc = await response.json();
 console.log("✅ Document uploaded:", uploadedDoc);
 await upsertSharedDocRecord({
   id: uploadedDoc.id,
@@ -3162,12 +3121,7 @@ await upsertSharedDocRecord({
   uploadedAt: Date.now(),
   category: [],
   recipient: [],
-  // 🔥 ה־URL להורדה מהשרת
-  fileUrl:
-    uploadedDoc.downloadURL ||
-    uploadedDoc.fileUrl ||
-    uploadedDoc.file_url ||
-    `${API_BASE}/api/docs/${uploadedDoc.id}/download`
+  fileUrl: uploadedDoc.fileUrl || uploadedDoc.file_url || uploadedDoc.downloadURL || ""
 }, openId);
 
             hideLoading();
