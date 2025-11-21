@@ -527,18 +527,21 @@ async function addDocumentToSharedFolder(docId, folderId) {
   // 🔥 חשוב! צור רשומה ב-sharedDocs collection ישירות
   console.log("📤 Creating sharedDocs record...");
   try {
-    await upsertSharedDocRecord({
-      id: docData.id || docId,
-      title: docData.title || docData.fileName || docData.file_name || "מסמך",
-      fileName: docData.fileName || docData.file_name || docData.title || "מסמך",
-      category: docData.category || [],
-      uploadedAt: docData.uploadedAt || docData.uploaded_at || Date.now(),
-      warrantyStart: docData.warrantyStart || docData.warranty_start || null,
-      warrantyExpiresAt: docData.warrantyExpiresAt || docData.warranty_expires_at || null,
-      org: docData.org || "",
-      year: docData.year || "",
-      recipient: docData.recipient || []
-    }, folderId);
+   await upsertSharedDocRecord({
+  id: docData.id || docId,
+  title: docData.title || docData.fileName || docData.file_name || "מסמך",
+  fileName: docData.fileName || docData.file_name || docData.title || "מסמך",
+  category: docData.category || [],
+  uploadedAt: docData.uploadedAt || docData.uploaded_at || Date.now(),
+  warrantyStart: docData.warrantyStart || docData.warranty_start || null,
+  warrantyExpiresAt: docData.warrantyExpiresAt || docData.warranty_expires_at || null,
+  org: docData.org || "",
+  year: docData.year || "",
+  recipient: docData.recipient || [],
+  // 👇👇 זה החלק החשוב
+  fileUrl: docData.downloadURL || docData.fileUrl || docData.file_url || null
+}, folderId);
+
     console.log("✅ sharedDocs record created successfully");
   } catch (err) {
     console.error("❌ Failed to create sharedDocs record:", err);
@@ -1429,12 +1432,32 @@ if (mode !== "recycle") {
   editBtn.className = "doc-action-btn";
   editBtn.textContent = "עריכה ✏️";
   editBtn.addEventListener("click", () => {
-    if (typeof window.openEditModal === "function") {
-      window.openEditModal(doc);
+  // מי המשתמש המחובר כרגע
+  const me = typeof getCurrentUserEmail === "function"
+    ? normalizeEmail(getCurrentUserEmail())
+    : "";
+
+  // מי הבעלים של המסמך
+  const ownerEmail = normalizeEmail(doc.owner || doc._ownerEmail || "");
+
+  // אם זה מסמך מתיקייה משותפת ואני לא הבעלים – אין עריכה
+  if (mode === "shared" && ownerEmail && me && ownerEmail !== me) {
+    if (typeof showNotification === "function") {
+      showNotification("רק מי שהעלה את המסמך יכול לערוך אותו", true);
     } else {
-      console.warn("openEditModal not available");
+      alert("רק מי שהעלה את המסמך יכול לערוך אותו");
     }
-  });
+    return;
+  }
+
+  // אחרת – תפתח רגיל את מודאל העריכה
+  if (typeof window.openEditModal === "function") {
+    window.openEditModal(doc);
+  } else {
+    console.warn("openEditModal not available");
+  }
+});
+
   actions.appendChild(editBtn);
   // כפתור מחיקה/סל מחזור
   const trashBtn = document.createElement("button");
