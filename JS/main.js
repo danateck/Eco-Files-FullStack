@@ -3150,48 +3150,66 @@ async function renderPending() {
       topBlocksContainer.appendChild(docsHead);
       // העלאת מסמך
       const uploadToSharedBtn = docsHead.querySelector("#upload_to_shared_btn");
-      uploadToSharedBtn.addEventListener("click", async () => {
-        const input = document.createElement("input");
-        input.type = "file";
-        input.accept = "*/*";
-        input.onchange = async (e) => {
-          const file = e.target.files[0];
-          if (!file) return;
-          showLoading(`מעלה ${file.name}...`);
-          try {
-            const formData = new FormData();
-            formData.append("file", file);
-            formData.append("title", file.name);
-            formData.append("sharedFolderId", openId);
-            const response = await fetch(`${API_BASE}/api/docs`, {
-              method: "POST",
-              headers: { "X-Dev-Email": myEmail },
-              body: formData
-            });
-            if (!response.ok) throw new Error("Upload failed");
-            const uploadedDoc = await response.json();
-console.log("✅ Document uploaded:", uploadedDoc);
-await upsertSharedDocRecord({
-  id: uploadedDoc.id,
-  title: file.name,
-  fileName: file.name,
-  uploadedAt: Date.now(),
-  category: [],
-  recipient: [],
-  fileUrl: uploadedDoc.fileUrl || uploadedDoc.file_url || uploadedDoc.downloadURL || ""
-}, openId);
+uploadToSharedBtn.addEventListener("click", async () => {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "*/*";
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    showLoading(`מעלה ${file.name}...`);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("title", file.name);
+      formData.append("sharedFolderId", openId);
 
-            hideLoading();
-            showNotification("המסמך הועלה בהצלחה! ✅");
-            await loadAndDisplayDocs();
-          } catch (err) {
-            console.error("Upload error:", err);
-            hideLoading();
-            showNotification("שגיאה בהעלאת המסמך", true);
-          }
-        };
-        input.click();
+      const response = await fetch(`${API_BASE}/api/docs`, {
+        method: "POST",
+        headers: { "X-Dev-Email": myEmail },
+        body: formData
       });
+
+      if (!response.ok) throw new Error("Upload failed");
+      const uploadedDoc = await response.json();
+      console.log("✅ Document uploaded:", uploadedDoc);
+
+      // 🔑 עדכון shared_with מיד אחרי ההעלאה!
+      const folderRef = window.fs.doc(window.db, "sharedFolders", openId);
+      const folderSnap = await window.fs.getDoc(folderRef);
+      if (folderSnap.exists()) {
+        const members = (folderSnap.data().members || [])
+          .map(e => e.toLowerCase())
+          .filter(e => e !== myEmail.toLowerCase());
+        
+        if (members.length > 0) {
+          console.log("📤 Updating shared_with:", members);
+          await window.updateDocument(uploadedDoc.id, { shared_with: members });
+          console.log("✅ shared_with updated!");
+        }
+      }
+
+      await upsertSharedDocRecord({
+        id: uploadedDoc.id,
+        title: file.name,
+        fileName: file.name,
+        uploadedAt: Date.now(),
+        category: [],
+        recipient: [],
+        fileUrl: uploadedDoc.fileUrl || uploadedDoc.file_url || uploadedDoc.downloadURL || `${API_BASE}/api/docs/${uploadedDoc.id}/download`
+      }, openId);
+
+      hideLoading();
+      showNotification("המסמך הועלה בהצלחה! ✅");
+      await loadAndDisplayDocs();
+    } catch (err) {
+      console.error("Upload error:", err);
+      hideLoading();
+      showNotification("שגיאה בהעלאת המסמך", true);
+    }
+  };
+  input.click();
+});
       // ✅ Grid המסמכים - מחוץ ל-topBlocksContainer
       const docsBox = document.createElement("div");
       docsBox.className = "docs-grid";
@@ -4632,3 +4650,47 @@ window.addDocumentToSharedFolder = async function(docId, folderId) {
 };
 
 console.log("✅ addDocumentToSharedFolder patched with shared_with update!");
+
+
+
+
+
+// ═══════════════════════════════════════════════════════════════════
+// 🔧 תיקון סופי: עדכון shared_with אוטומטי כשמוסיפים מסמך לתיקייה
+// ═══════════════════════════════════════════════════════════════════
+
+(function() {
+  const _originalAddDoc = window.addDocumentToSharedFolder;
+  
+  window.addDocumentToSharedFolder = async function(docId, folderId) {
+    const me = getCurrentUserEmail()?.toLowerCase() || "";
+    console.log("📂 Adding doc to shared folder:", { docId, folderId, me });
+
+    // קריאה לפונקציה המקורית
+    const result = await _originalAddDoc(docId, folderId);
+
+    // 🔑 עדכון shared_with בשרת Render!
+    try {
+      const folderRef = window.fs.doc(window.db, "sharedFolders", folderId);
+      const folderSnap = await window.fs.getDoc(folderRef);
+      
+      if (folderSnap.exists()) {
+        const members = (folderSnap.data().members || [])
+          .map(e => e.toLowerCase())
+          .filter(e => e !== me); // כל החברים חוץ ממני (הבעלים)
+        
+        if (members.length > 0 && window.updateDocument) {
+          console.log("📤 Updating shared_with in backend:", members);
+          await window.updateDocument(docId, { shared_with: members });
+          console.log("✅ shared_with updated! Friends can now access the file.");
+        }
+      }
+    } catch (err) {
+      console.warn("⚠️ shared_with update failed:", err);
+    }
+
+    return result;
+  };
+
+  console.log("✅ Auto shared_with update enabled!");
+})();
