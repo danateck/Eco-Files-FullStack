@@ -1352,6 +1352,43 @@ const CATEGORIES = [
   "עסק",
   "אחר"
 ];
+
+
+
+
+// בדיקה אם המסמך כבר קיים לפני העלאה
+function isDuplicateDocument(file, metadata = {}) {
+  const docsArr = Array.isArray(window.allDocsData) ? window.allDocsData : [];
+  if (!file) return false;
+
+  const title = (metadata.title || file.name || "").trim();
+  const org   = (metadata.org || "").trim();
+  const year  = (metadata.year || "").toString().trim();
+  const size  = file.size;
+
+  return docsArr.some(d => {
+    if (!d || d._trashed) return false;
+
+    const dTitle = (d.title || d.fileName || "").trim();
+    const dOrg   = (d.org || "").trim();
+    const dYear  = (d.year || "").toString().trim();
+    const dSize  = Number(d.fileSize || 0);
+
+    // תנאי כפילות בסיסי: אותו שם + אותו גודל
+    const sameNameAndSize =
+      dTitle === title &&
+      (!size || !dSize || dSize === size);
+
+    // אפשר לחזק לפי שנה / ארגון אם נתונים קיימים
+    const sameYear = !year || !dYear || dYear === year;
+    const sameOrg  = !org  || !dOrg  || dOrg  === org;
+
+    return sameNameAndSize && sameYear && sameOrg;
+  });
+}
+
+
+
 // ===== buildDocCard and helper functions =====
 // ===== buildDocCard and helper functions =====
 function buildDocCard(doc, mode) {
@@ -2440,206 +2477,187 @@ window.allDocsData = getUserDocs(userNow, allUsersData);
     folderGrid.appendChild(folder);
   }
 if (fileInput) {
-  fileInput.addEventListener("change", async () => {
-    const file = fileInput.files[0];
-    if (!file) {
-      showNotification("❌ לא נבחר קובץ", true);
-      return;
-    }
-    try {
-      const fileName = file.name.trim();
-      // בדיקת כפילויות לפי שם קובץ (ולא בסל מחזור)
-      const alreadyExists = (window.allDocsData || []).some(doc => {
-        return (
-          doc.originalFileName === fileName &&
-          doc._trashed !== true
-        );
-      });
-      if (alreadyExists) {
-        showNotification("הקובץ הזה כבר קיים בארכיון שלך", true);
-        fileInput.value = "";
-        return;
-      }
-      // ניחוש קטגוריה
-      let guessedCategory = guessCategoryForFileNameOnly(file.name);
-      if (!guessedCategory || guessedCategory === "אחר") {
-        const manual = prompt(
-          'לא זיהיתי אוטומטית את סוג המסמך.\nלאיזו תיקייה לשמור?\nאפשרויות: ' +
-          CATEGORIES.join(", "),
-          "רפואה"
-        );
-        if (manual && manual.trim() !== "") {
-          guessedCategory = manual.trim();
-        } else {
-          guessedCategory = "אחר";
-        }
-      }
-      // פרטי אחריות אם צריך
-      let warrantyStart = null;
-      let warrantyExpiresAt = null;
-      let autoDeleteAfter = null;
-      if (guessedCategory === "אחריות") {
-        let extracted = {
-          warrantyStart: null,
-          warrantyExpiresAt: null,
-          autoDeleteAfter: null,
-        };
-        if (file.type === "application/pdf") {
-          const ocrText = await extractTextFromPdfWithOcr(file);
-          const dataFromText = extractWarrantyFromText(ocrText);
-          extracted = { ...extracted, ...dataFromText };
-        }
-        if (file.type.startsWith("image/") && window.Tesseract) {
-          const { data } = await window.Tesseract.recognize(file, "heb+eng", {
-            tessedit_pageseg_mode: 6,
-          });
-          const imgText = data?.text || "";
-          const dataFromText = extractWarrantyFromText(imgText);
-          extracted = { ...extracted, ...dataFromText };
-        }
-        if (!extracted.warrantyStart && !extracted.warrantyExpiresAt) {
-          const buf = await file.arrayBuffer().catch(() => null);
-          if (buf) {
-            const txt = new TextDecoder("utf-8").decode(buf);
-            const dataFromText = extractWarrantyFromText(txt);
-            extracted = { ...extracted, ...dataFromText };
-          }
-        }
-        if (!extracted.warrantyStart && !extracted.warrantyExpiresAt) {
-          const manualData = fallbackAskWarrantyDetails();
-          if (manualData.warrantyStart) {
-            extracted.warrantyStart = manualData.warrantyStart;
-          }
-          if (manualData.warrantyExpiresAt) {
-            extracted.warrantyExpiresAt = manualData.warrantyExpiresAt;
-          }
-          if (manualData.autoDeleteAfter) {
-            extracted.autoDeleteAfter = manualData.autoDeleteAfter;
-          }
-        }
-        warrantyStart     = extracted.warrantyStart     || null;
-        warrantyExpiresAt = extracted.warrantyExpiresAt || null;
-        autoDeleteAfter   = extracted.autoDeleteAfter   || null;
-      }
-      // קריאה של הקובץ כ-base64 ל-IndexedDB
-      const fileDataBase64 = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      const newId = crypto.randomUUID();
-      // שמירת הקובץ עצמו ל-IndexedDB (לוגי)
-      await saveFileToDB(newId, fileDataBase64);
-      // בניית אובייקט המסמך
-      const now = new Date();
-      const uploadedAt = now.toISOString().split("T")[0];
-      const year = now.getFullYear().toString();
-      const ownerEmail = normalizeEmail(getCurrentUserEmail() || "");
-      const newDoc = {
-        id: newId,
-        title: fileName,
-        originalFileName: fileName,
-        category: guessedCategory,
-        uploadedAt,
-        year,
-        org: "",
-        recipient: [],
-        sharedWith: [],
-        warrantyStart,
-        warrantyExpiresAt,
-        autoDeleteAfter,
-        mimeType: file.type,
-        hasFile: true,
-        downloadURL: null,
-        owner: ownerEmail,
-        _trashed: false,
-        lastModified: Date.now(),
-        lastModifiedBy: ownerEmail
-      };
-      // שמירה ב-allDocsData + בזיכרון היוזר
-      // if (!window.allDocsData) window.allDocsData = [];
-      // window.allDocsData.push(newDoc);
-      // if (typeof setUserDocs === "function") {
-      //   if (!window.allUsersData) window.allUsersData = {};
-      //   setUserDocs(ownerEmail || userNow, window.allDocsData, window.allUsersData);
-      // }
-      // // 🌩️ מראה לענן – Firestore
-      // if (isFirebaseAvailable()) {
-      //   try {
-      //     const docRef = window.fs.doc(window.db, "documents", newId);
-      //     const cleanDoc = {
-      //       id: newDoc.id,
-      //       title: newDoc.title,
-      //       originalFileName: newDoc.originalFileName,
-      //       category: newDoc.category,
-      //       uploadedAt: newDoc.uploadedAt,
-      //       year: newDoc.year,
-      //       org: newDoc.org || "",
-      //       recipient: newDoc.recipient || [],
-      //       sharedWith: newDoc.sharedWith || [],
-      //       warrantyStart: newDoc.warrantyStart || null,
-      //       warrantyExpiresAt: newDoc.warrantyExpiresAt || null,
-      //       autoDeleteAfter: newDoc.autoDeleteAfter || null,
-      //       mimeType: newDoc.mimeType,
-      //       hasFile: true,
-      //       owner: ownerEmail,
-      //       downloadURL: null,
-      //       deletedAt: null,
-      //       deletedBy: null,
-      //       lastModified: newDoc.lastModified,
-      //       lastModifiedBy: ownerEmail,
-      //       _trashed: false
-      //     };
-      //     await window.fs.setDoc(docRef, cleanDoc, { merge: true });
-      //     console.log("✅ Mirrored owner doc to Firestore:", newId);
-      //   } catch (e) {
-      //     console.error("❌ Firestore mirror failed:", e);
-      //   }
-      // }
-      // 📡 שמירה גם בשרת Render (PostgreSQL)
-      try {
-        if (window.uploadDocument) {
-          await window.uploadDocument(file, {
-            title: fileName,
-            category: guessedCategory,
-            year,
-            org: "",
-            recipient: newDoc.recipient || [],
-            warrantyStart,
-            warrantyExpiresAt,
-            autoDeleteAfter,
-          });
-        } else {
-          console.warn("⚠️ window.uploadDocument לא קיים");
-        }
-      } catch (e) {
-        console.error("❌ שגיאה בשמירה ל-Render:", e);
-        // לא מפילים את כל התהליך – כבר נשמר בפיירבייס
-      }
-      // הודעה יפה
-      let niceCat = guessedCategory && guessedCategory.trim()
-        ? guessedCategory.trim()
-        : "התיקייה";
-      showNotification(`הקובץ נוסף לתיקייה "${niceCat}" ✅`);
-      // רענון UI
-      const currentCat = categoryTitle.textContent;
-      if (currentCat === "אחסון משותף") {
-        openSharedView();
-      } else if (currentCat === "סל מחזור") {
-        openRecycleView();
-      } else if (!homeView.classList.contains("hidden")) {
-        renderHome();
-      } else {
-        openCategoryView(currentCat);
-      }
+ fileInput.addEventListener("change", async () => {
+  const file = fileInput.files[0];
+  if (!file) {
+    showNotification("❌ לא נבחר קובץ", true);
+    return;
+  }
+
+  try {
+    const fileName = file.name.trim();
+
+    // 🔍 בדיקת כפילות: אותו שם קובץ (לא בסל מחזור)
+    const docsArr = Array.isArray(window.allDocsData) ? window.allDocsData : [];
+    const alreadyExists = docsArr.some(doc => {
+      if (!doc || doc._trashed === true) return false;
+
+      const existingName = (doc.originalFileName || doc.title || doc.fileName || "").trim();
+      return existingName === fileName;
+    });
+
+    if (alreadyExists) {
+      showNotification("המסמך הזה כבר קיים במערכת שלך 📄", true);
       fileInput.value = "";
-    } catch (err) {
-      console.error("שגיאה בהעלאה:", err);
-      showNotification("הייתה בעיה בהעלאה. נסי שוב או קובץ אחר.", true);
-      hideLoading?.();
+      return; // ⛔ לא ממשיכים להעלאה
     }
-  });
+
+    // ניחוש קטגוריה
+    let guessedCategory = guessCategoryForFileNameOnly(file.name);
+    if (!guessedCategory || guessedCategory === "אחר") {
+      const manual = prompt(
+        'לא זיהיתי אוטומטית את סוג המסמך.\nלאיזו תיקייה לשמור?\nאפשרויות: ' +
+        CATEGORIES.join(", "),
+        "רפואה"
+      );
+      if (manual && manual.trim() !== "") {
+        guessedCategory = manual.trim();
+      } else {
+        guessedCategory = "אחר";
+      }
+    }
+
+    // פרטי אחריות אם צריך
+    let warrantyStart = null;
+    let warrantyExpiresAt = null;
+    let autoDeleteAfter = null;
+
+    if (guessedCategory === "אחריות") {
+      let extracted = {
+        warrantyStart: null,
+        warrantyExpiresAt: null,
+        autoDeleteAfter: null,
+      };
+
+      if (file.type === "application/pdf") {
+        const ocrText = await extractTextFromPdfWithOcr(file);
+        const dataFromText = extractWarrantyFromText(ocrText);
+        extracted = { ...extracted, ...dataFromText };
+      }
+
+      if (file.type.startsWith("image/") && window.Tesseract) {
+        const { data } = await window.Tesseract.recognize(file, "heb+eng", {
+          tessedit_pageseg_mode: 6,
+        });
+        const imgText = data?.text || "";
+        const dataFromText = extractWarrantyFromText(imgText);
+        extracted = { ...extracted, ...dataFromText };
+      }
+
+      if (!extracted.warrantyStart && !extracted.warrantyExpiresAt) {
+        const buf = await file.arrayBuffer().catch(() => null);
+        if (buf) {
+          const txt = new TextDecoder("utf-8").decode(buf);
+          const dataFromText = extractWarrantyFromText(txt);
+          extracted = { ...extracted, ...dataFromText };
+        }
+      }
+
+      if (!extracted.warrantyStart && !extracted.warrantyExpiresAt) {
+        const manualData = fallbackAskWarrantyDetails();
+        if (manualData.warrantyStart) {
+          extracted.warrantyStart = manualData.warrantyStart;
+        }
+        if (manualData.warrantyExpiresAt) {
+          extracted.warrantyExpiresAt = manualData.warrantyExpiresAt;
+        }
+        if (manualData.autoDeleteAfter) {
+          extracted.autoDeleteAfter = manualData.autoDeleteAfter;
+        }
+      }
+
+      warrantyStart     = extracted.warrantyStart     || null;
+      warrantyExpiresAt = extracted.warrantyExpiresAt || null;
+      autoDeleteAfter   = extracted.autoDeleteAfter   || null;
+    }
+
+    // קריאה של הקובץ כ-base64 ל-IndexedDB
+    const fileDataBase64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    const newId = crypto.randomUUID();
+
+    // שמירת הקובץ עצמו ל-IndexedDB (לוגי)
+    await saveFileToDB(newId, fileDataBase64);
+
+    // בניית אובייקט המסמך
+    const now = new Date();
+    const uploadedAt = now.toISOString().split("T")[0];
+    const year = now.getFullYear().toString();
+    const ownerEmail = normalizeEmail(getCurrentUserEmail() || "");
+
+    const newDoc = {
+      id: newId,
+      title: fileName,
+      originalFileName: fileName,
+      category: guessedCategory,
+      uploadedAt,
+      year,
+      org: "",
+      recipient: [],
+      sharedWith: [],
+      warrantyStart,
+      warrantyExpiresAt,
+      autoDeleteAfter,
+      mimeType: file.type,
+      hasFile: true,
+      downloadURL: null,
+      owner: ownerEmail,
+      _trashed: false,
+      lastModified: Date.now(),
+      lastModifiedBy: ownerEmail
+    };
+
+    // 📡 שמירה גם בשרת Render (PostgreSQL)
+    try {
+      if (window.uploadDocument) {
+        await window.uploadDocument(file, {
+          title: fileName,
+          category: guessedCategory,
+          year,
+          org: "",
+          recipient: newDoc.recipient || [],
+          warrantyStart,
+          warrantyExpiresAt,
+          autoDeleteAfter,
+        });
+      } else {
+        console.warn("⚠️ window.uploadDocument לא קיים");
+      }
+    } catch (e) {
+      console.error("❌ שגיאה בשמירה ל-Render:", e);
+    }
+
+    // הודעה יפה
+    let niceCat = guessedCategory && guessedCategory.trim()
+      ? guessedCategory.trim()
+      : "התיקייה";
+    showNotification(`הקובץ נוסף לתיקייה "${niceCat}" ✅`);
+
+    // רענון UI
+    const currentCat = categoryTitle.textContent;
+    if (currentCat === "אחסון משותף") {
+      openSharedView();
+    } else if (currentCat === "סל מחזור") {
+      openRecycleView();
+    } else if (!homeView.classList.contains("hidden")) {
+      renderHome();
+    } else {
+      openCategoryView(currentCat);
+    }
+
+    fileInput.value = "";
+  } catch (err) {
+    console.error("שגיאה בהעלאה:", err);
+    showNotification("הייתה בעיה בהעלאה. נסי שוב או קובץ אחר.", true);
+    hideLoading?.();
+  }
+});
+
 }
   // === INIT shared fields (run once after loading allUsersData/allDocsData) ===
 function ensureUserSharedFields(allUsersData, username) {
