@@ -4471,8 +4471,6 @@ console.log("✅ תיקון 3: מציאת folderId אוטומטית");
 
 
 
-
-
 // 🔧 פתיחת קבצים בתיקייה משותפת בלבד
 (function () {
   const oldHandler = window._sharedDocClickHandler;
@@ -4484,13 +4482,18 @@ console.log("✅ תיקון 3: מציאת folderId אוטומטית");
     const target = e.target.closest(".doc-open-link");
     if (!target) return;
 
-    // 🔑 בדיקה אם אנחנו בתיקייה משותפת - רק לפי URL!
+    // 🔑 בדיקה כפולה: יש sharedFolder ב-URL וגם אנחנו בתצוגת תיקייה משותפת
     const urlParams = new URLSearchParams(window.location.search);
     const folderId = urlParams.get("sharedFolder");
     
-    // אם אין sharedFolder ב-URL - לא מתערבים!
-    if (!folderId) {
-      console.log("📂 Not in shared folder, using default handler");
+    // בדיקה נוספת: האם הכותרת היא של תיקייה משותפת?
+    const categoryTitle = document.getElementById("categoryTitle");
+    const isInSharedView = categoryTitle && 
+      !["כלכלה", "רפואה", "עבודה", "בית", "אחריות", "תעודות", "עסק", "אחר", "סל מחזור"].includes(categoryTitle.textContent);
+    
+    // אם אין sharedFolder ב-URL או שאנחנו בתיקייה רגילה - לא מתערבים!
+    if (!folderId || !isInSharedView) {
+      console.log("📂 Not in shared folder view, using default handler");
       return; // תן ל-handler הרגיל לטפל
     }
 
@@ -4505,7 +4508,6 @@ console.log("✅ תיקון 3: מציאת folderId אוטומטית");
     try {
       if (typeof showLoading === "function") showLoading("טוען מסמך...");
 
-      // שליפת פרטי המסמך מ-Firestore
       const col = window.fs.collection(window.db, "sharedDocs");
       const q = window.fs.query(
         col,
@@ -4516,7 +4518,7 @@ console.log("✅ תיקון 3: מציאת folderId אוטומטית");
 
       if (snap.empty) {
         if (typeof hideLoading === "function") hideLoading();
-        showNotification("המסמך לא נמצא בתיקייה", true);
+        showNotification("המסמך לא נמצא בתיקייה המשותפת", true);
         return;
       }
 
@@ -4535,25 +4537,18 @@ console.log("✅ תיקון 3: מציאת folderId אוטומטית");
 
       const headers = { "X-Dev-Email": currentEmail };
 
-      console.log("📤 Fetching:", fileUrl);
-      console.log("📤 User:", currentEmail);
-
       const resp = await fetch(fileUrl, { headers });
 
       if (resp.status === 403) {
         if (typeof hideLoading === "function") hideLoading();
-        // 🔧 הודעה יותר ברורה
-        showNotification("אין הרשאה. המסמך צריך להיות משותף איתך מחדש.", true);
+        showNotification("אין הרשאה. המסמך צריך להיות משותף איתך.", true);
         return;
       }
 
-      if (!resp.ok) {
-        throw new Error("Download failed: " + resp.status);
-      }
+      if (!resp.ok) throw new Error("Download failed: " + resp.status);
 
       const blob = await resp.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      window.open(blobUrl, "_blank");
+      window.open(URL.createObjectURL(blob), "_blank");
       
       if (typeof hideLoading === "function") hideLoading();
 
@@ -4569,8 +4564,28 @@ console.log("✅ תיקון 3: מציאת folderId אוטומטית");
   console.log("✅ Shared folder handler loaded!");
 })();
 
+// 🔧 ניקוי URL כשעוברים לתיקייה רגילה
+const _originalOpenCategoryView = window.openCategoryView;
+window.openCategoryView = function(categoryName) {
+  // נקה את sharedFolder מה-URL
+  const url = new URL(window.location);
+  url.searchParams.delete('sharedFolder');
+  window.history.replaceState({}, '', url);
+  
+  return _originalOpenCategoryView(categoryName);
+};
 
+const _originalRenderHome = window.renderHome;
+window.renderHome = function() {
+  // נקה את sharedFolder מה-URL
+  const url = new URL(window.location);
+  url.searchParams.delete('sharedFolder');
+  window.history.replaceState({}, '', url);
+  
+  return _originalRenderHome();
+};
 
+console.log("✅ URL cleanup handlers loaded!");
 
 
 // ═══════════════════════════════════════════════════════════════════
