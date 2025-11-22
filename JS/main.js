@@ -3698,6 +3698,7 @@ if (editForm) {
   }
   // 📷 סריקת מסמך: מצלמה -> תמונה -> PDF -> העלאה כאילו נבחר קובץ רגיל
 // 📷 סריקת מסמך: מצלמה -> תמונה -> "סריקה" שחור-לבן -> PDF -> העלאה
+// 📷 סריקת מסמך: מצלמה -> תיקון כיוון -> שחור-לבן -> PDF -> העלאה רגילה
 if (scanBtn) {
   scanBtn.addEventListener("click", () => {
     if (!window.jspdf || !window.jspdf.jsPDF) {
@@ -3709,11 +3710,10 @@ if (scanBtn) {
       return;
     }
 
-    // קלט מוסתר שפותח מצלמה / גלריה
     const cameraInput = document.createElement("input");
     cameraInput.type = "file";
     cameraInput.accept = "image/*";
-    cameraInput.capture = "environment"; // מצלמה אחורית במובייל (אם אפשר)
+    cameraInput.capture = "environment"; // מצלמה אחורית במובייל אם אפשר
     cameraInput.style.display = "none";
     document.body.appendChild(cameraInput);
 
@@ -3737,112 +3737,147 @@ if (scanBtn) {
 
           img.onload = () => {
             try {
-              // --- שלב 1: לייצר canvas מקור וליישר את התמונה (אם היא לרוחב) ---
               const srcCanvas = document.createElement("canvas");
               const srcCtx    = srcCanvas.getContext("2d");
 
-              const origW = img.width;
-              const origH = img.height;
+              // ברירת מחדל – בלי סיבוב
+              let orientation = 1;
 
-              // אם התמונה לרוחב (רוחב גדול מגובה), נסובב אותה שתהיה אנכית
-              if (origW > origH) {
-                srcCanvas.width  = origH;
-                srcCanvas.height = origW;
+              const processImage = () => {
+                // --- שלב 1: ציור על canvas לפי orientation ---
+                const w = img.width;
+                const h = img.height;
 
-                srcCtx.translate(srcCanvas.width / 2, srcCanvas.height / 2);
-                srcCtx.rotate(-Math.PI / 2);
-                srcCtx.drawImage(img, -origW / 2, -origH / 2);
+                if (orientation === 6 || orientation === 8) {
+                  // 6 = 90° CW, 8 = 90° CCW
+                  srcCanvas.width  = h;
+                  srcCanvas.height = w;
+                  srcCtx.translate(srcCanvas.width / 2, srcCanvas.height / 2);
+                  const angle = orientation === 6 ? 90 : -90;
+                  srcCtx.rotate((angle * Math.PI) / 180);
+                  srcCtx.drawImage(img, -w / 2, -h / 2);
+                } else if (orientation === 3) {
+                  // 180°
+                  srcCanvas.width  = w;
+                  srcCanvas.height = h;
+                  srcCtx.translate(srcCanvas.width / 2, srcCanvas.height / 2);
+                  srcCtx.rotate(Math.PI);
+                  srcCtx.drawImage(img, -w / 2, -h / 2);
+                } else {
+                  // 1 = רגיל
+                  srcCanvas.width  = w;
+                  srcCanvas.height = h;
+                  srcCtx.drawImage(img, 0, 0);
+                }
+
+                // --- שלב 2: "סריקה" – שחור-לבן, רקע לבן, טקסט כהה ---
+                const imageData = srcCtx.getImageData(
+                  0,
+                  0,
+                  srcCanvas.width,
+                  srcCanvas.height
+                );
+                const data = imageData.data;
+
+                // פקטורים – אפשר לשחק קצת אם תרצי יותר/פחות חזק
+                const contrast = 1.6;  // ניגודיות
+                const brightness = 10; // בהירות
+
+                for (let i = 0; i < data.length; i += 4) {
+                  const r = data[i];
+                  const g = data[i + 1];
+                  const b = data[i + 2];
+
+                  // גווני אפור בסיסיים
+                  let gray = 0.299 * r + 0.587 * g + 0.114 * b;
+
+                  // חיזוק ניגודיות ובהירות – כדי שרקע יהיה לבן וטקסט כהה
+                  gray = gray * contrast + brightness;
+
+                  if (gray < 0) gray = 0;
+                  if (gray > 255) gray = 255;
+
+                  data[i]     = gray;
+                  data[i + 1] = gray;
+                  data[i + 2] = gray;
+                  // אלפא לא נוגעים
+                }
+
+                srcCtx.putImageData(imageData, 0, 0);
+
+                // --- שלב 3: התאמה ל-A4 ויצירת PDF ---
+                const processedDataUrl = srcCanvas.toDataURL("image/jpeg", 1.0);
+
+                const maxWidth  = pageWidth  - margin * 2;
+                const maxHeight = pageHeight - margin * 2;
+
+                const imgAspect = srcCanvas.width / srcCanvas.height;
+
+                let drawWidth  = maxWidth;
+                let drawHeight = drawWidth / imgAspect;
+
+                if (drawHeight > maxHeight) {
+                  drawHeight = maxHeight;
+                  drawWidth  = drawHeight * imgAspect;
+                }
+
+                const x = (pageWidth  - drawWidth)  / 2;
+                const y = (pageHeight - drawHeight) / 2;
+
+                pdf.addImage(
+                  processedDataUrl,
+                  "JPEG",
+                  x,
+                  y,
+                  drawWidth,
+                  drawHeight
+                );
+
+                const blob = pdf.output("blob");
+                const pdfFile = new File(
+                  [blob],
+                  `scan-${new Date().toISOString().slice(0, 10)}.pdf`,
+                  { type: "application/pdf" }
+                );
+
+                // --- שלב 4: להעלות כאילו נבחר ב"העלה מסמך" ---
+                const targetInput = document.getElementById("fileInput");
+                if (!targetInput) {
+                  if (typeof showNotification === "function") {
+                    showNotification("לא נמצא שדה העלאת קובץ", true);
+                  } else {
+                    alert("לא נמצא שדה העלאת קובץ");
+                  }
+                  return;
+                }
+
+                const dt = new DataTransfer();
+                dt.items.add(pdfFile);
+                targetInput.files = dt.files;
+
+                targetInput.dispatchEvent(
+                  new Event("change", { bubbles: true })
+                );
+              };
+
+              // אם יש EXIF – ננסה לקחת ממנו את ה־Orientation
+              if (window.EXIF) {
+                try {
+                  EXIF.getData(img, function () {
+                    const o = EXIF.getTag(this, "Orientation");
+                    if (o) {
+                      orientation = o;
+                      console.log("📷 EXIF orientation:", orientation);
+                    }
+                    processImage();
+                  });
+                } catch (e) {
+                  console.warn("EXIF error:", e);
+                  processImage();
+                }
               } else {
-                srcCanvas.width  = origW;
-                srcCanvas.height = origH;
-                srcCtx.drawImage(img, 0, 0);
+                processImage();
               }
-
-              // --- שלב 2: "אפקט סריקה" – שחור-לבן, רקע לבן, טקסט כהה ---
-              const imageData = srcCtx.getImageData(0, 0, srcCanvas.width, srcCanvas.height);
-              const data = imageData.data;
-
-              for (let i = 0; i < data.length; i += 4) {
-                const r = data[i];
-                const g = data[i + 1];
-                const b = data[i + 2];
-
-                // גווני אפור
-                const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-
-                let v;
-                // סף לרקע לבן/טקסט כהה – אפשר לשחק עם 80/200 אם בא לך
-                if (gray > 200) {
-                  v = 255; // רקע לבן
-                } else if (gray < 80) {
-                  v = 0;   // טקסט כהה
-                } else {
-                  // חיזוק ניגודיות באזור האמצעי
-                  v = ((gray - 80) * 255) / (200 - 80);
-                  if (v < 0) v = 0;
-                  if (v > 255) v = 255;
-                }
-
-                data[i]     = v; // R
-                data[i + 1] = v; // G
-                data[i + 2] = v; // B
-                // אלפא נשאר אותו דבר
-              }
-
-              srcCtx.putImageData(imageData, 0, 0);
-
-              // --- שלב 3: המתכון ל-PDF – להשחיל את ה-canvas המנוקה כעמוד A4 ---
-              const processedDataUrl = srcCanvas.toDataURL("image/jpeg", 1.0);
-
-              const maxWidth  = pageWidth  - margin * 2;
-              const maxHeight = pageHeight - margin * 2;
-
-              const imgAspect = srcCanvas.width / srcCanvas.height;
-
-              let drawWidth  = maxWidth;
-              let drawHeight = drawWidth / imgAspect;
-
-              if (drawHeight > maxHeight) {
-                drawHeight = maxHeight;
-                drawWidth  = drawHeight * imgAspect;
-              }
-
-              const x = (pageWidth  - drawWidth)  / 2;
-              const y = (pageHeight - drawHeight) / 2;
-
-              pdf.addImage(
-                processedDataUrl,
-                "JPEG",
-                x,
-                y,
-                drawWidth,
-                drawHeight
-              );
-
-              const blob = pdf.output("blob");
-              const pdfFile = new File(
-                [blob],
-                `scan-${new Date().toISOString().slice(0, 10)}.pdf`,
-                { type: "application/pdf" }
-              );
-
-              // --- שלב 4: להעלות את זה כאילו זה נבחר ב"העלה מסמך" ---
-              const targetInput = document.getElementById("fileInput");
-              if (!targetInput) {
-                if (typeof showNotification === "function") {
-                  showNotification("לא נמצא שדה העלאת קובץ", true);
-                } else {
-                  alert("לא נמצא שדה העלאת קובץ");
-                }
-                return;
-              }
-
-              const dt = new DataTransfer();
-              dt.items.add(pdfFile);
-              targetInput.files = dt.files;
-
-              // מפעיל את כל הלוגיקה הקיימת של העלאת מסמך רגילה
-              targetInput.dispatchEvent(new Event("change", { bubbles: true }));
             } catch (err) {
               console.error("❌ Error while creating scanned-style PDF:", err);
               if (typeof showNotification === "function") {
@@ -3888,6 +3923,7 @@ if (scanBtn) {
     cameraInput.click();
   });
 }
+
 
 
   if (sortSelect) {

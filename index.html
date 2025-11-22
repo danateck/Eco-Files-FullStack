@@ -1739,6 +1739,17 @@ body {
 
 
 
+<!-- EXIF.js - בשביל לזהות כיוון צילום של המצלמה -->
+<script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+<script>
+  if (window.EXIF) {
+    console.log("✅ EXIF loaded");
+  } else {
+    console.warn("⚠️ EXIF failed to load");
+  }
+</script>
+
+
 
 
   <div class="dashboard">
