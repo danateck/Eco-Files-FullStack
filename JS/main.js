@@ -4135,7 +4135,7 @@ async function uploadScannedPdf() {
     pdf.addImage(p.dataUrl, "JPEG", x, y, w, h);
   });
 
-  const blob = pdf.output("blob");
+const blob = pdf.output("blob");
 const fileName = `scan_${new Date().toISOString().slice(0, 10)}.pdf`;
 const pdfFile = new File([blob], fileName, { type: "application/pdf" });
 
@@ -4163,7 +4163,7 @@ if (typeof closeScanModal === "function") {
 // מפעילים את כל הלוגיקה הקיימת של fileInput.change:
 // כפילויות, KEYWORDS, אחריות, העלאה לשרת...
 fileInput.dispatchEvent(new Event("change", { bubbles: true }));
-
+}
 
 // חיבור כל הכפתורים
 if (scanBtn && scanModal) {
