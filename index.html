@@ -1928,6 +1928,89 @@ body {
 
   <!-- התראות צפות -->
   <div id="notification" class="notification hidden"></div>
+    <!-- סריקת מסמך - תצוגה מקדימה לפני העלאה -->
+  <div id="scanModal" class="hidden" style="
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    font-family: 'Rubik', system-ui, sans-serif;
+  ">
+    <div style="
+      background: #fff;
+      color: #000;
+      min-width: 320px;
+      max-width: 95vw;
+      max-height: 95vh;
+      width: 480px;
+      border-radius: 12px;
+      box-shadow: 0 20px 40px rgba(0,0,0,.35);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    ">
+      <div style="
+        padding: .6rem .9rem;
+        border-bottom: 1px solid #ddd;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: .5rem;
+      ">
+        <h2 style="margin:0; font-size:.95rem; font-weight:600;">סריקת מסמך</h2>
+        <button id="scanCloseBtn" type="button" style="
+          border:none;
+          background:transparent;
+          font-size:1rem;
+          cursor:pointer;
+        ">✖</button>
+      </div>
+
+      <div style="padding:.75rem .9rem; flex:1; overflow:auto;">
+        <div id="scanEmptyState" style="font-size:.85rem; color:#666; text-align:center; margin-top:1.5rem;">
+          צלמי עמוד ראשון כדי להתחיל ✨
+        </div>
+        <div id="scanPagesContainer" style="display:flex; flex-direction:column; gap:.75rem;"></div>
+      </div>
+
+      <div style="
+        padding:.6rem .9rem;
+        border-top:1px solid #ddd;
+        display:flex;
+        gap:.5rem;
+        justify-content:space-between;
+      ">
+        <button id="scanAddPageBtn" type="button" style="
+          flex:1;
+          padding:.5rem .75rem;
+          border-radius:999px;
+          border:none;
+          cursor:pointer;
+          background:#eef5ff;
+          color:#114488;
+          font-weight:600;
+          font-size:.85rem;
+        ">➕ עמוד נוסף</button>
+
+        <button id="scanUploadBtn" type="button" style="
+          flex:1;
+          padding:.5rem .75rem;
+          border-radius:999px;
+          border:none;
+          cursor:pointer;
+          background:#2ecc71;
+          color:#fff;
+          font-weight:600;
+          font-size:.85rem;
+          opacity:.6;
+        " disabled>📤 העלאה</button>
+      </div>
+    </div>
+  </div>
+
 
   <!-- עורך מסמך -->
 <!-- עורך מסמך -->

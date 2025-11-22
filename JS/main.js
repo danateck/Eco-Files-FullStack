@@ -2493,7 +2493,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   const uploadBtn = document.getElementById("uploadBtn");
   const fileInput = document.getElementById("fileInput");
   const sortSelect = document.getElementById("sortSelect");
-  const scanBtn    = document.getElementById("scanBtn"); // כפתור "סרוק מסמך"
+  const scanBtn    = document.getElementById("scanBtn"); 
+  const scanModal          = document.getElementById("scanModal");
+const scanAddPageBtn     = document.getElementById("scanAddPageBtn");
+const scanUploadBtn      = document.getElementById("scanUploadBtn");
+const scanCloseBtn       = document.getElementById("scanCloseBtn");
+const scanPagesContainer = document.getElementById("scanPagesContainer");
+const scanEmptyState     = document.getElementById("scanEmptyState");
   const editModal = document.getElementById("editModal");
   const editForm = document.getElementById("editForm");
   const editCancelBtn = document.getElementById("editCancelBtn");
@@ -3701,199 +3707,422 @@ if (editForm) {
 // 📷 סריקת מסמך: מצלמה -> תיקון כיוון -> שחור-לבן -> PDF -> העלאה רגילה
 // 📷 סריקת מסמך: מצלמה -> שחור-לבן -> סיבוב קבוע -> PDF -> העלאה רגילה
 // 📷 סריקת מסמך: מצלמה -> שחור-לבן -> סיבוב בתוך ה-PDF -> העלאה רגילה
-if (scanBtn) {
-  scanBtn.addEventListener("click", () => {
-    if (!window.jspdf || !window.jspdf.jsPDF) {
-      if (typeof showNotification === "function") {
-        showNotification("לא הצלחתי לטעון את מנוע ה-PDF 🤷‍♂️", true);
-      } else {
-        alert("לא הצלחתי לטעון את מנוע ה-PDF");
-      }
-      return;
+// if (scanBtn) {
+//   scanBtn.addEventListener("click", () => {
+//     if (!window.jspdf || !window.jspdf.jsPDF) {
+//       if (typeof showNotification === "function") {
+//         showNotification("לא הצלחתי לטעון את מנוע ה-PDF 🤷‍♂️", true);
+//       } else {
+//         alert("לא הצלחתי לטעון את מנוע ה-PDF");
+//       }
+//       return;
+//     }
+
+//     const cameraInput = document.createElement("input");
+//     cameraInput.type = "file";
+//     cameraInput.accept = "image/*";
+//     cameraInput.capture = "environment"; // מצלמה אחורית במובייל
+//     cameraInput.style.display = "none";
+//     document.body.appendChild(cameraInput);
+
+//     cameraInput.addEventListener("change", () => {
+//       const imageFile = cameraInput.files && cameraInput.files[0];
+//       document.body.removeChild(cameraInput);
+//       if (!imageFile) return;
+
+//       const reader = new FileReader();
+
+//       reader.onload = () => {
+//         try {
+//           const imgDataUrl = reader.result;
+//           const { jsPDF } = window.jspdf;
+//           const pdf = new jsPDF({ unit: "pt", format: "a4" });
+//           const pageWidth  = pdf.internal.pageSize.getWidth();
+//           const pageHeight = pdf.internal.pageSize.getHeight();
+//           const margin     = 20;
+
+//           const img = new Image();
+
+//           img.onload = () => {
+//             try {
+//               // --- שלב 1: ציור מקורי על canvas ---
+//               const srcCanvas = document.createElement("canvas");
+//               const srcCtx    = srcCanvas.getContext("2d");
+
+//               srcCanvas.width  = img.width;
+//               srcCanvas.height = img.height;
+//               srcCtx.drawImage(img, 0, 0);
+
+//               // --- שלב 2: "סריקה" – שחור-לבן, רקע לבן, טקסט כהה ---
+//               const imageData = srcCtx.getImageData(
+//                 0,
+//                 0,
+//                 srcCanvas.width,
+//                 srcCanvas.height
+//               );
+//               const data = imageData.data;
+
+//               const contrast   = 1.6;  // ניגודיות
+//               const brightness = 10;   // בהירות קלה
+
+//               for (let i = 0; i < data.length; i += 4) {
+//                 const r = data[i];
+//                 const g = data[i + 1];
+//                 const b = data[i + 2];
+
+//                 let gray = 0.299 * r + 0.587 * g + 0.114 * b;
+//                 gray = gray * contrast + brightness;
+
+//                 if (gray < 0) gray = 0;
+//                 if (gray > 255) gray = 255;
+
+//                 data[i]     = gray;
+//                 data[i + 1] = gray;
+//                 data[i + 2] = gray;
+//               }
+
+//               srcCtx.putImageData(imageData, 0, 0);
+
+//               // --- שלב 3: החלטת סיבוב בתוך ה-PDF ---
+//               let finalCanvas = srcCanvas;
+//               let rotationDeg = 0;
+
+//               // אם התמונה "שוכבת" (רוחב>גובה) – נסובב אותה ב-PDF ב-90°
+//               let imgW = finalCanvas.width;
+//               let imgH = finalCanvas.height;
+
+//               if (imgW > imgH) {
+//                 rotationDeg = 90;
+//                 // לצורך חישוב גודל על הדף – הרוחב והגובה אחרי סיבוב מתהפכים
+//                 [imgW, imgH] = [imgH, imgW];
+//               }
+
+//               // --- שלב 4: התאמה ל-A4 ויצירת PDF ---
+//               const processedDataUrl = finalCanvas.toDataURL("image/jpeg", 1.0);
+
+//               const maxWidth  = pageWidth  - margin * 2;
+//               const maxHeight = pageHeight - margin * 2;
+
+//               const imgAspect = imgW / imgH; // אחרי התאמת סיבוב תאורטית
+
+//               let drawWidth  = maxWidth;
+//               let drawHeight = drawWidth / imgAspect;
+
+//               if (drawHeight > maxHeight) {
+//                 drawHeight = maxHeight;
+//                 drawWidth  = drawHeight * imgAspect;
+//               }
+
+//               const x = (pageWidth  - drawWidth)  / 2;
+//               const y = (pageHeight - drawHeight) / 2;
+
+//               // addImage: data, type, x, y, w, h, alias, compression, rotation
+//               pdf.addImage(
+//                 processedDataUrl,
+//                 "JPEG",
+//                 x,
+//                 y,
+//                 drawWidth,
+//                 drawHeight,
+//                 undefined,
+//                 "FAST",
+//                 rotationDeg
+//               );
+
+//               const blob = pdf.output("blob");
+//               const pdfFile = new File(
+//                 [blob],
+//                 `scan-${new Date().toISOString().slice(0, 10)}.pdf`,
+//                 { type: "application/pdf" }
+//               );
+
+//               // --- שלב 5: העלאה כאילו נבחר ב"העלה מסמך" ---
+//               const targetInput = document.getElementById("fileInput");
+//               if (!targetInput) {
+//                 if (typeof showNotification === "function") {
+//                   showNotification("לא נמצא שדה העלאת קובץ", true);
+//                 } else {
+//                   alert("לא נמצא שדה העלאת קובץ");
+//                 }
+//                 return;
+//               }
+
+//               const dt = new DataTransfer();
+//               dt.items.add(pdfFile);
+//               targetInput.files = dt.files;
+
+//               targetInput.dispatchEvent(
+//                 new Event("change", { bubbles: true })
+//               );
+//             } catch (err) {
+//               console.error("❌ Error while creating scanned-style PDF:", err);
+//               if (typeof showNotification === "function") {
+//                 showNotification("שגיאה בהמרת הסריקה ל-PDF", true);
+//               } else {
+//                 alert("שגיאה בהמרת הסריקה ל-PDF");
+//               }
+//             }
+//           };
+
+//           img.onerror = (e) => {
+//             console.error("❌ Image load error:", e);
+//             if (typeof showNotification === "function") {
+//               showNotification("שגיאה בקריאת התמונה", true);
+//             } else {
+//               alert("שגיאה בקריאת התמונה");
+//             }
+//           };
+
+//           img.src = imgDataUrl;
+//         } catch (err) {
+//           console.error("❌ FileReader onload error:", err);
+//           if (typeof showNotification === "function") {
+//             showNotification("שגיאה בעיבוד הקובץ", true);
+//           } else {
+//             alert("שגיאה בעיבוד הקובץ");
+//           }
+//         }
+//       };
+
+//       reader.onerror = (e) => {
+//         console.error("❌ FileReader error:", e);
+//         if (typeof showNotification === "function") {
+//           showNotification("שגיאה בקריאת הקובץ", true);
+//         } else {
+//           alert("שגיאה בקריאת הקובץ");
+//         }
+//       };
+
+//       reader.readAsDataURL(imageFile);
+//     });
+
+//     cameraInput.click();
+//   });
+// }
+
+
+const scannedPages = []; // { dataUrl, width, height }
+
+
+function openScanModal() {
+  if (!scanModal) return;
+  scanModal.classList.remove("hidden");
+  scanModal.setAttribute("aria-hidden", "false");
+}
+
+function closeScanModal() {
+  if (!scanModal) return;
+  scanModal.classList.add("hidden");
+  scanModal.setAttribute("aria-hidden", "true");
+  // לנקות מצב
+  scannedPages.length = 0;
+  if (scanPreview) scanPreview.style.display = "none";
+  if (scanPreviewPh) scanPreviewPh.style.display = "block";
+  if (scanPagesList) scanPagesList.textContent = "אין עמודים עדיין";
+  if (scanUploadBtn) scanUploadBtn.disabled = true;
+}
+
+// עידכון כיתוב העמודים
+function refreshPagesList() {
+  if (!scanPagesList) return;
+  if (!scannedPages.length) {
+    scanPagesList.textContent = "אין עמודים עדיין";
+    return;
+  }
+  scanPagesList.innerHTML = scannedPages
+    .map((p, i) => `<span style="margin-left:.5rem;">עמוד ${i + 1}</span>`)
+    .join("");
+}
+
+// המרה לשחור-לבן + יישור עומד
+function makeBWPortraitDataUrl(img) {
+  const tmp = document.createElement("canvas");
+  const ctx = tmp.getContext("2d");
+
+  tmp.width = img.width;
+  tmp.height = img.height;
+  ctx.drawImage(img, 0, 0);
+
+  const imageData = ctx.getImageData(0, 0, tmp.width, tmp.height);
+  const data = imageData.data;
+
+  // גווני אפור + קונטרסט
+  const contrast = 40; // כמה חזק
+  const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i], g = data[i + 1], b = data[i + 2];
+    let gray = 0.3 * r + 0.59 * g + 0.11 * b;
+
+    gray = factor * (gray - 128) + 128;
+    gray = Math.max(0, Math.min(255, gray));
+
+    data[i] = data[i + 1] = data[i + 2] = gray;
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+
+  // אם התמונה שוכבת (רוחב > גובה) – לסובב לעמידה
+  let finalCanvas = tmp;
+  if (tmp.width > tmp.height) {
+    finalCanvas = document.createElement("canvas");
+    finalCanvas.width = tmp.height;
+    finalCanvas.height = tmp.width;
+    const fctx = finalCanvas.getContext("2d");
+    fctx.translate(finalCanvas.width / 2, finalCanvas.height / 2);
+    fctx.rotate(-Math.PI / 2); // סיבוב עם כיוון השעון
+    fctx.drawImage(tmp, -tmp.width / 2, -tmp.height / 2);
+  }
+
+  return {
+    dataUrl: finalCanvas.toDataURL("image/jpeg", 1.0),
+    width: finalCanvas.width,
+    height: finalCanvas.height,
+  };
+}
+
+// צילום עמוד אחד מהמצלמה
+function captureScanPage() {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/*";
+  input.capture = "environment"; // מצלמה אחורית
+  input.style.display = "none";
+  document.body.appendChild(input);
+
+  input.addEventListener("change", () => {
+    const file = input.files && input.files[0];
+    document.body.removeChild(input);
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const page = makeBWPortraitDataUrl(img);
+        scannedPages.push(page);
+        if (scanPreview) {
+          scanPreview.src = page.dataUrl;
+          scanPreview.style.display = "block";
+        }
+        if (scanPreviewPh) scanPreviewPh.style.display = "none";
+        refreshPagesList();
+        if (scanUploadBtn) scanUploadBtn.disabled = false;
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  input.click();
+}
+
+// יצירת PDF מרובה עמודים והעלאה
+async function uploadScannedPdf() {
+  if (!scannedPages.length) return;
+  if (!window.jsPDF && !(window.jspdf && window.jspdf.jsPDF)) {
+    alert("jsPDF לא נטען – אי אפשר ליצור PDF");
+    return;
+  }
+
+  const jsPDF = window.jsPDF || window.jspdf.jsPDF;
+  const pdf = new jsPDF({ unit: "pt", format: "a4", compress: true });
+
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+
+  scannedPages.forEach((p, idx) => {
+    if (idx > 0) pdf.addPage();
+    const ratio = Math.min(pageW / p.width, pageH / p.height);
+    const w = p.width * ratio;
+    const h = p.height * ratio;
+    const x = (pageW - w) / 2;
+    const y = (pageH - h) / 2;
+
+    pdf.addImage(p.dataUrl, "JPEG", x, y, w, h);
+  });
+
+  const blob = pdf.output("blob");
+  const fileName = `scan_${new Date().toISOString().slice(0,10)}.pdf`;
+  const file = new File([blob], fileName, { type: "application/pdf" });
+
+  // מטא-דאטה בסיסי – תתאימי אם תרצי
+  const now = new Date();
+  const meta = {
+    title: `סריקה ${now.toLocaleDateString("he-IL")}`,
+    category: "אחר",
+    year: String(now.getFullYear()),
+    org: "",
+    recipient: [],
+  };
+
+  try {
+    if (typeof showLoading === "function") showLoading("מעלה סריקה...");
+    const savedDoc = await uploadDocumentWithStorage(file, meta);
+    window.allDocsData = Array.isArray(window.allDocsData)
+      ? [...window.allDocsData, savedDoc]
+      : [savedDoc];
+
+    if (typeof setUserDocs === "function" && window.userNow && window.allUsersData) {
+      setUserDocs(window.userNow, window.allDocsData, window.allUsersData);
     }
 
-    const cameraInput = document.createElement("input");
-    cameraInput.type = "file";
-    cameraInput.accept = "image/*";
-    cameraInput.capture = "environment"; // מצלמה אחורית במובייל
-    cameraInput.style.display = "none";
-    document.body.appendChild(cameraInput);
+    if (typeof hideLoading === "function") hideLoading();
+    if (typeof showNotification === "function") {
+      showNotification("הסריקה נשמרה בהצלחה ✅");
+    } else {
+      alert("הסריקה נשמרה בהצלחה ✅");
+    }
 
-    cameraInput.addEventListener("change", () => {
-      const imageFile = cameraInput.files && cameraInput.files[0];
-      document.body.removeChild(cameraInput);
-      if (!imageFile) return;
+    closeScanModal();
+    if (typeof renderHome === "function") renderHome();
+  } catch (err) {
+    console.error("❌ Scan upload failed:", err);
+    if (typeof hideLoading === "function") hideLoading();
+    if (typeof showNotification === "function") {
+      showNotification("שגיאה בהעלאת הסריקה", true);
+    } else {
+      alert("שגיאה בהעלאת הסריקה");
+    }
+  }
+}
 
-      const reader = new FileReader();
-
-      reader.onload = () => {
-        try {
-          const imgDataUrl = reader.result;
-          const { jsPDF } = window.jspdf;
-          const pdf = new jsPDF({ unit: "pt", format: "a4" });
-          const pageWidth  = pdf.internal.pageSize.getWidth();
-          const pageHeight = pdf.internal.pageSize.getHeight();
-          const margin     = 20;
-
-          const img = new Image();
-
-          img.onload = () => {
-            try {
-              // --- שלב 1: ציור מקורי על canvas ---
-              const srcCanvas = document.createElement("canvas");
-              const srcCtx    = srcCanvas.getContext("2d");
-
-              srcCanvas.width  = img.width;
-              srcCanvas.height = img.height;
-              srcCtx.drawImage(img, 0, 0);
-
-              // --- שלב 2: "סריקה" – שחור-לבן, רקע לבן, טקסט כהה ---
-              const imageData = srcCtx.getImageData(
-                0,
-                0,
-                srcCanvas.width,
-                srcCanvas.height
-              );
-              const data = imageData.data;
-
-              const contrast   = 1.6;  // ניגודיות
-              const brightness = 10;   // בהירות קלה
-
-              for (let i = 0; i < data.length; i += 4) {
-                const r = data[i];
-                const g = data[i + 1];
-                const b = data[i + 2];
-
-                let gray = 0.299 * r + 0.587 * g + 0.114 * b;
-                gray = gray * contrast + brightness;
-
-                if (gray < 0) gray = 0;
-                if (gray > 255) gray = 255;
-
-                data[i]     = gray;
-                data[i + 1] = gray;
-                data[i + 2] = gray;
-              }
-
-              srcCtx.putImageData(imageData, 0, 0);
-
-              // --- שלב 3: החלטת סיבוב בתוך ה-PDF ---
-              let finalCanvas = srcCanvas;
-              let rotationDeg = 0;
-
-              // אם התמונה "שוכבת" (רוחב>גובה) – נסובב אותה ב-PDF ב-90°
-              let imgW = finalCanvas.width;
-              let imgH = finalCanvas.height;
-
-              if (imgW > imgH) {
-                rotationDeg = 90;
-                // לצורך חישוב גודל על הדף – הרוחב והגובה אחרי סיבוב מתהפכים
-                [imgW, imgH] = [imgH, imgW];
-              }
-
-              // --- שלב 4: התאמה ל-A4 ויצירת PDF ---
-              const processedDataUrl = finalCanvas.toDataURL("image/jpeg", 1.0);
-
-              const maxWidth  = pageWidth  - margin * 2;
-              const maxHeight = pageHeight - margin * 2;
-
-              const imgAspect = imgW / imgH; // אחרי התאמת סיבוב תאורטית
-
-              let drawWidth  = maxWidth;
-              let drawHeight = drawWidth / imgAspect;
-
-              if (drawHeight > maxHeight) {
-                drawHeight = maxHeight;
-                drawWidth  = drawHeight * imgAspect;
-              }
-
-              const x = (pageWidth  - drawWidth)  / 2;
-              const y = (pageHeight - drawHeight) / 2;
-
-              // addImage: data, type, x, y, w, h, alias, compression, rotation
-              pdf.addImage(
-                processedDataUrl,
-                "JPEG",
-                x,
-                y,
-                drawWidth,
-                drawHeight,
-                undefined,
-                "FAST",
-                rotationDeg
-              );
-
-              const blob = pdf.output("blob");
-              const pdfFile = new File(
-                [blob],
-                `scan-${new Date().toISOString().slice(0, 10)}.pdf`,
-                { type: "application/pdf" }
-              );
-
-              // --- שלב 5: העלאה כאילו נבחר ב"העלה מסמך" ---
-              const targetInput = document.getElementById("fileInput");
-              if (!targetInput) {
-                if (typeof showNotification === "function") {
-                  showNotification("לא נמצא שדה העלאת קובץ", true);
-                } else {
-                  alert("לא נמצא שדה העלאת קובץ");
-                }
-                return;
-              }
-
-              const dt = new DataTransfer();
-              dt.items.add(pdfFile);
-              targetInput.files = dt.files;
-
-              targetInput.dispatchEvent(
-                new Event("change", { bubbles: true })
-              );
-            } catch (err) {
-              console.error("❌ Error while creating scanned-style PDF:", err);
-              if (typeof showNotification === "function") {
-                showNotification("שגיאה בהמרת הסריקה ל-PDF", true);
-              } else {
-                alert("שגיאה בהמרת הסריקה ל-PDF");
-              }
-            }
-          };
-
-          img.onerror = (e) => {
-            console.error("❌ Image load error:", e);
-            if (typeof showNotification === "function") {
-              showNotification("שגיאה בקריאת התמונה", true);
-            } else {
-              alert("שגיאה בקריאת התמונה");
-            }
-          };
-
-          img.src = imgDataUrl;
-        } catch (err) {
-          console.error("❌ FileReader onload error:", err);
-          if (typeof showNotification === "function") {
-            showNotification("שגיאה בעיבוד הקובץ", true);
-          } else {
-            alert("שגיאה בעיבוד הקובץ");
-          }
-        }
-      };
-
-      reader.onerror = (e) => {
-        console.error("❌ FileReader error:", e);
-        if (typeof showNotification === "function") {
-          showNotification("שגיאה בקריאת הקובץ", true);
-        } else {
-          alert("שגיאה בקריאת הקובץ");
-        }
-      };
-
-      reader.readAsDataURL(imageFile);
-    });
-
-    cameraInput.click();
+// חיבור כל הכפתורים
+if (scanBtn && scanModal) {
+  scanBtn.addEventListener("click", () => {
+    openScanModal();
+    // צילום ראשון מיד כשנכנסים
+    captureScanPage();
   });
 }
 
+if (scanAddPageBtn) {
+  scanAddPageBtn.addEventListener("click", () => {
+    captureScanPage();
+  });
+}
+
+if (scanUploadBtn) {
+  scanUploadBtn.addEventListener("click", () => {
+    uploadScannedPdf();
+  });
+}
+
+if (scanCancelBtn) {
+  scanCancelBtn.addEventListener("click", () => {
+    closeScanModal();
+  });
+}
+
+// סגירה בלחיצה על הרקע (אם יש class modal)
+if (scanModal) {
+  scanModal.addEventListener("click", (e) => {
+    if (e.target === scanModal) {
+      closeScanModal();
+    }
+  });
+}
+// ============================================================
 
 
 
