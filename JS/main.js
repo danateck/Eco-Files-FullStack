@@ -2457,13 +2457,103 @@ document.addEventListener("DOMContentLoaded", async () => {
   panel?.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closePremiumPanel();
   });
+    // === PayPal Checkout for plans ===
+
+  async function startPayPalCheckout(plan) {
+    if (!window.paypal) {
+      alert("PayPal לא נטען. נסי לרענן את העמוד 🙏");
+      return;
+    }
+
+    const currentUserEmail = getCurrentUser();
+    if (!currentUserEmail) {
+      alert("צריך להיות מחוברת כדי לשלם");
+      return;
+    }
+
+    const amount = plan === "pro" ? "11.00" : "29.00";
+    const description = plan === "pro" ? "EcoDocs Pro" : "EcoDocs Premium";
+
+    const container = document.getElementById("paypalButtonsContainer");
+    if (!container) {
+      alert("שגיאת תצוגה: אין איפה לשים את כפתור התשלום");
+      return;
+    }
+
+    // מנקה כפתור ישן אם כבר היה Checkout
+    container.innerHTML = "";
+
+    window.paypal.Buttons({
+      style: {
+        layout: "vertical",
+        shape: "pill"
+      },
+      // יצירת הזמנה ב-PayPal
+      createOrder: function (data, actions) {
+        return actions.order.create({
+          purchase_units: [{
+            amount: {
+              currency_code: "ILS",
+              value: amount
+            },
+            description,
+            // לשים כאן את המייל של העסק שלך ב-PayPal
+            // אפשר גם להשאיר ריק, PayPal ישתמש בחשבון של ה-Client ID
+            // payee: { email_address: "YOUR-BUSINESS-PAYPAL-EMAIL" }
+          }],
+          application_context: {
+            shipping_preference: "NO_SHIPPING"
+          }
+        });
+      },
+
+      // כשהתשלום מאושר
+      onApprove: async function (data, actions) {
+        const details = await actions.order.capture();
+        console.log("✅ PayPal payment success", details);
+
+        try {
+          // שמירה ב-Firestore בפרופיל המשתמש
+          if (window.db && window.fs) {
+            const userDocRef = window.fs.doc(window.db, "users", currentUserEmail.toLowerCase());
+            await window.fs.setDoc(userDocRef, {
+              plan: plan,                  // "pro" או "premium"
+              planActive: true,
+              planUpdatedAt: Date.now(),
+              lastPaymentProvider: "paypal",
+              lastPaymentId: details.id || null
+            }, { merge: true });
+          }
+        } catch (err) {
+          console.error("❌ Failed to save plan to Firestore", err);
+        }
+
+        alert("התשלום הצליח! המנוי " + (plan === "pro" ? "פרו" : "פרימיום") + " הופעל ✅");
+        closePremiumPanel();
+      },
+
+      onCancel: function () {
+        alert("התשלום בוטל. לא חויבת 🙂");
+      },
+
+      onError: function (err) {
+        console.error("❌ PayPal error", err);
+        alert("הייתה שגיאה בתשלום. נסי שוב מאוחר יותר.");
+      }
+    }).render("#paypalButtonsContainer");
+  }
+
+  // חיבור הכפתורים "בחר פרו" / "בחר פרימיום" ל-PayPal
   panel?.querySelectorAll("[data-select-plan]").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
       const plan = e.currentTarget.getAttribute("data-select-plan");
-      alert("נבחרה תוכנית: " + (plan === "pro" ? "פרו" : "פרימיום"));
-      closePremiumPanel();
+      if (!plan || plan === "free") return; // על חינם לא פותחים תשלום
+
+      // במקום alert → נפתח PayPal
+      startPayPalCheckout(plan);
     });
   });
+
   await new Promise(resolve => {
     if (window.userNow) {
       resolve();

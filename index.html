@@ -1751,6 +1751,12 @@ body {
 
 
 
+<!-- PayPal JS SDK -->
+<script src="https://www.paypal.com/sdk/js?client-id=YOUR_PAYPAL_CLIENT_ID_HERE&currency=ILS&intent=capture"></script>
+
+
+
+
 
   <div class="dashboard">
     <!-- ===== SIDEBAR ===== -->
@@ -2181,9 +2187,13 @@ body {
     </div>
     </div>
 
-    <div class="modal-foot">
-      <button class="btn" id="premiumLaterBtn">אולי אחר-כך</button>
-    </div>
+    <div class="modal-foot" style="display:flex; flex-direction:column; gap:8px;">
+  <!-- פה PayPal ירנדר את הכפתור -->
+  <div id="paypalButtonsContainer" style="width:100%;"></div>
+
+  <button class="btn" id="premiumLaterBtn">אולי אחר-כך</button>
+</div>
+
   </div>
 </div>
 
