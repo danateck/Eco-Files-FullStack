@@ -25,6 +25,10 @@ function waitForFirebase() {
 window.allDocsData = Array.isArray(window.allDocsData) ? window.allDocsData : [];
 window.allUsersData = window.allUsersData || {};
 window.userNow = window.userNow || "";
+
+
+window.currentSubfolderFilter = null;
+
 // ---- Minimal pending-invites renderer ----
 window.paintPending = window.paintPending || function(invites = []) {
   const box = document.getElementById("sf_pending");
@@ -3550,7 +3554,6 @@ saveAllUsersDataToStorage(allUsersData);
 
 
 
-  let currentSubfolderFilter = null;
 
 function renderSubfoldersBar(categoryName) {
   const bar = document.getElementById("subfoldersBar");
