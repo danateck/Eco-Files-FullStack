@@ -30,6 +30,9 @@ window.userNow = window.userNow || "";
 window.currentSubfolderFilter = null;
 let currentSubfolderFilter = window.currentSubfolderFilter;
 
+// 🔍 טקסט חיפוש נוכחי בקטגוריה
+window.currentSearchTerm = "";
+
 window.currentCategoryFilter = null;
 
 // ---- Minimal pending-invites renderer ----
@@ -2430,6 +2433,11 @@ window.renderHome = function() {
     return;
   }
   folderGrid.innerHTML = "";
+    // איפוס חיפוש כשחוזרים למסך הבית
+  window.currentSearchTerm = "";
+  const categorySearch = document.getElementById("categorySearch");
+  if (categorySearch) categorySearch.value = "";
+
   const CATEGORIES = [
     "כלכלה",
     "רפואה",
@@ -2523,6 +2531,27 @@ window.openCategoryView = function(categoryName, subfolderName = null) {
   });
 
   console.log("📊 Found", docsForThisCategory.length, "documents after filter");
+
+
+    // 🔍 סינון לפי טקסט חיפוש (שם קובץ / ארגון / שנה)
+  const searchTerm = (window.currentSearchTerm || "").trim();
+  if (searchTerm) {
+    const lower = searchTerm.toLowerCase();
+    docsForThisCategory = docsForThisCategory.filter(doc => {
+      const title = (doc.title || "").toLowerCase();
+      const org   = (doc.org || "").toLowerCase();
+      const year  = (doc.year || "").toString();
+      return (
+        title.includes(lower) ||
+        org.includes(lower) ||
+        year.includes(lower)
+      );
+    });
+  }
+
+  console.log("📊 After search filter:", docsForThisCategory.length, "documents");
+
+
 
   // מיון
   if (typeof sortDocs === "function") {
@@ -3278,6 +3307,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   const backButton = document.getElementById("backButton");
   const uploadBtn = document.getElementById("uploadBtn");
   const fileInput = document.getElementById("fileInput");
+  const categorySearch = document.getElementById("categorySearch");
+
   const sortSelect = document.getElementById("sortSelect");
   const scanBtn    = document.getElementById("scanBtn"); 
   const scanModal          = document.getElementById("scanModal");
@@ -5497,11 +5528,23 @@ if (scanModal) {
       const [field, dir] = sortSelect.value.split("-");
       currentSortField = field;
       currentSortDir   = dir;
-      if (!categoryView.classList.contains("hidden")) {
-        openCategoryView(categoryTitle.textContent);
-      }
+          if (!categoryView.classList.contains("hidden")) {
+      openCategoryView(categoryTitle.textContent, window.currentSubfolderFilter || null);
+    }
+
     });
   }
+
+  if (categorySearch) {
+  categorySearch.addEventListener("input", () => {
+    window.currentSearchTerm = categorySearch.value || "";
+    if (!categoryView.classList.contains("hidden")) {
+      // מרנדרים מחדש את הקטגוריה לפי מה שפתוח עכשיו (כולל תת־תיקייה)
+      openCategoryView(categoryTitle.textContent, window.currentSubfolderFilter || null);
+    }
+  });
+}
+
   // העלאת קובץ ושמירה (Metadata -> localStorage, קובץ -> IndexedDB)
   // פתיחת קובץ מה-IndexedDB
 // פתיחת קובץ מה-IndexedDB למסמכים האישיים בלבד (לא לתיקייה משותפת)
