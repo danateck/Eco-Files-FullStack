@@ -27,6 +27,9 @@ window.allUsersData = window.allUsersData || {};
 window.userNow = window.userNow || "";
 
 
+// 🔍 טקסט החיפוש הנוכחי בקטגוריה
+window.currentSearchTerm = "";
+
 window.currentSubfolderFilter = null;
 let currentSubfolderFilter = window.currentSubfolderFilter;
 
@@ -2533,16 +2536,20 @@ window.openCategoryView = function(categoryName, subfolderName = null) {
   console.log("📊 Found", docsForThisCategory.length, "documents after filter");
 
 
-    // 🔍 סינון לפי טקסט חיפוש (שם קובץ / ארגון / שנה)
+  // 🔍 סינון לפי החיפוש (שם קובץ / שם מסמך / ארגון / שנה)
   const searchTerm = (window.currentSearchTerm || "").trim();
   if (searchTerm) {
     const lower = searchTerm.toLowerCase();
+
     docsForThisCategory = docsForThisCategory.filter(doc => {
       const title = (doc.title || "").toLowerCase();
-      const org   = (doc.org || "").toLowerCase();
-      const year  = (doc.year || "").toString();
+      const fileName = (doc.fileName || "").toLowerCase();
+      const org = (doc.org || "").toLowerCase();
+      const year = (doc.year || "").toString();
+
       return (
         title.includes(lower) ||
+        fileName.includes(lower) ||
         org.includes(lower) ||
         year.includes(lower)
       );
@@ -2550,6 +2557,7 @@ window.openCategoryView = function(categoryName, subfolderName = null) {
   }
 
   console.log("📊 After search filter:", docsForThisCategory.length, "documents");
+
 
 
 
@@ -5528,9 +5536,11 @@ if (scanModal) {
       const [field, dir] = sortSelect.value.split("-");
       currentSortField = field;
       currentSortDir   = dir;
-          if (!categoryView.classList.contains("hidden")) {
+              if (!categoryView.classList.contains("hidden")) {
+      // נשמור גם את התת-תיקייה הנוכחית
       openCategoryView(categoryTitle.textContent, window.currentSubfolderFilter || null);
     }
+
 
     });
   }
