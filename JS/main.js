@@ -6343,15 +6343,18 @@ console.log("✅ תיקון 3: מציאת folderId אוטומטית");
 })();
 
 // 🔧 ניקוי URL כשעוברים לתיקייה רגילה
+// 🔧 ניקוי URL כשעוברים לתיקייה רגילה
 const _originalOpenCategoryView = window.openCategoryView;
-window.openCategoryView = function(categoryName) {
+window.openCategoryView = function(categoryName, subfolderName = null) {
   // נקה את sharedFolder מה-URL
   const url = new URL(window.location);
   url.searchParams.delete('sharedFolder');
   window.history.replaceState({}, '', url);
   
-  return _originalOpenCategoryView(categoryName);
+  // מעביר הלאה גם את תת־התיקייה!
+  return _originalOpenCategoryView(categoryName, subfolderName);
 };
+
 
 const _originalRenderHome = window.renderHome;
 window.renderHome = function() {
