@@ -2431,8 +2431,21 @@ window.renderHome = function() {
   }
   folderGrid.innerHTML = "";
   const CATEGORIES = [
-    "כלכלה", "רפואה", "עבודה", "בית",
-    "אחריות", "תעודות", "עסק", "אחר"
+    "כלכלה",
+    "רפואה",
+    "עבודה",
+    "עסק",
+    "בית",
+    "תעודות אחריות",
+    "תעודות לימודים",
+    "ביטוחים",
+    "ממשלה",
+    "רכב",
+    "מועדונים",
+    "אישי",
+    "כרטיסים",
+    "נכסים",
+    "אחר" 
   ];
   CATEGORIES.forEach(cat => {
     const folder = document.createElement("button");
