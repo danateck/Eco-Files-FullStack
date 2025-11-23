@@ -1751,7 +1751,7 @@ const SUBCATEGORY_KEYWORDS = {
 
 
 // תתי תיקיות לפי התמונה
-const SUBFOLDERS_BY_CATEGORY = {
+window.SUBFOLDERS_BY_CATEGORY = {
   "כלכלה": [
     "אשראי",
     "בנק",
@@ -3559,24 +3559,14 @@ saveAllUsersDataToStorage(allUsersData);
 
 window.renderSubfoldersBar = function(categoryName) {
   const bar = document.getElementById("subfoldersBar");
-  if (!bar) {
-    console.log("❌ subfoldersBar element not found");
-    return;
-  }
+  if (!bar) return;
 
   bar.innerHTML = "";
 
-  // בדוק אם יש תתי-תיקיות לקטגוריה הזו
-  const defs = SUBFOLDERS_BY_CATEGORY?.[categoryName];
-  console.log("📁 Subfolders for", categoryName, ":", defs);
-  
-  if (!defs || defs.length === 0) {
-    console.log("ℹ️ No subfolders for this category");
-    return;
-  }
+  const defs = window.SUBFOLDERS_BY_CATEGORY?.[categoryName];
+  if (!defs || defs.length === 0) return;
 
   const subNames = Array.isArray(defs) ? defs : Object.keys(defs);
-  if (!subNames.length) return;
 
   const makeBtn = (label, value) => {
     const btn = document.createElement("button");
@@ -3591,15 +3581,8 @@ window.renderSubfoldersBar = function(categoryName) {
     return btn;
   };
 
-  // כפתור "הכל"
   bar.appendChild(makeBtn("הכל", null));
-
-  // שאר התתי־תיקיות
-  subNames.forEach(name => {
-    bar.appendChild(makeBtn(name, name));
-  });
-  
-  console.log("✅ Rendered", subNames.length, "subfolder buttons");
+  subNames.forEach(name => bar.appendChild(makeBtn(name, name)));
 };
 
 
