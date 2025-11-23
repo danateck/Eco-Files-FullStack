@@ -28,6 +28,8 @@ window.userNow = window.userNow || "";
 
 
 window.currentSubfolderFilter = null;
+let currentSubfolderFilter = window.currentSubfolderFilter;
+
 
 // ---- Minimal pending-invites renderer ----
 window.paintPending = window.paintPending || function(invites = []) {
@@ -2458,8 +2460,8 @@ window.openCategoryView = function(categoryName, subfolderName = null) {
   // כותרת
   categoryTitle.textContent = categoryName;
 
-  // שמירת התת-תיקייה הנוכחית בגלובלי
-  currentSubfolderFilter = subfolderName || null;
+  // שמירת התת-תיקייה הנוכחית בגלובלי - שים לב ל-window.
+  window.currentSubfolderFilter = subfolderName || null;
 
   // ציור כפתורי תתי-התיקיות למעלה
   if (typeof renderSubfoldersBar === "function") {
@@ -2471,9 +2473,9 @@ window.openCategoryView = function(categoryName, subfolderName = null) {
     if (!doc || !doc.category || doc._trashed) return false;
     if (!doc.category.includes(categoryName)) return false;
 
-    if (currentSubfolderFilter) {
-      // מסמכים שמתאימים לתת-התיקייה
-      return doc.subCategory === currentSubfolderFilter;
+    // שים לב - window.currentSubfolderFilter
+    if (window.currentSubfolderFilter) {
+      return doc.subCategory === window.currentSubfolderFilter;
     }
     return true;
   });
@@ -3566,20 +3568,20 @@ function renderSubfoldersBar(categoryName) {
     return;
   }
 
-  // אם בנוי כאובייקט: { "בנק": [...], "אשראי": [...] }
   const subNames = Array.isArray(defs) ? defs : Object.keys(defs);
   if (!subNames.length) return;
 
   const makeBtn = (label, value) => {
     const btn = document.createElement("button");
     btn.textContent = label;
-    if (value === currentSubfolderFilter) {
+    // שים לב - window.currentSubfolderFilter
+    if (value === window.currentSubfolderFilter) {
       btn.classList.add("active");
     }
     btn.addEventListener("click", () => {
-      currentSubfolderFilter = value;
+      window.currentSubfolderFilter = value;
       // רענון התצוגה
-      openCategoryView(categoryName, currentSubfolderFilter);
+      openCategoryView(categoryName, window.currentSubfolderFilter);
     });
     return btn;
   };
