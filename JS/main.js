@@ -2539,22 +2539,24 @@ window.openCategoryView = function(categoryName, subfolderName = null) {
   // 🔍 סינון לפי החיפוש (שם קובץ / שם מסמך / ארגון / שנה)
   const searchTerm = (window.currentSearchTerm || "").trim();
   if (searchTerm) {
-    const lower = searchTerm.toLowerCase();
+  const lower = searchTerm.toLowerCase();
 
-    docsForThisCategory = docsForThisCategory.filter(doc => {
-      const title = (doc.title || "").toLowerCase();
-      const fileName = (doc.fileName || "").toLowerCase();
-      const org = (doc.org || "").toLowerCase();
-      const year = (doc.year || "").toString();
+  docsForThisCategory = docsForThisCategory.filter(doc => {
+    const title    = (doc.title    || "").toLowerCase();
+    const fileName = (doc.fileName || "").toLowerCase();
+    const org      = (doc.org      || "").toLowerCase();
+    const year     = String(doc.year || "");
 
-      return (
-        title.includes(lower) ||
-        fileName.includes(lower) ||
-        org.includes(lower) ||
-        year.includes(lower)
-      );
-    });
-  }
+    // שימי לב: לא בודקים doc.category ולא doc.subCategory
+    return (
+      title.includes(lower)    ||
+      fileName.includes(lower) ||
+      org.includes(lower)      ||
+      year.includes(lower)
+    );
+  });
+}
+
 
   console.log("📊 After search filter:", docsForThisCategory.length, "documents");
 
