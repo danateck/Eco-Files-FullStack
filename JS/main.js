@@ -2545,24 +2545,34 @@ window.openCategoryView = function(categoryName, subfolderName = null) {
   window.currentSearchTerm = searchTerm;
 
   if (searchTerm) {
-    const lower = searchTerm.toLowerCase();
+  const lower = searchTerm.toLowerCase();
 
-    docsForThisCategory = docsForThisCategory.filter(doc => {
-      const title    = (doc.title    || "").toLowerCase();
-      const fileName = (doc.fileName || "").toLowerCase();
-      const org      = (doc.org      || "").toLowerCase();
-      const year     = String(doc.year || "");
+  docsForThisCategory = docsForThisCategory.filter(doc => {
+    const title    = (doc.title    || "").toLowerCase();
+    const fileName = (doc.fileName || "").toLowerCase();
+    const org      = (doc.org      || "").toLowerCase();
+    const year     = String(doc.year || "");
 
-      return (
-        title.includes(lower)    ||
-        fileName.includes(lower) ||
-        org.includes(lower)      ||
-        year.includes(lower)
-      );
-    });
+    // שייך ל – יכול להיות מערך (["אמא","אבא"]) או מחרוזת אחת
+    let recipientText = "";
+    if (Array.isArray(doc.recipient)) {
+      recipientText = doc.recipient.join(",").toLowerCase();
+    } else if (doc.recipient) {
+      recipientText = String(doc.recipient).toLowerCase();
+    }
 
-    console.log("🔎 After search filter:", docsForThisCategory.length, "docs");
-  }
+    return (
+      title.includes(lower)       ||
+      fileName.includes(lower)    ||
+      org.includes(lower)         ||
+      year.includes(lower)        ||
+      recipientText.includes(lower) // ← פה החיפוש לפי "שייך ל"
+    );
+  });
+
+  console.log("🔎 After search filter:", docsForThisCategory.length, "docs");
+}
+
 
   console.log("🔎 searchTerm =", searchTerm, "⇒ after filter", docsForThisCategory.length, "documents");
 
