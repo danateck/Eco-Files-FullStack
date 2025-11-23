@@ -1832,6 +1832,148 @@ const SUBFOLDERS_BY_CATEGORY = {
 
 
 
+// מנרמל מילה בודדת (אותיות, ספרות, עברית/אנגלית)
+function normalizeWord(raw) {
+  return (raw || "")
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\u0590-\u05FF]/g, "");
+}
+
+/**
+ * זיהוי תת־קטגוריה לפי המילים במסמך
+ * category = "כלכלה" / "בית" / "רפואה" וכו'
+ * normalizedWords = מערך של מילים מנורמלות
+ */
+function detectSubCategoryFromWords(category, normalizedWords) {
+  if (!category || !Array.isArray(normalizedWords) || !normalizedWords.length) {
+    return null;
+  }
+
+  let bestSub = null;
+  let bestScore = 0;
+
+  // SUBCATEGORY_KEYWORDS בנוי בצורה "כלכלה/בנק", "בית/חשמל" וכו'
+  for (const [key, keywords] of Object.entries(SUBCATEGORY_KEYWORDS || {})) {
+    const [cat, sub] = key.split("/");
+    if (cat !== category || !sub) continue;
+
+    let score = 0;
+    for (const word of normalizedWords) {
+      for (const kw of keywords) {
+        const cleanKw = normalizeWord(kw);
+        if (!cleanKw) continue;
+
+        if (word === cleanKw) {
+          score += 3;       // התאמה חזקה
+        } else if (word.includes(cleanKw) || cleanKw.includes(word)) {
+          score += 1;       // התאמה חלשה
+        }
+      }
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestSub = sub;
+    }
+  }
+
+  if (!bestSub || bestScore === 0) return null;
+  return bestSub;
+}
+
+/**
+ * זיהוי קטגוריה + תת־קטגוריה ממילים של המסמך
+ * wordsOrText יכול להיות:
+ *  - string של כל הטקסט
+ *  - או Array של מילים
+ */
+function detectCategoryFromWords(wordsOrText, fileName = "") {
+  let words = [];
+
+  // אם קיבלנו מחרוזת – נפרק למילים עם הפונקציה שלך
+  if (typeof wordsOrText === "string") {
+    if (typeof splitHebrewEnglishWords === "function") {
+      words = splitHebrewEnglishWords(wordsOrText);
+    } else {
+      // fallback פשוט
+      words = wordsOrText.split(/\s+/);
+    }
+  } else if (Array.isArray(wordsOrText)) {
+    words = wordsOrText.slice();
+  }
+
+  // מוסיפים גם מילים משם הקובץ (אם יש)
+  if (fileName && typeof splitHebrewEnglishWords === "function") {
+    words = words.concat(splitHebrewEnglishWords(fileName));
+  }
+
+  // מנרמלים מילים
+  const normalizedWords = words
+    .map(w => normalizeWord(w))
+    .filter(w => w.length > 1);
+
+  if (!normalizedWords.length) {
+    return { category: "אחר", subCategory: null };
+  }
+
+  // ניקוד לכל קטגוריה
+  const categoryScores = {};
+  for (const [cat, keywords] of Object.entries(CATEGORY_KEYWORDS || {})) {
+    let score = 0;
+
+    for (const word of normalizedWords) {
+      for (const kw of keywords) {
+        const cleanKw = normalizeWord(kw);
+        if (!cleanKw) continue;
+
+        if (word === cleanKw) {
+          score += 3;
+        } else if (word.includes(cleanKw) || cleanKw.includes(word)) {
+          score += 1;
+        }
+      }
+    }
+
+    categoryScores[cat] = score;
+  }
+
+  // בוחרים את הקטגוריה עם הניקוד הגבוה
+  let bestCategory = "אחר";
+  let bestScore = 0;
+
+  for (const [cat, score] of Object.entries(categoryScores)) {
+    if (score > bestScore) {
+      bestScore = score;
+      bestCategory = cat;
+    }
+  }
+
+  if (bestScore === 0) {
+    return { category: "אחר", subCategory: null };
+  }
+
+  const subCategory = detectSubCategoryFromWords(bestCategory, normalizedWords);
+
+  return {
+    category: bestCategory,
+    subCategory: subCategory || null
+  };
+}
+
+// כדי שתוכלי להשתמש גם מקבצים אחרים אם תרצי
+window.detectCategoryFromWords = detectCategoryFromWords;
+window.detectSubCategoryFromWords = detectSubCategoryFromWords;
+
+
+
+
+
+
+
+
+
 
 // בדיקה אם המסמך כבר קיים לפני העלאה
 function isDuplicateDocument(file, metadata = {}) {
@@ -3097,19 +3239,25 @@ if (fileInput) {
     }
 
     // ניחוש קטגוריה
-    let guessedCategory = guessCategoryForFileNameOnly(file.name);
-    if (!guessedCategory || guessedCategory === "אחר") {
-      const manual = prompt(
-        'לא זיהיתי אוטומטית את סוג המסמך.\nלאיזו תיקייה לשמור?\nאפשרויות: ' +
-        CATEGORIES.join(", "),
-        "רפואה"
-      );
-      if (manual && manual.trim() !== "") {
-        guessedCategory = manual.trim();
-      } else {
-        guessedCategory = "אחר";
-      }
-    }
+   // 🔍 ניחוש קטגוריה + תת-קטגוריה לפי שם הקובץ
+const detection = detectCategoryFromWords(file.name, file.name);
+let guessedCategory    = detection?.category || "אחר";
+let guessedSubCategory = detection?.subCategory || null;
+
+// אם לא זוהתה קטגוריה טובה – משאירים את ההשלמה הידנית כמו קודם
+if (!guessedCategory || guessedCategory === "אחר") {
+  const manual = prompt(
+    'לא זיהיתי אוטומטית את סוג המסמך.\nלאיזו תיקייה לשמור?\nאפשרויות: ' +
+    CATEGORIES.join(", "),
+    "רפואה"
+  );
+  if (manual && manual.trim() !== "") {
+    guessedCategory = manual.trim();
+  } else {
+    guessedCategory = "אחר";
+  }
+}
+
 
     // פרטי אחריות אם צריך
     let warrantyStart = null;
@@ -4560,7 +4708,7 @@ function showScanCropEditor(file, onDone) {
   reader.onload = () => {
     const img = new Image();
     img.onload = () => {
-      // שכבה שמכסה את המסך
+      // ───── יצירת שכבת עריכה ─────
       const overlay = document.createElement("div");
       overlay.style.position = "fixed";
       overlay.style.inset = "0";
@@ -4571,40 +4719,33 @@ function showScanCropEditor(file, onDone) {
       overlay.style.zIndex = "10001";
 
       const panel = document.createElement("div");
-panel.style.background = "#fff";
-panel.style.borderRadius = "12px";
-panel.style.padding = ".75rem";
-panel.style.maxWidth = "95vw";
-panel.style.width = "420px";
-// 💡 כדי שלא ייצא מחוץ למסך ויהיה אפשר לגלול
-panel.style.maxHeight = "90vh";
-panel.style.overflowY = "auto";
-
-panel.style.display = "flex";
-panel.style.flexDirection = "column";
-panel.style.gap = ".5rem";
-panel.style.boxShadow = "0 20px 40px rgba(0,0,0,.35)";
-
+      panel.style.background = "#fff";
+      panel.style.borderRadius = "12px";
+      panel.style.padding = ".75rem";
+      panel.style.maxWidth = "95vw";
+      panel.style.width = "420px";
+      panel.style.maxHeight = "90vh";
+      panel.style.overflowY = "auto";
+      panel.style.display = "flex";
+      panel.style.flexDirection = "column";
+      panel.style.gap = ".5rem";
+      panel.style.boxShadow = "0 20px 40px rgba(0,0,0,.35)";
 
       const title = document.createElement("h3");
-      title.textContent = "תצוגה לפני שמירה";
+      title.textContent = "התאמת חיתוך";
       title.style.margin = "0 0 .25rem 0";
       title.style.fontSize = ".95rem";
       title.style.fontWeight = "600";
 
-const canvas = document.createElement("canvas");
-
-// 👇 חשוב: לא height:100% ולא maxHeight ענק
-canvas.style.maxWidth = "100%";
-canvas.style.height = "auto";    // שומר על יחס נכון
-canvas.style.maxHeight = "55vh"; // שלא ישתלט על כל המסך באנדרואיד
-
-canvas.style.display = "block";
-canvas.style.margin = "0 auto";
-canvas.style.borderRadius = "8px";
-canvas.style.border = "1px solid #ddd";
-canvas.style.background = "#000";
-
+      const canvas = document.createElement("canvas");
+      canvas.style.maxWidth = "100%";
+      canvas.style.height = "auto";
+      canvas.style.maxHeight = "55vh";
+      canvas.style.display = "block";
+      canvas.style.margin = "0 auto";
+      canvas.style.borderRadius = "8px";
+      canvas.style.border = "1px solid #ddd";
+      canvas.style.background = "#000";
 
       const sliderWrapper = document.createElement("div");
       sliderWrapper.style.display = "flex";
@@ -4613,16 +4754,16 @@ canvas.style.background = "#000";
       sliderWrapper.style.marginTop = ".25rem";
 
       const sliderLabel = document.createElement("div");
-      sliderLabel.textContent = "התאמת חיתוך (Zoom)";
+      sliderLabel.textContent = "זום כללי (מקרב/מרחיק את החיתוך)";
       sliderLabel.style.fontSize = ".8rem";
       sliderLabel.style.color = "#555";
 
       const slider = document.createElement("input");
       slider.type = "range";
       slider.min = "0";
-      slider.max = "0.3";      // עד 30% חיתוך פנימה
+      slider.max = "0.3";
       slider.step = "0.01";
-      slider.value = "0.08";   // חיתוך אוטומטי עדין
+      slider.value = "0.08";
 
       sliderWrapper.appendChild(sliderLabel);
       sliderWrapper.appendChild(slider);
@@ -4668,48 +4809,270 @@ canvas.style.background = "#000";
       overlay.appendChild(panel);
       document.body.appendChild(overlay);
 
-      let lastPage = null;
+      const ctx = canvas.getContext("2d");
 
-      function renderCrop() {
-        const zoom = parseFloat(slider.value) || 0;
-        const iw = img.width;
-        const ih = img.height;
+      // ───── לוגיקת חיתוך ─────
 
-        const marginX = iw * zoom;
-        const marginY = ih * zoom;
+      // גודל קנבס יחסי לתמונה – בלי לעוות
+      const maxCanvasWidth = 380;
+      let canvasW = Math.min(maxCanvasWidth, img.width);
+      let canvasH = (img.height * canvasW) / img.width;
+      if (canvasH > 550) {
+        canvasH = 550;
+        canvasW = (img.width * canvasH) / img.height;
+      }
+      canvas.width = canvasW;
+      canvas.height = canvasH;
 
-        let sx = marginX;
-        let sy = marginY;
-        let sw = iw - 2 * marginX;
-        let sh = ih - 2 * marginY;
+      const scale = canvasW / img.width; // יחס תרגום תמונה→קנבס
 
-        if (sw <= 0 || sh <= 0) {
-          sx = 0;
-          sy = 0;
-          sw = iw;
-          sh = ih;
+      // cropRect נשמר ביחידות של התמונה (לא הקנבס)
+      const marginFactor = 0.08; // חיתוך אוטומטי התחלתי
+      let cropRect = {
+        x: img.width * marginFactor,
+        y: img.height * marginFactor,
+        w: img.width * (1 - 2 * marginFactor),
+        h: img.height * (1 - 2 * marginFactor),
+      };
+
+      let dragMode = null;
+      let dragStart = null;
+      let startRect = null;
+      const HANDLE_SIZE = 18; // פיקסלים בקנבס
+
+      function imageToCanvasRect(rect) {
+        return {
+          x: rect.x * scale,
+          y: rect.y * scale,
+          w: rect.w * scale,
+          h: rect.h * scale,
+        };
+      }
+
+      function clampCrop() {
+        const minSize = 40;
+        if (cropRect.w < minSize) cropRect.w = minSize;
+        if (cropRect.h < minSize) cropRect.h = minSize;
+
+        if (cropRect.x < 0) cropRect.x = 0;
+        if (cropRect.y < 0) cropRect.y = 0;
+        if (cropRect.x + cropRect.w > img.width) {
+          cropRect.x = img.width - cropRect.w;
         }
-
-        const rotate = sw > sh; // אם יותר רחב מגבוה – להפוך לעמידה
-        let cw, ch;
-        if (rotate) {
-          cw = sh;
-          ch = sw;
-        } else {
-          cw = sw;
-          ch = sh;
+        if (cropRect.y + cropRect.h > img.height) {
+          cropRect.y = img.height - cropRect.h;
         }
+      }
 
-        canvas.width = cw;
-        canvas.height = ch;
-        const ctx = canvas.getContext("2d");
+      function render() {
+        // ציור תמונה scaled
         ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.clearRect(0, 0, cw, ch);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        // הצללה מחוץ לחיתוך
+        const r = imageToCanvasRect(cropRect);
+        ctx.save();
+        ctx.fillStyle = "rgba(0,0,0,0.45)";
+        ctx.beginPath();
+        ctx.rect(0, 0, canvas.width, canvas.height);
+        ctx.rect(r.x, r.y, r.w, r.h);
+        ctx.fill("evenodd");
+        ctx.restore();
+
+        // מסגרת החיתוך
+        ctx.save();
+        ctx.strokeStyle = "#ffcc00";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(r.x, r.y, r.w, r.h);
+
+        // ידיות בפינות
+        ctx.fillStyle = "#ffcc00";
+        const handles = [
+          [r.x, r.y], // TL
+          [r.x + r.w, r.y], // TR
+          [r.x, r.y + r.h], // BL
+          [r.x + r.w, r.y + r.h], // BR
+        ];
+        handles.forEach(([hx, hy]) => {
+          ctx.beginPath();
+          ctx.arc(hx, hy, 5, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.restore();
+      }
+
+      function getPointerPos(evt) {
+        const rect = canvas.getBoundingClientRect();
+        let clientX, clientY;
+        if (evt.touches && evt.touches[0]) {
+          clientX = evt.touches[0].clientX;
+          clientY = evt.touches[0].clientY;
+        } else {
+          clientX = evt.clientX;
+          clientY = evt.clientY;
+        }
+        return {
+          x: clientX - rect.left,
+          y: clientY - rect.top,
+        };
+      }
+
+      function hitTestHandles(p) {
+        const r = imageToCanvasRect(cropRect);
+        const corners = [
+          { name: "tl", x: r.x, y: r.y },
+          { name: "tr", x: r.x + r.w, y: r.y },
+          { name: "bl", x: r.x, y: r.y + r.h },
+          { name: "br", x: r.x + r.w, y: r.y + r.h },
+        ];
+
+        for (const c of corners) {
+          const dx = p.x - c.x;
+          const dy = p.y - c.y;
+          if (Math.sqrt(dx * dx + dy * dy) <= HANDLE_SIZE / 2) {
+            return c.name;
+          }
+        }
+
+        // בדיקה אם על צלעות
+        const insideX = p.x > r.x && p.x < r.x + r.w;
+        const insideY = p.y > r.y && p.y < r.y + r.h;
+
+        if (insideX && Math.abs(p.y - r.y) < HANDLE_SIZE) return "top";
+        if (insideX && Math.abs(p.y - (r.y + r.h)) < HANDLE_SIZE) return "bottom";
+        if (insideY && Math.abs(p.x - r.x) < HANDLE_SIZE) return "left";
+        if (insideY && Math.abs(p.x - (r.x + r.w)) < HANDLE_SIZE) return "right";
+
+        // אם בתוך הריבוע – גרירה
+        if (insideX && insideY) return "move";
+
+        return null;
+      }
+
+      function onPointerDown(evt) {
+        evt.preventDefault();
+        const p = getPointerPos(evt);
+        const mode = hitTestHandles(p);
+        if (!mode) return;
+
+        dragMode = mode;
+        dragStart = p;
+        startRect = { ...cropRect };
+
+        window.addEventListener("mousemove", onPointerMove);
+        window.addEventListener("mouseup", onPointerUp);
+        window.addEventListener("touchmove", onPointerMove, { passive: false });
+        window.addEventListener("touchend", onPointerUp);
+      }
+
+      function onPointerMove(evt) {
+        if (!dragMode) return;
+        evt.preventDefault();
+        const p = getPointerPos(evt);
+        const dx = (p.x - dragStart.x) / scale; // חזרה ליחידות תמונה
+        const dy = (p.y - dragStart.y) / scale;
+
+        let r = { ...startRect };
+
+        if (dragMode === "move") {
+          r.x += dx;
+          r.y += dy;
+        } else if (dragMode === "left") {
+          r.x += dx;
+          r.w -= dx;
+        } else if (dragMode === "right") {
+          r.w += dx;
+        } else if (dragMode === "top") {
+          r.y += dy;
+          r.h -= dy;
+        } else if (dragMode === "bottom") {
+          r.h += dy;
+        } else if (dragMode === "tl") {
+          r.x += dx;
+          r.w -= dx;
+          r.y += dy;
+          r.h -= dy;
+        } else if (dragMode === "tr") {
+          r.w += dx;
+          r.y += dy;
+          r.h -= dy;
+        } else if (dragMode === "bl") {
+          r.x += dx;
+          r.w -= dx;
+          r.h += dy;
+        } else if (dragMode === "br") {
+          r.w += dx;
+          r.h += dy;
+        }
+
+        cropRect = r;
+        clampCrop();
+        render();
+      }
+
+      function onPointerUp() {
+        dragMode = null;
+        dragStart = null;
+        startRect = null;
+        window.removeEventListener("mousemove", onPointerMove);
+        window.removeEventListener("mouseup", onPointerUp);
+        window.removeEventListener("touchmove", onPointerMove);
+        window.removeEventListener("touchend", onPointerUp);
+      }
+
+      canvas.addEventListener("mousedown", onPointerDown);
+      canvas.addEventListener("touchstart", onPointerDown, { passive: false });
+
+      // סליידר זום – מצמצם/מרחיב את החיתוך סביב המרכז
+      slider.addEventListener("input", () => {
+        const zoom = parseFloat(slider.value) || 0;
+        const cx = cropRect.x + cropRect.w / 2;
+        const cy = cropRect.y + cropRect.h / 2;
+        const baseMargin = img.width * zoom; // משתמשים רק ברוחב כדי להחליט בתוך כמה לצמצם
+
+        let newW = img.width - 2 * baseMargin;
+        let newH = (newW * img.height) / img.width;
+        if (newW < 40) newW = 40;
+        if (newH < 40) newH = 40;
+
+        cropRect.w = newW;
+        cropRect.h = newH;
+        cropRect.x = cx - newW / 2;
+        cropRect.y = cy - newH / 2;
+        clampCrop();
+        render();
+      });
+
+      // ציור ראשון
+      render();
+
+      function finalizeAndClose() {
+        // חיתוך מתוך התמונה המקורית בצבע
+        const sx = cropRect.x;
+        const sy = cropRect.y;
+        const sw = cropRect.w;
+        const sh = cropRect.h;
+
+        const rotate = sw > sh; // אם שוכב – נעשה פורטרייט
+        let outW, outH;
+        if (rotate) {
+          outW = sh;
+          outH = sw;
+        } else {
+          outW = sw;
+          outH = sh;
+        }
+
+        const outCanvas = document.createElement("canvas");
+        outCanvas.width = outW;
+        outCanvas.height = outH;
+        const octx = outCanvas.getContext("2d");
 
         if (rotate) {
-          ctx.translate(cw / 2, ch / 2);
-          ctx.rotate(-Math.PI / 2);
-          ctx.drawImage(
+          octx.translate(outW / 2, outH / 2);
+          octx.rotate(-Math.PI / 2);
+          octx.drawImage(
             img,
             sx,
             sy,
@@ -4721,35 +5084,34 @@ canvas.style.background = "#000";
             sh
           );
         } else {
-          ctx.drawImage(img, sx, sy, sw, sh, 0, 0, cw, ch);
+          octx.drawImage(img, sx, sy, sw, sh, 0, 0, outW, outH);
         }
 
-        lastPage = {
-          dataUrl: canvas.toDataURL("image/jpeg", 0.95),
-          width: cw,
-          height: ch,
+        const page = {
+          dataUrl: outCanvas.toDataURL("image/jpeg", 0.95),
+          width: outW,
+          height: outH,
         };
-      }
 
-      slider.addEventListener("input", renderCrop);
-      renderCrop(); // פעם ראשונה – CROP אוטומטי
+        document.body.removeChild(overlay);
+        if (typeof onDone === "function") {
+          onDone(page);
+        }
+      }
 
       cancelBtn.addEventListener("click", () => {
         document.body.removeChild(overlay);
-        // לא שומרים את העמוד
       });
 
       okBtn.addEventListener("click", () => {
-        document.body.removeChild(overlay);
-        if (lastPage && typeof onDone === "function") {
-          onDone(lastPage);
-        }
+        finalizeAndClose();
       });
     };
     img.src = reader.result;
   };
   reader.readAsDataURL(file);
 }
+
 
 // צילום עמוד חדש (או החלפת עמוד קיים)
 function captureScanPage(replaceIndex = null) {
