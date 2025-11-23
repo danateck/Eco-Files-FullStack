@@ -2539,7 +2539,7 @@ window.openCategoryView = function(categoryName, subfolderName = null) {
   // 🔍 סינון לפי החיפוש (שם קובץ / שם מסמך / ארגון / שנה)
     // 🔍 סינון לפי החיפוש (שם קובץ / שם מסמך / ארגון / שנה)
   const searchInput = document.getElementById("categorySearch");
-  const searchTerm = searchInput ? searchInput.value.trim() : "";
+  const searchTerm = (window.currentSearchTerm || "").trim();
 
   // נשמור גם בגלובל, אם תרצי להשתמש בזה בעתיד
   window.currentSearchTerm = searchTerm;
@@ -2560,6 +2560,8 @@ window.openCategoryView = function(categoryName, subfolderName = null) {
         year.includes(lower)
       );
     });
+
+    console.log("🔎 After search filter:", docsForThisCategory.length, "docs");
   }
 
   console.log("🔎 searchTerm =", searchTerm, "⇒ after filter", docsForThisCategory.length, "documents");
@@ -5551,18 +5553,21 @@ if (scanModal) {
     });
   }
 
-  if (categorySearch) {
-  categorySearch.addEventListener("input", () => {
-    // אין צורך לעדכן פה גלובל – openCategoryView כבר קורא ישר מה-INPUT
-    if (!categoryView.classList.contains("hidden")) {
-      openCategoryView(
-        categoryTitle.textContent,
-        window.currentSubfolderFilter || null
-      );
-    }
-  });
-}
+  window.currentSearchTerm = "";
 
+   if (categorySearch) {
+    categorySearch.addEventListener("input", (e) => {
+      window.currentSearchTerm = e.target.value || "";
+
+      // רק אם מסך קטגוריה פתוח – נרענן את הרשימה
+      if (!categoryView.classList.contains("hidden") && categoryTitle) {
+        window.openCategoryView(
+          categoryTitle.textContent,
+          window.currentSubfolderFilter || null
+        );
+      }
+    });
+  }
 
   // העלאת קובץ ושמירה (Metadata -> localStorage, קובץ -> IndexedDB)
   // פתיחת קובץ מה-IndexedDB
