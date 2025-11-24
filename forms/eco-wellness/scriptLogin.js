@@ -640,17 +640,29 @@ async finishLogin(email, isNewUser = false) {
                 console.log("🔐 Starting 2FA flow for:", email);
 
                 // שליחת קוד למייל דרך השרת
+                console.log("📤 Sending request to:", 'https://eco-files-fullstack.onrender.com/api/auth/send-2fa');
+                
                 const sendResponse = await fetch('https://eco-files-fullstack.onrender.com/api/auth/send-2fa', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                    },
                     body: JSON.stringify({ email })
+                }).catch(err => {
+                    console.error("❌ Fetch error:", err);
+                    throw new Error(`Network error: ${err.message}`);
                 });
 
+                console.log("📥 Response status:", sendResponse.status);
+                
                 if (!sendResponse.ok) {
-                    throw new Error('Failed to send 2FA code');
+                    const errorText = await sendResponse.text();
+                    console.error("❌ Server error:", errorText);
+                    throw new Error(`Server error: ${sendResponse.status} - ${errorText}`);
                 }
 
-                console.log("✅ 2FA code sent to email");
+                const responseData = await sendResponse.json();
+                console.log("✅ 2FA code sent successfully:", responseData);
 
                 // הצגת המודל
                 const overlay = document.getElementById('twofaOverlay');
@@ -659,6 +671,11 @@ async finishLogin(email, isNewUser = false) {
                 const errorDiv = document.getElementById('twofaError');
                 const cancelBtn = document.getElementById('twofaCancel');
                 const resendBtn = document.getElementById('twofaResend');
+
+                if (!overlay) {
+                    console.error("❌ twofaOverlay element not found!");
+                    throw new Error("2FA modal not found in DOM");
+                }
 
                 overlay.style.display = 'flex';
 
@@ -774,7 +791,20 @@ async finishLogin(email, isNewUser = false) {
 
             } catch (err) {
                 console.error("❌ Error in 2FA flow:", err);
-                alert("שגיאה באימות דו-שלבי. נסי שוב.");
+                console.error("Error stack:", err.stack);
+                
+                // הצגת שגיאה ידידותית למשתמש
+                let errorMessage = "שגיאה באימות דו-שלבי.";
+                
+                if (err.message.includes("Network error")) {
+                    errorMessage = "לא ניתן להתחבר לשרת. בדקי את החיבור לאינטרנט.";
+                } else if (err.message.includes("Server error")) {
+                    errorMessage = "שגיאה בשרת. נסי שוב מאוחר יותר.";
+                } else if (err.message.includes("modal not found")) {
+                    errorMessage = "שגיאה בטעינת מסך האימות.";
+                }
+                
+                alert(errorMessage + "\n\nפרטים טכניים: " + err.message);
                 resolve(false);
             }
         });
