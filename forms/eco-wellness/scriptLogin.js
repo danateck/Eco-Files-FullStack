@@ -552,8 +552,23 @@ async registerNewUserWithVerification() {
                 }
             }
 
-            console.log("Sign in successful:", userCred);
-            await this.finishLogin(email);
+              console.log("Sign in successful:", userCred);
+
+  // אם אימות דו-שלבי מופעל – מריצים את תהליך ה-2FA
+  if (userData && userData.twoFactorEnabled) {
+    const ok = await runTwoFactorFlow(email); // הפונקציה ששולחת מייל קוד ומציגה את חלון ה-OTP
+
+    // אם המשתמש ביטל / טעה יותר מדי / לא אישר – לא מכניסים למערכת
+    if (!ok) {
+      await this.auth.signOut();
+      this.setLoading(false);
+      return;
+    }
+  }
+
+  // אם הגענו לפה – או ש-2FA כבוי, או שהקוד הוזן נכון
+  await this.finishLogin(email);
+
 
         } catch (err) {
             const code = err.code || "";
