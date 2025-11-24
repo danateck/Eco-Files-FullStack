@@ -8,6 +8,58 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 8787;
 
+
+const nodemailer = require('nodemailer');
+
+const mailer = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT || 587),
+  secure: false,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS
+  }
+});
+
+
+app.post('/api/auth/send-2fa', async (req, res) => {
+  try {
+    const userEmail = req.body.email;
+    if (!userEmail) {
+      return res.status(400).json({ error: 'Missing email' });
+    }
+
+    // מוודאים שזה באמת המשתמש שמנסה להתחבר (אופציונלי: להשוות ל־getUserFromRequest)
+
+    // קוד 6 ספרות
+    const code = (Math.floor(100000 + Math.random() * 900000)).toString();
+
+    // לשמור את הקוד בבסיס נתונים שלך (ב־users או בטבלת login_codes)
+    await pool.query(
+      `INSERT INTO login_codes (email, code, created_at)
+       VALUES ($1, $2, NOW())
+       ON CONFLICT (email) DO UPDATE SET code = $2, created_at = NOW()`,
+      [userEmail, code]
+    );
+
+    await mailer.sendMail({
+      from: process.env.SMTP_FROM,
+      to: userEmail,
+      subject: 'קוד אימות ל-Eco Files',
+      text: `קוד האימות שלך הוא: ${code} (בתוקף ל-10 דקות).`,
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ 2FA mail error:', err);
+    res.status(500).json({ error: 'Failed to send 2FA code' });
+  }
+});
+
+
+
+
+
 // ===== PostgreSQL Connection =====
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,

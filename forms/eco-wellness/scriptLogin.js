@@ -110,7 +110,8 @@ class EcoWellnessLoginForm {
             createUserWithEmailAndPassword,
             sendPasswordResetEmail,
             setPersistence,               // ✅ add this
-            browserLocalPersistence       // ✅ and this
+            browserLocalPersistence ,      // ✅ and this
+            sendEmailVerification 
         } = authModule;
 
         const { getFirestore } = firestoreModule;
@@ -129,6 +130,7 @@ class EcoWellnessLoginForm {
         this.signInWithEmailAndPassword = signInWithEmailAndPassword;
         this.createUserWithEmailAndPassword = createUserWithEmailAndPassword;
         this.sendPasswordResetEmail = sendPasswordResetEmail;
+        this.sendEmailVerification = sendEmailVerification;
 
         window.auth = this.auth;
         window.db = this.db;
@@ -141,6 +143,48 @@ class EcoWellnessLoginForm {
 }
 
 
+async registerNewUserWithVerification() {
+  const email = this.emailInput.value.trim();
+  const password = this.passwordInput.value.trim();
+
+  const okEmail = this.validateEmail();
+  const okPass = this.validatePassword();
+  if (!okEmail || !okPass) return;
+
+  this.setLoading(true);
+
+  try {
+    // יצירת משתמש חדש
+    const cred = await this.createUserWithEmailAndPassword(this.auth, email, password);
+
+    // שליחת מייל אימות
+    await this.sendEmailVerification(cred.user, {
+      // אפשר להשאיר ריק או לשים URL חזרה ללוגין שלך
+      url: "https://danateck.github.io/Eco-Files-FullStack/forms/eco-wellness/",
+      handleCodeInApp: false
+    });
+
+    alert("נוצר משתמש חדש! שלחנו אליך מייל לאימות. רק אחרי שתאשרי את המייל תוכלי להתחבר.");
+
+    // ניתוק – שלא תהיה גישה לפני אימות
+    await this.auth.signOut();
+    this.setLoading(false);
+
+  } catch (err) {
+    console.error("Register error:", err);
+    if (err.code === "auth/email-already-in-use") {
+      this.showError("email", "יש כבר משתמש עם האימייל הזה.");
+    } else if (err.code === "auth/weak-password") {
+      this.showError("password", "הסיסמה צריכה להיות לפחות 6 תווים.");
+    } else {
+      alert("שגיאה ביצירת משתמש חדש. נסי שוב.");
+    }
+    this.setLoading(false);
+  }
+}
+
+
+
     bindEvents() {
         this.form.addEventListener('submit', (e) => this.handleSubmit(e));
 
@@ -151,6 +195,14 @@ class EcoWellnessLoginForm {
 
         this.emailInput.setAttribute('placeholder', ' ');
         this.passwordInput.setAttribute('placeholder', ' ');
+
+        // 👇 כפתור הרשמה
+  const signupBtn = document.getElementById('signupButton');
+  if (signupBtn) {
+    signupBtn.addEventListener('click', () => this.registerNewUserWithVerification());
+  }
+
+
     }
 
     setupPasswordToggle() {
@@ -299,94 +351,66 @@ class EcoWellnessLoginForm {
         console.log("Email:", email);
 
         try {
-            // Try to sign in
-            console.log("Attempting signInWithEmailAndPassword...");
-            const userCred = await this.signInWithEmailAndPassword(this.auth, email, password);
-            console.log("Sign in successful:", userCred);
-            await this.finishLogin(email);
+  console.log("Attempting signInWithEmailAndPassword...");
+  const userCred = await this.signInWithEmailAndPassword(this.auth, email, password);
+  const user = userCred.user;
 
-        } catch (err) {
-            const code = err.code || "";
-            const msg = err.message || "";
+  // 👇 נבדוק אם המייל מאומת
+  if (!user.emailVerified) {
+    // אופציונלי – לנסות לשלוח שוב מייל אימות
+    try {
+      await this.sendEmailVerification(user);
+    } catch (e) {
+      console.warn("Could not re-send verification email:", e);
+    }
 
-            console.log("Login error code:", code);
-            console.log("Login error message:", msg);
+    alert("עליך לאמת את כתובת האימייל לפני כניסה למערכת. בדקי את המייל שלך (כולל ספאם).");
+    await this.auth.signOut();
+    this.setLoading(false);
+    return;
+  }
 
-            // Wrong password
-            if (code === "auth/wrong-password") {
-                this.showError("password", "סיסמה שגויה");
-                this.passwordInput.focus();
-                this.setLoading(false);
-                return;
-            }
+  console.log("Sign in successful:", userCred);
+  await this.finishLogin(email);
 
-            // User not found - create new user
-            if (code === "auth/user-not-found") {
-                try {
-                    console.log("User not found, creating new user...");
-                    const newUserCred = await this.createUserWithEmailAndPassword(this.auth, email, password);
-                    console.log("New user created:", newUserCred);
-                    await this.finishLogin(email, true);
-                    return;
-                } catch (createErr) {
-                    console.error("Create user failed:", createErr);
-                    this.showError("password", "לא ניתן ליצור משתמש חדש. בדקי שהסיסמה באורך 6+ תווים.");
-                    this.setLoading(false);
-                    return;
-                }
-            }
+} catch (err) {
+  // ... (ה־catch המעודכן מהסעיף הקודם)
 
-            // Safari/mobile internal error
-            if (code === "auth/internal-error" && msg.includes("INVALID_LOGIN_CREDENTIALS")) {
-                try {
-                    console.log("Internal error, trying to create user...");
-                    const newUserCred = await this.createUserWithEmailAndPassword(this.auth, email, password);
-                    console.log("New user created:", newUserCred);
-                    await this.finishLogin(email, true);
-                    return;
-                } catch (createErr) {
-                    const createCode = createErr.code || "";
-                    if (createCode === "auth/email-already-in-use") {
-                        this.showError("password", "סיסמה שגויה");
-                        this.passwordInput.focus();
-                        this.setLoading(false);
-                    } else {
-                        console.error("Create user failed:", createErr);
-                        this.showError("password", "לא ניתן ליצור משתמש חדש.");
-                        this.setLoading(false);
-                    }
-                    return;
-                }
-            }
 
-            // Invalid credentials (Firebase v9+ returns this instead of user-not-found sometimes)
-            if (code === "auth/invalid-credential") {
-                try {
-                    console.log("Invalid credentials, trying to create user...");
-                    const newUserCred = await this.createUserWithEmailAndPassword(this.auth, email, password);
-                    console.log("New user created:", newUserCred);
-                    await this.finishLogin(email, true);
-                    return;
-                } catch (createErr) {
-                    const createCode = createErr.code || "";
-                    if (createCode === "auth/email-already-in-use") {
-                        this.showError("password", "סיסמה שגויה");
-                        this.passwordInput.focus();
-                        this.setLoading(false);
-                    } else {
-                        console.error("Create user failed:", createErr);
-                        this.showError("password", "לא ניתן ליצור משתמש חדש.");
-                        this.setLoading(false);
-                    }
-                    return;
-                }
-            }
+  const code = err.code || "";
+  const msg = err.message || "";
 
-            // Fallback
-            console.error("Login failed (unknown error):", err);
-            this.showError("password", "שגיאה בהתחברות. אנא נסי שוב.");
-            this.setLoading(false);
-        }
+  console.log("Login error code:", code);
+  console.log("Login error message:", msg);
+
+  // Wrong password
+  if (code === "auth/wrong-password") {
+    this.showError("password", "סיסמה שגויה");
+    this.passwordInput.focus();
+    this.setLoading(false);
+    return;
+  }
+
+  // משתמש לא קיים / קרדנציאל לא תקין / באג פנימי של ספארי
+  if (
+    code === "auth/user-not-found" ||
+    code === "auth/invalid-credential" ||
+    (code === "auth/internal-error" && msg.includes("INVALID_LOGIN_CREDENTIALS"))
+  ) {
+    this.showError(
+      "password",
+      "האימייל או הסיסמה לא נכונים, או שהחשבון לא קיים. אם זו הפעם הראשונה – צרי משתמש חדש."
+    );
+    this.setLoading(false);
+    return;
+  }
+
+  // Fallback
+  console.error("Login failed (unknown error):", err);
+  this.showError("password", "שגיאה בהתחברות. אנא נסי שוב.");
+  this.setLoading(false);
+}
+
     }
 
      async finishLogin(email, isNewUser = false) {
@@ -529,3 +553,16 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log("⚠️ Login form already initialized, skipping");
     }
 });
+
+
+
+
+
+async function updateTwoFactorSetting(enabled) {
+  const email = getCurrentUser(); // כמו בשאר המערכת
+  let userData = await loadUserDataFromFirestore(email);
+  if (!userData) userData = { email, docs: [], createdAt: new Date().toISOString() };
+
+  userData.twoFactorEnabled = enabled;
+  await saveUserDataToFirestore(email, userData);
+}
