@@ -503,101 +503,101 @@ async registerNewUserWithVerification() {
 
 
 
-   async handleSubmit(e) {
-    e.preventDefault();
+       async handleSubmit(e) {
+        e.preventDefault();
 
-    const okEmail = this.validateEmail();
-    const okPass = this.validatePassword();
-    if (!okEmail || !okPass) return;
+        const okEmail = this.validateEmail();
+        const okPass = this.validatePassword();
+        if (!okEmail || !okPass) return;
 
-    this.setLoading(true);
+        this.setLoading(true);
 
-    const email = this.emailInput.value.trim().toLowerCase();
-    const password = this.passwordInput.value.trim();
+        const email = this.emailInput.value.trim();
+        const password = this.passwordInput.value.trim();
 
-    console.log("=== LOGIN ATTEMPT ===");
-    console.log("Email:", email);
+        console.log("=== LOGIN ATTEMPT ===");
+        console.log("Email:", email);
 
-    try {
-        // 1. ניסיון התחברות רגיל ב־Firebase
-        console.log("Attempting signInWithEmailAndPassword...");
-        const userCred = await this.signInWithEmailAndPassword(this.auth, email, password);
-        const user = userCred.user;
-
-        // 2. בדיקה אם המייל מאומת
-        if (!user.emailVerified) {
-            try {
-                await this.sendEmailVerification(user);
-            } catch (e) {
-                console.warn("Could not re-send verification email:", e);
-            }
-
-            alert("עליך לאמת את כתובת האימייל לפני כניסה למערכת. בדקי את המייל שלך (כולל ספאם).");
-            await this.auth.signOut();
-            this.setLoading(false);
-            return;
-        }
-
-        // 3. בדיקה אם מופעל אימות דו־שלבי למשתמש הזה בפיירסטור
-        let use2FA = false;
         try {
-            const userData = await loadUserDataFromFirestore(email);
-            console.log("userData from Firestore:", userData);
-            use2FA = !!(userData && userData.twoFactorEnabled === true);
-        } catch (e) {
-            console.warn("Could not load userData for 2FA:", e);
-        }
+            console.log("Attempting signInWithEmailAndPassword...");
+            const userCred = await this.signInWithEmailAndPassword(this.auth, email, password);
+            const user = userCred.user;
 
-        // 4. אם יש 2FA – מריצים את הזרימה של הקוד במייל
-        if (use2FA) {
-            const ok = await this.runTwoFactorFlow(email);
-            if (!ok) {
-                // המשתמש ביטל / קוד שגוי
+            // 👇 חובה מייל מאומת לפני כניסה
+            if (!user.emailVerified) {
+                try {
+                    await this.sendEmailVerification(user, {
+                        url: "https://danateck.github.io/Eco-Files-FullStack/forms/eco-wellness/",
+                        handleCodeInApp: false,
+                    });
+                } catch (e) {
+                    console.warn("Could not re-send verification email:", e);
+                }
+
+                alert("עליך לאמת את כתובת האימייל לפני כניסה למערכת. שלחנו שוב מייל אימות, בדקי (כולל ספאם).");
                 await this.auth.signOut();
                 this.setLoading(false);
                 return;
             }
-        }
 
-        // 5. הכל תקין – סיום לוגין רגיל
-        console.log("Sign in successful:", userCred);
-        await this.finishLogin(email);
+            console.log("Sign in successful:", userCred);
+            await this.finishLogin(email);
 
-    } catch (err) {
-        const code = err.code || "";
-        const msg  = err.message || "";
+        } catch (err) {
+            const code = err.code || "";
+            const msg = err.message || "";
 
-        console.log("Login error code:", code);
-        console.log("Login error message:", msg);
+            console.log("Login error code:", code);
+            console.log("Login error message:", msg);
 
-        // סיסמה שגויה
-        if (code === "auth/wrong-password") {
-            this.showError("password", "סיסמה שגויה");
-            this.passwordInput.focus();
+            // סיסמה שגויה למשתמש קיים
+            if (code === "auth/wrong-password") {
+                this.showError("password", "סיסמה שגויה");
+                this.passwordInput.focus();
+                this.setLoading(false);
+                return;
+            }
+
+            // משתמש לא קיים / קרדנציאל לא תקין / באג של ספארי => ליצור משתמש חדש + מייל אימות
+            if (
+                code === "auth/user-not-found" ||
+                code === "auth/invalid-credential" ||
+                (code === "auth/internal-error" && msg.includes("INVALID_LOGIN_CREDENTIALS"))
+            ) {
+                try {
+                    console.log("No existing user. Creating a new one with email verification.");
+                    const cred = await this.createUserWithEmailAndPassword(this.auth, email, password);
+
+                    await this.sendEmailVerification(cred.user, {
+                        url: "https://danateck.github.io/Eco-Files-FullStack/forms/eco-wellness/",
+                        handleCodeInApp: false,
+                    });
+
+                    alert("יצרנו עבורך משתמש חדש ושלחנו מייל לאימות. אחרי שתאשרי את המייל – תוכלי להתחבר עם אותם פרטים.");
+                    await this.auth.signOut();
+                    this.setLoading(false);
+                    return;
+                } catch (createErr) {
+                    console.error("Create user with verification failed:", createErr);
+                    const createCode = createErr.code || "";
+                    if (createCode === "auth/email-already-in-use") {
+                        this.showError("password", "האימייל כבר קיים במערכת. נסי שוב עם הסיסמה הנכונה.");
+                    } else if (createCode === "auth/weak-password") {
+                        this.showError("password", "הסיסמה צריכה להיות לפחות 6 תווים.");
+                    } else {
+                        this.showError("password", "שגיאה ביצירת משתמש חדש. נסי שוב.");
+                    }
+                    this.setLoading(false);
+                    return;
+                }
+            }
+
+            // כל שגיאה אחרת
+            console.error("Login failed (unknown error):", err);
+            this.showError("password", "શגિઆ בהתחברות. אנא נסי שוב.");
             this.setLoading(false);
-            return;
         }
-
-        // משתמש לא קיים / קרדנציאל לא תקין
-        if (
-            code === "auth/user-not-found" ||
-            code === "auth/invalid-credential" ||
-            (code === "auth/internal-error" && msg.includes("INVALID_LOGIN_CREDENTIALS"))
-        ) {
-            this.showError(
-                "password",
-                "האימייל או הסיסמה לא נכונים, או שהחשבון לא קיים. פני למנהל המערכת כדי לפתוח משתמש."
-            );
-            this.setLoading(false);
-            return;
-        }
-
-        // נפילה כללית
-        console.error("Login failed (unknown error):", err);
-        this.showError("password", "שגיאה בהתחברות. אנא נסי שוב.");
-        this.setLoading(false);
     }
-}
 
 
 
