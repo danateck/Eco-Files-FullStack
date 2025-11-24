@@ -6673,16 +6673,54 @@ function closeProfileModal() {
 
 // בניית כרטיס פרופיל (עיגול עם אות ראשונה)
 function buildProfileCard(profile) {
-  const card = document.createElement("button");
+  const card = document.createElement("div");
   card.className = "doc-card profile-card";
+  card.style.position = "relative";
   card.style.display = "flex";
   card.style.flexDirection = "column";
   card.style.alignItems = "center";
-  card.style.justifyContent = "center";
   card.style.gap = "0.5rem";
   card.style.padding = "1rem";
-  card.style.cursor = "pointer";
 
+  // 🔹 כפתור עריכה קטן
+  const editBtn = document.createElement("button");
+  editBtn.className = "profile-edit-btn";
+  editBtn.textContent = "✏️";
+  editBtn.style.position = "absolute";
+  editBtn.style.top = "6px";
+  editBtn.style.left = "6px";
+  editBtn.style.border = "none";
+  editBtn.style.background = "rgba(0,0,0,0.05)";
+  editBtn.style.borderRadius = "50%";
+  editBtn.style.fontSize = "0.75rem";
+  editBtn.style.cursor = "pointer";
+
+  editBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openProfileModal(profile); // פותח חלון עריכה עם נתונים קיימים
+  });
+
+  // 🔹 כפתור מחיקה קטן
+  const deleteBtn = document.createElement("button");
+  deleteBtn.className = "profile-delete-btn";
+  deleteBtn.textContent = "🗑️";
+  deleteBtn.style.position = "absolute";
+  deleteBtn.style.top = "6px";
+  deleteBtn.style.right = "6px";
+  deleteBtn.style.border = "none";
+  deleteBtn.style.background = "rgba(0,0,0,0.05)";
+  deleteBtn.style.borderRadius = "50%";
+  deleteBtn.style.fontSize = "0.75rem";
+  deleteBtn.style.cursor = "pointer";
+
+  deleteBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (!confirm(`למחוק את הפרופיל "${profile.fullName}"?`)) return;
+    deleteProfile(profile.id);
+    openProfilesView(); // רענון
+  });
+
+  // 🔹 העיגול (תמונה או אות)
   const circle = document.createElement("div");
   circle.style.width = "72px";
   circle.style.height = "72px";
@@ -6692,31 +6730,49 @@ function buildProfileCard(profile) {
   circle.style.alignItems = "center";
   circle.style.justifyContent = "center";
   circle.style.fontWeight = "600";
-  circle.style.fontSize = "1rem";
-  circle.textContent = profile.firstName?.[0] || profile.fullName[0] || "?";
+  circle.style.fontSize = "1.2rem";
+  circle.style.overflow = "hidden";
 
+  if (profile.thumbnailDataUrl) {
+    // תמונת פרופיל
+    const img = document.createElement("img");
+    img.src = profile.thumbnailDataUrl;
+    img.style.width = "100%";
+    img.style.height = "100%";
+    img.style.objectFit = "cover";
+    circle.appendChild(img);
+  } else {
+    // אות ראשונה
+    circle.textContent = (profile.fullName?.[0] || "?").toUpperCase();
+  }
+
+  // 🔹 פרטי פרופיל
   const nameEl = document.createElement("div");
   nameEl.textContent = profile.fullName;
   nameEl.style.fontWeight = "600";
 
   const small = document.createElement("div");
-  small.style.fontSize = "0.75rem";
   small.style.opacity = "0.7";
-  const parts = [];
-  if (profile.age != null) parts.push(`גיל ${profile.age}`);
-  if (profile.birthDate) parts.push(`נולד/ה ${profile.birthDate}`);
-  small.textContent = parts.length ? parts.join(" · ") : "ללא פרטים נוספים";
+  small.style.fontSize = "0.75rem";
+  const ageTxt = profile.age ? ` · גיל ${profile.age}` : "";
+  const birthTxt = profile.birthDate ? `נול/ה ${profile.birthDate}` : "";
+  small.textContent = birthTxt + ageTxt;
 
-  card.appendChild(circle);
-  card.appendChild(nameEl);
-  card.appendChild(small);
-
+  // 🔹 פתיחת פרופיל בעת לחיצה על הכרטיס
   card.addEventListener("click", () => {
     openProfileCategories(profile.id);
   });
 
+  // הרכבה
+  card.appendChild(editBtn);
+  card.appendChild(deleteBtn);
+  card.appendChild(circle);
+  card.appendChild(nameEl);
+  card.appendChild(small);
+
   return card;
 }
+
 
 // 🔹 מסך רשימת פרופילים (הטאב "פרופילים")
 window.openProfilesView = function() {
@@ -6771,6 +6827,8 @@ window.openProfilesView = function() {
     docsList.appendChild(buildProfileCard(p));
   });
 
+
+  
   if (homeView) homeView.classList.add("hidden");
   if (categoryView) categoryView.classList.remove("hidden");
 };
@@ -6987,5 +7045,19 @@ document.addEventListener("DOMContentLoaded", () => {
     console.warn("Failed to init profile modal events:", e);
   }
 });
+
+
+function deleteProfile(profileId) {
+  const profiles = loadProfiles();
+  const updated = profiles.filter(p => p.id !== profileId);
+  saveProfiles(updated);
+
+  // אם אנחנו במסך פרופילים – נרענן
+  if (typeof openProfilesView === "function") {
+    openProfilesView();
+  }
+}
+
+
 
 // ═══════════════════════════════════════════════════════════
