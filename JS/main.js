@@ -6585,6 +6585,30 @@ console.log("✅ addDocumentToSharedFolder patched with shared_with update!");
 // 👤 פרופילים (נשמרים ב-localStorage לכל משתמש)
 // ==========================
 
+
+// 👉 שמירה זמנית של התמונה בזמן יצירת פרופיל
+let currentProfilePhotoDataUrl = null;
+
+// 👉 מחשב גיל לפי תאריך לידה (yyyy-mm-dd)
+function calcAgeFromBirthDate(birthDateStr) {
+  if (!birthDateStr) return null;
+  const d = new Date(birthDateStr);
+  if (isNaN(d.getTime())) return null;
+
+  const today = new Date();
+  let age = today.getFullYear() - d.getFullYear();
+  const m = today.getMonth() - d.getMonth();
+
+  if (m < 0 || (m === 0 && today.getDate() < d.getDate())) {
+    age--;
+  }
+  return age;
+}
+
+
+
+
+
 const PROFILES_KEY_PREFIX = "ecoDocsProfiles_";
 
 function getProfilesStorageKey() {
@@ -6612,33 +6636,39 @@ function saveProfiles(list) {
   }
 }
 
-// ➕ יצירת פרופיל חדש (בינתיים דרך prompt פשוט)
-function createProfileViaPrompt() {
-  const fullName = (prompt("שם פרטי ושם משפחה:") || "").trim();
-  if (!fullName) return null;
+// 🔹 פתיחת חלון "הוסף פרופיל"
+function openProfileModal() {
+  const backdrop   = document.getElementById("profileModalBackdrop");
+  const nameInput  = document.getElementById("profileFullName");
+  const idInput    = document.getElementById("profileIdNumber");
+  const birthInput = document.getElementById("profileBirthDate");
+  const photoInput = document.getElementById("profilePhotoInput");
+  const preview    = document.getElementById("profilePhotoPreview");
 
-  const idNumber  = (prompt("תעודת זהות (לא חובה):") || "").trim();
-  const birthDate = (prompt("תאריך לידה (למשל 2005-03-21):") || "").trim();
-  const ageStr    = (prompt("גיל (לא חובה):") || "").trim();
-  const age       = ageStr ? parseInt(ageStr, 10) : null;
+  if (!backdrop || !nameInput || !birthInput || !preview) return;
 
-  const [firstName, ...rest] = fullName.split(" ");
-  const lastName = rest.join(" ").trim();
+  // איפוס שדות
+  nameInput.value  = "";
+  idInput.value    = "";
+  birthInput.value = "";
+  if (photoInput) photoInput.value = "";
+  currentProfilePhotoDataUrl = null;
+  preview.style.backgroundImage = "";
+  preview.textContent = "+";
 
-  const profile = {
-    id: crypto.randomUUID(),
-    fullName,
-    firstName: firstName || fullName,
-    lastName: lastName || "",
-    idNumber,
-    birthDate,
-    age: isNaN(age) ? null : age
-  };
+  backdrop.classList.remove("hidden");
+  backdrop.setAttribute("aria-hidden", "false");
 
-  const profiles = loadProfiles();
-  profiles.push(profile);
-  saveProfiles(profiles);
-  return profile;
+  // מיקוד לשדה שם
+  setTimeout(() => nameInput.focus(), 50);
+}
+
+// 🔹 סגירת החלון
+function closeProfileModal() {
+  const backdrop = document.getElementById("profileModalBackdrop");
+  if (!backdrop) return;
+  backdrop.classList.add("hidden");
+  backdrop.setAttribute("aria-hidden", "true");
 }
 
 // בניית כרטיס פרופיל (עיגול עם אות ראשונה)
@@ -6731,9 +6761,8 @@ window.openProfilesView = function() {
   addCard.appendChild(plusCircle);
   addCard.appendChild(label);
   addCard.addEventListener("click", () => {
-    const p = createProfileViaPrompt();
-    if (p) openProfilesView(); // רענון הרשימה
-  });
+  openProfileModal();
+});
 
   docsList.appendChild(addCard);
 
@@ -6857,3 +6886,106 @@ function openProfileCategoryDocs(profile, categoryName) {
   if (categoryView) categoryView.classList.remove("hidden");
 }
 // ==========================
+
+
+
+
+// 🔹 אתחול מאזינים למודל הפרופילים (להריץ פעם אחת אחרי טעינה)
+function initProfileModalEvents() {
+  const backdrop   = document.getElementById("profileModalBackdrop");
+  const closeBtn   = document.getElementById("profileModalCloseBtn");
+  const cancelBtn  = document.getElementById("profileModalCancelBtn");
+  const saveBtn    = document.getElementById("profileModalSaveBtn");
+  const photoInput = document.getElementById("profilePhotoInput");
+  const preview    = document.getElementById("profilePhotoPreview");
+
+  if (!backdrop) return; // אין מודל ב־HTML
+
+  // כפתורי סגירה
+  closeBtn?.addEventListener("click", closeProfileModal);
+  cancelBtn?.addEventListener("click", closeProfileModal);
+
+  // סגירה בלחיצה על הרקע
+  backdrop.addEventListener("click", (e) => {
+    if (e.target === backdrop) {
+      closeProfileModal();
+    }
+  });
+
+  // טעינת תמונה + תצוגה מקדימה בעיגול
+  if (photoInput && preview) {
+    photoInput.addEventListener("change", () => {
+      const file = photoInput.files?.[0];
+      if (!file) {
+        currentProfilePhotoDataUrl = null;
+        preview.style.backgroundImage = "";
+        preview.textContent = "+";
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        currentProfilePhotoDataUrl = reader.result;
+        preview.style.backgroundImage = `url(${currentProfilePhotoDataUrl})`;
+        preview.style.backgroundSize = "cover";
+        preview.style.backgroundPosition = "center";
+        preview.textContent = "";
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // שמירה
+  if (saveBtn) {
+    saveBtn.addEventListener("click", () => {
+      const nameInput  = document.getElementById("profileFullName");
+      const idInput    = document.getElementById("profileIdNumber");
+      const birthInput = document.getElementById("profileBirthDate");
+
+      const fullName  = (nameInput?.value || "").trim();
+      const idNumber  = (idInput?.value || "").trim();
+      const birthDate = (birthInput?.value || "").trim();
+
+      if (!fullName || !birthDate) {
+        alert("חובה למלא שם ותאריך לידה 🙂");
+        return;
+      }
+
+      const age = calcAgeFromBirthDate(birthDate);
+
+      const [firstName, ...rest] = fullName.split(" ");
+      const lastName = rest.join(" ").trim();
+
+      const profile = {
+        id: crypto.randomUUID(),
+        fullName,
+        firstName: firstName || fullName,
+        lastName: lastName || "",
+        idNumber,
+        birthDate,
+        age: age ?? null,
+        thumbnailDataUrl: currentProfilePhotoDataUrl || null
+      };
+
+      const profiles = loadProfiles();
+      profiles.push(profile);
+      saveProfiles(profiles);
+
+      closeProfileModal();
+      // רענון מסך הפרופילים
+      if (typeof openProfilesView === "function") {
+        openProfilesView();
+      }
+    });
+  }
+}
+
+// להריץ אחרי שהדף נטען
+document.addEventListener("DOMContentLoaded", () => {
+  try {
+    initProfileModalEvents();
+  } catch (e) {
+    console.warn("Failed to init profile modal events:", e);
+  }
+});
+
+// ═══════════════════════════════════════════════════════════
