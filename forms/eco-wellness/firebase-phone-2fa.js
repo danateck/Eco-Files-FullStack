@@ -18,13 +18,15 @@
  * - ✅ תמיכה ב-reCAPTCHA אוטומטית
  */
 
+// חדש – אותו ורסיה כמו בשאר הפרויקט
 import { 
     getAuth, 
     RecaptchaVerifier, 
     signInWithPhoneNumber,
     PhoneAuthProvider,
     linkWithCredential
-} from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+
 
 class FirebasePhone2FA {
     constructor() {
