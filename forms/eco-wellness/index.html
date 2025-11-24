@@ -73,14 +73,6 @@
                     <a href="#" class="healing-link">Forgot Password?</a>
                 </div>
 
-
-
-                <div style="text-align:center; margin-top: 0.75rem;">
-
-</div>
-
-
-
                 <button type="submit" class="harmony-button">
                     <div class="button-earth"></div>
                     <span class="button-text">היכנס לארכיון</span>
@@ -93,20 +85,17 @@
                 </button>
             </form>
 
-
             <div id="resetModal" class="reset-modal hidden">
-  <div class="reset-card">
-    <h3 class="reset-title">איפוס סיסמה</h3>
-    <p class="reset-desc">הקלד/י סיסמה חדשה עבור החשבון שלך</p>
-
-    <input id="newPasswordInput" type="password" class="reset-input" placeholder="סיסמה חדשה" />
-
-    <div class="reset-buttons">
-      <button id="resetCancelBtn" class="reset-btn cancel">בטל</button>
-      <button id="resetSaveBtn" class="reset-btn save">שמור סיסמה חדשה</button>
-    </div>
-  </div>
-</div>
+              <div class="reset-card">
+                <h3 class="reset-title">איפוס סיסמה</h3>
+                <p class="reset-desc">הקלד/י סיסמה חדשה עבור החשבון שלך</p>
+                <input id="newPasswordInput" type="password" class="reset-input" placeholder="סיסמה חדשה" />
+                <div class="reset-buttons">
+                  <button id="resetCancelBtn" class="reset-btn cancel">בטל</button>
+                  <button id="resetSaveBtn" class="reset-btn save">שמור סיסמה חדשה</button>
+                </div>
+              </div>
+            </div>
 
             <div class="balance-divider">
                 <div class="divider-branch"></div>
@@ -130,11 +119,7 @@
                     <span>Google</span>
                     <div class="social-glow"></div>
                 </button>
-                
-                
             </div>
-
-            
 
             <div class="harmony-success" id="successMessage">
                 <div class="success-mandala">
@@ -153,321 +138,103 @@
         </div>
     </div>
 
+    <!-- ========================================
+         🆕 reCAPTCHA Container (חובה!)
+         ======================================== -->
+    <div id="recaptcha-container"></div>
 
+    <!-- ========================================
+         🆕 Phone Setup Modal (בקשת מספר)
+         ======================================== -->
+    <div id="phoneSetupModal" class="twofa-overlay" style="display:none;">
+      <div class="twofa-modal">
+        <h2 class="twofa-title">הפעלת אימות דו-שלבי</h2>
+        <p class="twofa-text">
+          נא להזין את מספר הטלפון שלך. נשלח אליך SMS עם קוד אימות.
+        </p>
 
-<!-- ===== OTP / 2FA Screen (קוד חד פעמי במייל) ===== -->
-<div id="otpContainer" style="display:none;">
-  <main class="relative min-h-screen flex flex-col justify-center bg-slate-50 overflow-hidden">
-    <div class="w-full max-w-6xl mx-auto px-4 md:px-6 py-24">
-      <div class="flex justify-center">
-
-        <div class="max-w-md mx-auto text-center bg-white px-4 sm:px-8 py-10 rounded-xl shadow">
-          <header class="mb-8">
-            <h1 class="text-2xl font-bold mb-1">אימות כניסה</h1>
-            <p class="text-[15px] text-slate-500">
-              הזיני את הקוד בן 4 ספרות שנשלח אלייך למייל.
-            </p>
-          </header>
-
-          <!-- שימי לב: id="otp-form" והאינפוטים עם class="otp-input" -->
-          <form id="otp-form">
-            <div class="flex items-center justify-center gap-3">
-              <input
-                type="text"
-                maxlength="1"
-                class="otp-input w-14 h-14 text-center text-2xl font-extrabold text-slate-900 bg-slate-100 border border-transparent appearance-none rounded p-4 outline-none" />
-              <input
-                type="text"
-                maxlength="1"
-                class="otp-input w-14 h-14 text-center text-2xl font-extrabold text-slate-900 bg-slate-100 border border-transparent appearance-none rounded p-4 outline-none" />
-              <input
-                type="text"
-                maxlength="1"
-                class="otp-input w-14 h-14 text-center text-2xl font-extrabold text-slate-900 bg-slate-100 border border-transparent appearance-none rounded p-4 outline-none" />
-              <input
-                type="text"
-                maxlength="1"
-                class="otp-input w-14 h-14 text-center text-2xl font-extrabold text-slate-900 bg-slate-100 border border-transparent appearance-none rounded p-4 outline-none" />
+        <form id="phoneSetupForm" class="twofa-form">
+          <div class="phone-input-container">
+            <label for="phoneInput">מספר טלפון</label>
+            <div class="phone-input-wrapper">
+              <input 
+                type="tel" 
+                id="phoneInput" 
+                placeholder="050-123-4567"
+                dir="ltr"
+                style="width:100%; padding:14px 16px; font-size:18px; border:2px solid #e0e0e0; border-radius:12px; background:#f8f9fa; text-align:center;"
+              />
             </div>
-
-            <div class="max-w-[260px] mx-auto mt-4">
-              <button type="submit"
-                class="w-full inline-flex justify-center whitespace-nowrap rounded-lg bg-indigo-500 px-3.5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-600 transition-colors duration-150">
-                אימות והמשך
-              </button>
-            </div>
-          </form>
-
-          <div class="text-sm text-slate-500 mt-4">
-            לא קיבלת קוד?
-            <a id="otpResend" class="font-medium text-indigo-500 hover:text-indigo-600" href="#0">
-              שלחי שוב
-            </a>
+            <span class="phone-hint" style="display:block; font-size:13px; color:#666; margin-top:6px;">פורמט: 050-123-4567</span>
           </div>
+
+          <div id="phoneError" class="twofa-error"></div>
+
+          <div class="twofa-buttons">
+            <button type="submit" class="harmony-button">שלח קוד אימות</button>
+            <button type="button" id="phoneSkip" class="harmony-button secondary">
+              דלג
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ========================================
+         🆕 Phone Verification Modal (אימות קוד)
+         ======================================== -->
+    <div id="phoneVerifyModal" class="twofa-overlay" style="display:none;">
+      <div class="twofa-modal">
+        <h2 class="twofa-title">אימות SMS</h2>
+        <p class="twofa-text">
+          שלחנו קוד בן 6 ספרות למספר:<br>
+          <strong id="verifyPhoneDisplay" style="color:#4CAF50; font-weight:700;">+972-50-XXX-XXXX</strong>
+        </p>
+
+        <form id="phoneVerifyForm" class="twofa-form">
+          <div class="twofa-inputs">
+            <input type="text" maxlength="1" inputmode="numeric" class="twofa-digit" />
+            <input type="text" maxlength="1" inputmode="numeric" class="twofa-digit" />
+            <input type="text" maxlength="1" inputmode="numeric" class="twofa-digit" />
+            <input type="text" maxlength="1" inputmode="numeric" class="twofa-digit" />
+            <input type="text" maxlength="1" inputmode="numeric" class="twofa-digit" />
+            <input type="text" maxlength="1" inputmode="numeric" class="twofa-digit" />
+          </div>
+
+          <div id="verifyError" class="twofa-error"></div>
+
+          <div class="twofa-buttons">
+            <button type="submit" class="harmony-button">אמת קוד</button>
+            <button type="button" id="verifyCancel" class="harmony-button secondary">
+              ביטול
+            </button>
+          </div>
+        </form>
+
+        <div class="twofa-resend">
+          לא קיבלת SMS?
+          <button type="button" id="phoneResend" class="twofa-resend-link">
+            שלח שוב
+          </button>
         </div>
-
       </div>
     </div>
-  </main>
-</div>
 
+<!-- ==========================================
+     SCRIPTS - סדר חשוב מאוד!
+     ========================================== -->
 
-
-
-
-
-    <!-- 2FA Modal -->
-<div id="twofaOverlay" class="twofa-overlay" style="display:none;">
-  <div class="twofa-modal">
-    <h2 class="twofa-title">אימות דו־שלבי</h2>
-    <p class="twofa-text">
-      שלחנו אלייך קוד בן 6 ספרות לכתובת המייל שלך.
-      הזיני את הקוד כדי להיכנס.
-    </p>
-
-    <form id="twofaForm" class="twofa-form">
-      <div class="twofa-inputs">
-        <input type="text" maxlength="1" inputmode="numeric" class="twofa-digit" />
-        <input type="text" maxlength="1" inputmode="numeric" class="twofa-digit" />
-        <input type="text" maxlength="1" inputmode="numeric" class="twofa-digit" />
-        <input type="text" maxlength="1" inputmode="numeric" class="twofa-digit" />
-        <input type="text" maxlength="1" inputmode="numeric" class="twofa-digit" />
-        <input type="text" maxlength="1" inputmode="numeric" class="twofa-digit" />
-      </div>
-
-      <div id="twofaError" class="twofa-error"></div>
-
-      <div class="twofa-buttons">
-        <button type="submit" class="harmony-button">אשר קוד</button>
-        <button type="button" id="twofaCancel" class="harmony-button secondary">
-          ביטול
-        </button>
-      </div>
-    </form>
-
-    <div class="twofa-resend">
-      לא קיבלת קוד?
-      <button type="button" id="twofaResend" class="twofa-resend-link">
-        שליחה מחדש
-      </button>
-    </div>
-  </div>
-</div>
-
-
-
-
-
+<!-- 1. Firebase Config -->
 <script type="module" src="../../firebase-config.js"></script>
+
+<!-- 2. Auth Check -->
 <script type="module" src="../../JS/authCheck.js"></script>
 
-
-
-
-
-
-
-
-
-
-<!-- Firebase Phone 2FA - Simple UI -->
-
-<!-- Hidden reCAPTCHA container -->
-<div id="recaptcha-container"></div>
-
-<!-- Phone Setup Modal (פעם ראשונה) -->
-<div id="phoneSetupModal" class="twofa-overlay" style="display:none;">
-  <div class="twofa-modal">
-    <h2 class="twofa-title">הפעלת אימות דו-שלבי</h2>
-    <p class="twofa-text">
-      נא להזין את מספר הטלפון שלך. נשלח אליך SMS עם קוד אימות.
-    </p>
-
-    <form id="phoneSetupForm" class="twofa-form">
-      <div class="phone-input-container">
-        <label for="phoneInput">מספר טלפון</label>
-        <div class="phone-input-wrapper">
-          <input 
-            type="tel" 
-            id="phoneInput" 
-            placeholder="050-123-4567"
-            dir="ltr"
-          />
-        </div>
-        <span class="phone-hint">פורמט: 050-123-4567</span>
-      </div>
-
-      <div id="phoneError" class="twofa-error"></div>
-
-      <div class="twofa-buttons">
-        <button type="submit" class="harmony-button">שלח קוד אימות</button>
-        <button type="button" id="phoneSkip" class="harmony-button secondary">
-          דלג
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- Phone Verification Modal (אימות הקוד) -->
-<div id="phoneVerifyModal" class="twofa-overlay" style="display:none;">
-  <div class="twofa-modal">
-    <h2 class="twofa-title">אימות SMS</h2>
-    <p class="twofa-text">
-      שלחנו קוד בן 6 ספרות למספר:<br>
-      <strong id="verifyPhoneDisplay">+972-50-XXX-XXXX</strong>
-    </p>
-
-    <form id="phoneVerifyForm" class="twofa-form">
-      <div class="twofa-inputs">
-        <input type="text" maxlength="1" inputmode="numeric" class="twofa-digit" />
-        <input type="text" maxlength="1" inputmode="numeric" class="twofa-digit" />
-        <input type="text" maxlength="1" inputmode="numeric" class="twofa-digit" />
-        <input type="text" maxlength="1" inputmode="numeric" class="twofa-digit" />
-        <input type="text" maxlength="1" inputmode="numeric" class="twofa-digit" />
-        <input type="text" maxlength="1" inputmode="numeric" class="twofa-digit" />
-      </div>
-
-      <div id="verifyError" class="twofa-error"></div>
-
-      <div class="twofa-buttons">
-        <button type="submit" class="harmony-button">אמת קוד</button>
-        <button type="button" id="verifyCancel" class="harmony-button secondary">
-          ביטול
-        </button>
-      </div>
-    </form>
-
-    <div class="twofa-resend">
-      לא קיבלת SMS?
-      <button type="button" id="phoneResend" class="twofa-resend-link">
-        שלח שוב
-      </button>
-    </div>
-  </div>
-</div>
-
-<style>
-/* Phone Input Specific Styles */
-.phone-input-container {
-  margin-bottom: 20px;
-  text-align: right;
-}
-
-.phone-input-container label {
-  display: block;
-  font-weight: 600;
-  margin-bottom: 8px;
-  color: #333;
-}
-
-.phone-input-wrapper {
-  position: relative;
-}
-
-.phone-input-wrapper input {
-  width: 100%;
-  padding: 14px 16px;
-  font-size: 18px;
-  font-weight: 600;
-  border: 2px solid #e0e0e0;
-  border-radius: 12px;
-  background: #f8f9fa;
-  transition: all 0.3s ease;
-  direction: ltr;
-  text-align: center;
-}
-
-.phone-input-wrapper input:focus {
-  outline: none;
-  border-color: #4CAF50;
-  background: white;
-  box-shadow: 0 0 0 4px rgba(76, 175, 80, 0.1);
-}
-
-.phone-hint {
-  display: block;
-  font-size: 13px;
-  color: #666;
-  margin-top: 6px;
-}
-
-#verifyPhoneDisplay {
-  color: #4CAF50;
-  font-weight: 700;
-  direction: ltr;
-}
-
-/* Hide reCAPTCHA badge (optional) */
-.grecaptcha-badge {
-  visibility: hidden;
-}
-</style>
-
-<script>
-/**
- * דוגמא לשימוש ב-Firebase Phone 2FA
- * (להוסיף את הקוד הזה לתוך scriptLogin.js)
- */
-
-// דוגמא: שליחת קוד אימות
-async function sendPhoneVerification(phoneNumber) {
-    try {
-        await window.firebasePhone2FA.sendVerificationCode(phoneNumber);
-        console.log('✅ SMS sent to:', phoneNumber);
-        return true;
-    } catch (error) {
-        console.error('❌ Failed to send:', error.message);
-        alert(error.message);
-        return false;
-    }
-}
-
-// דוגמא: אימות קוד
-async function verifyPhoneCode(code) {
-    try {
-        await window.firebasePhone2FA.verifyCode(code);
-        console.log('✅ Code verified!');
-        return true;
-    } catch (error) {
-        console.error('❌ Verification failed:', error.message);
-        alert(error.message);
-        return false;
-    }
-}
-
-// דוגמא: זרימה מלאה
-async function fullPhone2FAFlow() {
-    // 1. בקש מספר טלפון
-    const phone = prompt('Enter phone: +972...');
-    
-    // 2. שלח SMS
-    const sent = await sendPhoneVerification(phone);
-    if (!sent) return false;
-    
-    // 3. בקש קוד
-    const code = prompt('Enter 6-digit code:');
-    
-    // 4. אמת
-    const verified = await verifyPhoneCode(code);
-    return verified;
-}
-</script>
-
-
-
-<!-- Firebase Phone 2FA Script -->
+<!-- 3. 🆕 Firebase Phone 2FA - חדש וחשוב! -->
 <script type="module" src="./firebase-phone-2fa.js"></script>
 
+<!-- 4. Login Script -->
 <script type="module" src="./scriptLogin.js"></script>
-
-<!-- <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    // ONLY login page calls redirectIfLoggedIn()
-    if (typeof redirectIfLoggedIn === 'function') redirectIfLoggedIn();
-  });
-</script> -->
-
 
 </body>
 </html>
