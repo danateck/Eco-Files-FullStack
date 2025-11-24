@@ -6641,18 +6641,21 @@ function saveProfiles(list) {
 
 // 🔹 פתיחת חלון "הוסף פרופיל"
 window.openProfileModal = function(profile) {
-  const backdrop = document.getElementById("profileModalBackdrop");
-  const titleEl  = document.getElementById("profileModalTitle");
-  const fullNameInput   = document.getElementById("profileFullName");
-  const idInput         = document.getElementById("profileIdNumber");
-  const birthInput      = document.getElementById("profileBirthDate");
-  const photoInput      = document.getElementById("profilePhotoInput");
-  const photoPreview    = document.getElementById("profilePhotoPreview");
+  const backdrop      = document.getElementById("profileModalBackdrop");
+  const titleEl       = document.getElementById("profileModalTitle");
+  const fullNameInput = document.getElementById("profileFullName");
+  const idInput       = document.getElementById("profileIdNumber");
+  const birthInput    = document.getElementById("profileBirthDate");
+  const photoInput    = document.getElementById("profilePhotoInput");
+  const photoPreview  = document.getElementById("profilePhotoPreview");
 
-  if (!backdrop) return;
+  if (!backdrop) {
+    console.error("❌ profileModalBackdrop לא קיים ב-HTML");
+    return;
+  }
 
+  // מצב עריכה
   if (profile) {
-    // ⭐ מצב עריכה
     currentEditingProfileId = profile.id;
     if (titleEl)       titleEl.textContent = "עריכת פרופיל";
     if (fullNameInput) fullNameInput.value = profile.fullName || "";
@@ -6671,9 +6674,8 @@ window.openProfileModal = function(profile) {
         photoPreview.textContent = letter;
       }
     }
-
   } else {
-    // ⭐ פרופיל חדש
+    // פרופיל חדש
     currentEditingProfileId = null;
     if (titleEl)       titleEl.textContent = "הוסף פרופיל";
     if (fullNameInput) fullNameInput.value = "";
