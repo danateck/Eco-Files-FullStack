@@ -6646,51 +6646,51 @@ window.openProfileModal = function(profile) {
   const fullNameInput   = document.getElementById("profileFullName");
   const idInput         = document.getElementById("profileIdNumber");
   const birthInput      = document.getElementById("profileBirthDate");
-  const thumbnailInput  = document.getElementById("profileInitials");
   const photoInput      = document.getElementById("profilePhotoInput");
   const photoPreview    = document.getElementById("profilePhotoPreview");
 
   if (!backdrop) return;
 
-  // עריכה או חדש?
   if (profile) {
+    // ⭐ מצב עריכה
     currentEditingProfileId = profile.id;
-    titleEl.textContent = "עריכת פרופיל";
+    if (titleEl)       titleEl.textContent = "עריכת פרופיל";
+    if (fullNameInput) fullNameInput.value = profile.fullName || "";
+    if (idInput)       idInput.value       = profile.idNumber || "";
+    if (birthInput)    birthInput.value    = profile.birthDate || "";
 
-    fullNameInput.value  = profile.fullName || "";
-    idInput.value        = profile.idNumber || "";
-    birthInput.value     = profile.birthDate || "";
-    thumbnailInput.value = profile.initials || "";
+    currentProfilePhotoDataUrl = profile.thumbnailDataUrl || null;
 
-currentProfilePhotoDataUrl = profile.thumbnailDataUrl || null;
-
-
-    if (currentProfilePhotoDataUrl) {
-      photoPreview.style.backgroundImage = `url(${currentProfilePhotoDataUrl})`;
-      photoPreview.textContent = "";
-    } else {
-      photoPreview.style.backgroundImage = "";
-      photoPreview.textContent = (profile.initials || "☺")[0];
+    if (photoPreview) {
+      if (currentProfilePhotoDataUrl) {
+        photoPreview.style.backgroundImage = `url(${currentProfilePhotoDataUrl})`;
+        photoPreview.textContent = "";
+      } else {
+        photoPreview.style.backgroundImage = "";
+        const letter = (profile.fullName || "☺").trim().charAt(0) || "☺";
+        photoPreview.textContent = letter;
+      }
     }
-  } else {
-    // פרופיל חדש
-    currentEditingProfileId = null;
-    titleEl.textContent = "הוסף פרופיל";
 
-    fullNameInput.value  = "";
-    idInput.value        = "";
-    birthInput.value     = "";
-    thumbnailInput.value = "";
+  } else {
+    // ⭐ פרופיל חדש
+    currentEditingProfileId = null;
+    if (titleEl)       titleEl.textContent = "הוסף פרופיל";
+    if (fullNameInput) fullNameInput.value = "";
+    if (idInput)       idInput.value       = "";
+    if (birthInput)    birthInput.value    = "";
+
     currentProfilePhotoDataUrl = null;
-    photoPreview.style.backgroundImage = "";
-    photoPreview.textContent = "+";
+    if (photoPreview) {
+      photoPreview.style.backgroundImage = "";
+      photoPreview.textContent = "+";
+    }
   }
 
-  // איפוס קובץ
   if (photoInput) photoInput.value = "";
-
   backdrop.classList.remove("hidden");
 };
+
 
 // 🔹 סגירת החלון
 function closeProfileModal() {
@@ -7014,13 +7014,16 @@ function initProfileModalEvents() {
       preview.style.backgroundImage = `url(${currentProfilePhotoDataUrl})`;
       preview.textContent = "";
 
-  } catch (err) {
+    } catch (err) {
     console.error("❌ Failed to process profile image:", err);
     alert("התמונה גדולה או בעייתית מדי, אשתמש רק באות של השם 😊");
     currentProfilePhotoDataUrl = null;
-    photoPreview.style.backgroundImage = "";
-    // האות תישאר כמו שהיא
+    if (preview) {
+      preview.style.backgroundImage = "";
+      // האות תישאר כמו שהיא
+    }
   }
+
 });
 
   }
