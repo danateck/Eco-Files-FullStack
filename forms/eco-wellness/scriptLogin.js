@@ -542,34 +542,37 @@ return new Promise((resolve) => {
 
 
 
-    async finishLogin(email, isNewUser = false) {
+async finishLogin(email, isNewUser = false) {
   try {
     console.log("=== FINISH LOGIN START ===");
     console.log("Email:", email);
     console.log("Is new user:", isNewUser);
 
+    // ננרמל אימייל למפתח התיעוד ב-Firestore
+    const emailKey = (email || "").trim().toLowerCase();
+
     // לשים את המשתמש הנוכחי בסשן (כמו שהיה לך)
-    await setCurrentUser(email);
+    await setCurrentUser(emailKey);
 
     // טוענים פרטי משתמש מה־Firestore
     console.log("Loading user data from Firestore...");
-    let userData = await loadUserDataFromFirestore(email);
+    let userData = await loadUserDataFromFirestore(emailKey);
     console.log("User data loaded:", userData);
 
     if (!userData) {
       console.log("Creating new user data in Firestore");
       userData = {
-        email: email,
+        email: emailKey,
         docs: [],
         createdAt: new Date().toISOString(),
       };
-      await saveUserDataToFirestore(email, userData);
+      await saveUserDataToFirestore(emailKey, userData);
     }
 
     // 🔐 אם אימות דו־שלבי מופעל – מריצים את הזרימה לפני שממשיכים
     if (userData.twoFactorEnabled) {
       console.log("🔐 twoFactorEnabled = true, running 2FA flow...");
-      const ok = await this.runTwoFactorFlow(email);
+      const ok = await this.runTwoFactorFlow(emailKey);
 
       if (!ok) {
         console.log("⛔ 2FA לא עבר / בוטל – לא נכנסים לדשבורד");
@@ -605,6 +608,7 @@ return new Promise((resolve) => {
     alert("שגיאה בהתחברות. אנא נסי שוב.");
   }
 }
+
 
     showHarmonySuccess() {
         this.form.style.transform = 'scale(0.95)';
