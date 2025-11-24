@@ -6586,6 +6586,9 @@ console.log("✅ addDocumentToSharedFolder patched with shared_with update!");
 // ==========================
 
 
+let currentEditingProfileId = null;
+
+
 // 👉 שמירה זמנית של התמונה בזמן יצירת פרופיל
 let currentProfilePhotoDataUrl = null;
 
@@ -6637,31 +6640,57 @@ function saveProfiles(list) {
 }
 
 // 🔹 פתיחת חלון "הוסף פרופיל"
-function openProfileModal() {
-  const backdrop   = document.getElementById("profileModalBackdrop");
-  const nameInput  = document.getElementById("profileFullName");
-  const idInput    = document.getElementById("profileIdNumber");
-  const birthInput = document.getElementById("profileBirthDate");
-  const photoInput = document.getElementById("profilePhotoInput");
-  const preview    = document.getElementById("profilePhotoPreview");
+window.openProfileModal = function(profile) {
+  const backdrop = document.getElementById("profileModalBackdrop");
+  const titleEl  = document.getElementById("profileModalTitle");
+  const fullNameInput   = document.getElementById("profileFullName");
+  const idInput         = document.getElementById("profileIdNumber");
+  const birthInput      = document.getElementById("profileBirthDate");
+  const thumbnailInput  = document.getElementById("profileInitials");
+  const photoInput      = document.getElementById("profilePhotoInput");
+  const photoPreview    = document.getElementById("profilePhotoPreview");
 
-  if (!backdrop || !nameInput || !birthInput || !preview) return;
+  if (!backdrop) return;
 
-  // איפוס שדות
-  nameInput.value  = "";
-  idInput.value    = "";
-  birthInput.value = "";
+  // עריכה או חדש?
+  if (profile) {
+    currentEditingProfileId = profile.id;
+    titleEl.textContent = "עריכת פרופיל";
+
+    fullNameInput.value  = profile.fullName || "";
+    idInput.value        = profile.idNumber || "";
+    birthInput.value     = profile.birthDate || "";
+    thumbnailInput.value = profile.initials || "";
+
+currentProfilePhotoDataUrl = profile.thumbnailDataUrl || null;
+
+
+    if (currentProfilePhotoDataUrl) {
+      photoPreview.style.backgroundImage = `url(${currentProfilePhotoDataUrl})`;
+      photoPreview.textContent = "";
+    } else {
+      photoPreview.style.backgroundImage = "";
+      photoPreview.textContent = (profile.initials || "☺")[0];
+    }
+  } else {
+    // פרופיל חדש
+    currentEditingProfileId = null;
+    titleEl.textContent = "הוסף פרופיל";
+
+    fullNameInput.value  = "";
+    idInput.value        = "";
+    birthInput.value     = "";
+    thumbnailInput.value = "";
+    currentProfilePhotoDataUrl = null;
+    photoPreview.style.backgroundImage = "";
+    photoPreview.textContent = "+";
+  }
+
+  // איפוס קובץ
   if (photoInput) photoInput.value = "";
-  currentProfilePhotoDataUrl = null;
-  preview.style.backgroundImage = "";
-  preview.textContent = "+";
 
   backdrop.classList.remove("hidden");
-  backdrop.setAttribute("aria-hidden", "false");
-
-  // מיקוד לשדה שם
-  setTimeout(() => nameInput.focus(), 50);
-}
+};
 
 // 🔹 סגירת החלון
 function closeProfileModal() {
@@ -6697,7 +6726,8 @@ function buildProfileCard(profile) {
 
   editBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    openProfileModal(profile); // פותח חלון עריכה עם נתונים קיימים
+    // ❗ פה היה profileData – צריך profile
+    openProfileModal(profile);
   });
 
   // 🔹 כפתור מחיקה קטן
@@ -6755,7 +6785,7 @@ function buildProfileCard(profile) {
   small.style.opacity = "0.7";
   small.style.fontSize = "0.75rem";
   const ageTxt = profile.age ? ` · גיל ${profile.age}` : "";
-  const birthTxt = profile.birthDate ? `נול/ה ${profile.birthDate}` : "";
+  const birthTxt = profile.birthDate ? `נולד/ה ${profile.birthDate}` : "";
   small.textContent = birthTxt + ageTxt;
 
   // 🔹 פתיחת פרופיל בעת לחיצה על הכרטיס
@@ -6772,6 +6802,7 @@ function buildProfileCard(profile) {
 
   return card;
 }
+
 
 
 // 🔹 מסך רשימת פרופילים (הטאב "פרופילים")
@@ -6972,26 +7003,29 @@ function initProfileModalEvents() {
 
   // טעינת תמונה + תצוגה מקדימה בעיגול
   if (photoInput && preview) {
-    photoInput.addEventListener("change", () => {
-      const file = photoInput.files?.[0];
-      if (!file) {
-        currentProfilePhotoDataUrl = null;
-        preview.style.backgroundImage = "";
-        preview.textContent = "+";
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = () => {
-        currentProfilePhotoDataUrl = reader.result;
-        preview.style.backgroundImage = `url(${currentProfilePhotoDataUrl})`;
-        preview.style.backgroundSize = "cover";
-        preview.style.backgroundPosition = "center";
-        preview.textContent = "";
-      };
-      reader.readAsDataURL(file);
-    });
+    photoInput.addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  try {
+    // ⭐ מקטין ואז שומר
+          const dataUrl = await resizeImageToDataUrl(file, 256);
+      currentProfilePhotoDataUrl = dataUrl;
+      preview.style.backgroundImage = `url(${currentProfilePhotoDataUrl})`;
+      preview.textContent = "";
+
+  } catch (err) {
+    console.error("❌ Failed to process profile image:", err);
+    alert("התמונה גדולה או בעייתית מדי, אשתמש רק באות של השם 😊");
+    currentProfilePhotoDataUrl = null;
+    photoPreview.style.backgroundImage = "";
+    // האות תישאר כמו שהיא
+  }
+});
+
   }
 
+  // שמירה
   // שמירה
   if (saveBtn) {
     saveBtn.addEventListener("click", () => {
@@ -7009,32 +7043,53 @@ function initProfileModalEvents() {
       }
 
       const age = calcAgeFromBirthDate(birthDate);
-
       const [firstName, ...rest] = fullName.split(" ");
       const lastName = rest.join(" ").trim();
 
-      const profile = {
-        id: crypto.randomUUID(),
-        fullName,
-        firstName: firstName || fullName,
-        lastName: lastName || "",
-        idNumber,
-        birthDate,
-        age: age ?? null,
-        thumbnailDataUrl: currentProfilePhotoDataUrl || null
-      };
-
       const profiles = loadProfiles();
-      profiles.push(profile);
-      saveProfiles(profiles);
 
+      if (currentEditingProfileId) {
+        // ⭐ מצב עריכה – מעדכנים את הקיים
+        const idx = profiles.findIndex(p => p.id === currentEditingProfileId);
+        if (idx !== -1) {
+          profiles[idx] = {
+            ...profiles[idx],
+            fullName,
+            firstName: firstName || fullName,
+            lastName: lastName || "",
+            idNumber,
+            birthDate,
+            age: age ?? null,
+            thumbnailDataUrl: currentProfilePhotoDataUrl != null
+              ? currentProfilePhotoDataUrl
+              : profiles[idx].thumbnailDataUrl || null
+          };
+        }
+      } else {
+        // ⭐ מצב יצירה – מוסיפים חדש
+        const profile = {
+          id: crypto.randomUUID(),
+          fullName,
+          firstName: firstName || fullName,
+          lastName: lastName || "",
+          idNumber,
+          birthDate,
+          age: age ?? null,
+          thumbnailDataUrl: currentProfilePhotoDataUrl || null
+        };
+        profiles.push(profile);
+      }
+
+      saveProfiles(profiles);
       closeProfileModal();
+
       // רענון מסך הפרופילים
       if (typeof openProfilesView === "function") {
         openProfilesView();
       }
     });
   }
+
 }
 
 // להריץ אחרי שהדף נטען
@@ -7061,3 +7116,53 @@ function deleteProfile(profileId) {
 
 
 // ═══════════════════════════════════════════════════════════
+
+
+
+
+
+// ⭐ מקטין תמונת פרופיל לפני שמירה (כדי שלא תהיה ענקית)
+async function resizeImageToDataUrl(file, maxSize = 256) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+
+    reader.onload = e => {
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let w = img.width;
+        let h = img.height;
+
+        // שמירה על יחס, אבל הגבלה לגודל מירבי
+        if (w > h) {
+          if (w > maxSize) {
+            h = Math.round(h * (maxSize / w));
+            w = maxSize;
+          }
+        } else {
+          if (h > maxSize) {
+            w = Math.round(w * (maxSize / h));
+            h = maxSize;
+          }
+        }
+
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+
+        try {
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+          resolve(dataUrl);
+        } catch (err) {
+          reject(err);
+        }
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
