@@ -57,6 +57,31 @@ app.post('/api/auth/send-2fa', async (req, res) => {
 });
 
 
+app.post("/api/auth/verify-2fa", async (req, res) => {
+  const { email, code } = req.body;
+
+  if (!email || !code) {
+    return res.status(400).json({ error: "Missing email or code" });
+  }
+
+  const result = await pool.query(
+    "SELECT code FROM login_codes WHERE email = $1",
+    [email]
+  );
+
+  if (!result.rows.length) {
+    return res.status(400).json({ error: "No code found" });
+  }
+
+  const correct = result.rows[0].code;
+
+  if (correct !== code) {
+    return res.status(401).json({ error: "Invalid code" });
+  }
+
+  // success  
+  return res.json({ success: true });
+});
 
 
 

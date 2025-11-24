@@ -196,11 +196,6 @@ async registerNewUserWithVerification() {
         this.emailInput.setAttribute('placeholder', ' ');
         this.passwordInput.setAttribute('placeholder', ' ');
 
-        // 👇 כפתור הרשמה
-  const signupBtn = document.getElementById('signupButton');
-  if (signupBtn) {
-    signupBtn.addEventListener('click', () => this.registerNewUserWithVerification());
-  }
 
 
     }
@@ -335,6 +330,179 @@ async registerNewUserWithVerification() {
         });
     }
 
+
+
+        // 🔐 מודאל לאימות דו־שלבי (2FA)
+    async runTwoFactorFlow(email) {
+        // בסיס ל־API כמו בשרת
+        const TWOFA_BASE =
+            (location.hostname === "localhost" || location.hostname === "127.0.0.1")
+                ? "http://localhost:8787"
+                : "https://eco-files.onrender.com";
+
+        // 1) שולחים מייל עם קוד
+        try {
+            const res = await fetch(`${TWOFA_BASE}/api/auth/send-2fa`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email })
+            });
+
+            if (!res.ok) {
+                console.error("2FA send failed:", await res.text());
+                alert("לא הצלחנו לשלוח קוד אימות למייל. נסי שוב.");
+                return false;
+            }
+        } catch (err) {
+            console.error("2FA send error:", err);
+            alert("שגיאה בשליחת קוד אימות. בדקי חיבור אינטרנט ונסי שוב.");
+            return false;
+        }
+
+        // 2) מציגים את המודאל
+        const overlay = document.getElementById("twofaOverlay");
+        const form = document.getElementById("twofaForm");
+        const cancelBtn = document.getElementById("twofaCancel");
+        const resendBtn = document.getElementById("twofaResend");
+        const errorEl = document.getElementById("twofaError");
+        const inputs = Array.from(
+            overlay.querySelectorAll(".twofa-digit")
+        );
+
+        if (!overlay || !form || !cancelBtn || !inputs.length) {
+            console.error("2FA modal elements not found");
+            alert("שגיאה בטעינת חלון האימות.");
+            return false;
+        }
+
+        // איפוס
+        inputs.forEach((i) => (i.value = ""));
+        errorEl.textContent = "";
+        overlay.style.display = "flex";
+        inputs[0].focus();
+
+        // תזוזת פוקוס, בהשראת הדוגמה ששלחת
+        const handleKeyDown = (e) => {
+            if (
+                !/^[0-9]{1}$/.test(e.key) &&
+                e.key !== "Backspace" &&
+                e.key !== "Delete" &&
+                e.key !== "Tab"
+            ) {
+                e.preventDefault();
+            }
+
+            if (e.key === "Delete" || e.key === "Backspace") {
+                const index = inputs.indexOf(e.target);
+                if (index > 0) {
+                    inputs[index].value = "";
+                    inputs[index - 1].focus();
+                }
+            }
+        };
+
+        const handleInput = (e) => {
+            const index = inputs.indexOf(e.target);
+            if (e.target.value && index < inputs.length - 1) {
+                inputs[index + 1].focus();
+            }
+        };
+
+        const handleFocus = (e) => e.target.select();
+
+        const handlePaste = (e) => {
+            e.preventDefault();
+            const text = e.clipboardData.getData("text");
+            if (!/^[0-9]{6}$/.test(text)) return;
+            const digits = text.split("");
+            inputs.forEach((input, index) => (input.value = digits[index] || ""));
+        };
+
+        inputs.forEach((input) => {
+            input.addEventListener("keydown", handleKeyDown);
+            input.addEventListener("input", handleInput);
+            input.addEventListener("focus", handleFocus);
+            input.addEventListener("paste", handlePaste);
+        });
+
+        const cleanup = () => {
+            overlay.style.display = "none";
+            inputs.forEach((input) => {
+                input.removeEventListener("keydown", handleKeyDown);
+                input.removeEventListener("input", handleInput);
+                input.removeEventListener("focus", handleFocus);
+                input.removeEventListener("paste", handlePaste);
+            });
+            form.removeEventListener("submit", onSubmit);
+            cancelBtn.removeEventListener("click", onCancel);
+            if (resendBtn) resendBtn.removeEventListener("click", onResend);
+        };
+
+        const getCodeFromInputs = () =>
+            inputs.map((i) => i.value.trim()).join("");
+
+        const onResend = async () => {
+            errorEl.textContent = "";
+            inputs.forEach((i) => (i.value = ""));
+            inputs[0].focus();
+            try {
+                const res = await fetch(`${TWOFA_BASE}/api/auth/send-2fa`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email })
+                });
+                if (!res.ok) {
+                    errorEl.textContent = "לא הצלחנו לשלוח מחדש. נסי שוב עוד רגע.";
+                }
+            } catch (err) {
+                errorEl.textContent = "שגיאה בשליחה מחדש. בדקי אינטרנט.";
+            }
+        };
+
+        return new Promise((resolve) => {
+            const onCancel = () => {
+                cleanup();
+                resolve(false);
+            };
+
+            const onSubmit = async (e) => {
+                e.preventDefault();
+                const code = getCodeFromInputs();
+                if (code.length !== 6) {
+                    errorEl.textContent = "נא להזין 6 ספרות.";
+                    return;
+                }
+
+                try {
+                    const res = await fetch(`${TWOFA_BASE}/api/auth/verify-2fa`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ email, code })
+                    });
+
+                    if (!res.ok) {
+                        errorEl.textContent = "קוד לא נכון. נסי שוב.";
+                        return;
+                    }
+
+                    // הצלחה
+                    cleanup();
+                    resolve(true);
+                } catch (err) {
+                    console.error("2FA verify error:", err);
+                    errorEl.textContent = "שגיאה באימות הקוד. נסי שוב.";
+                }
+            };
+
+            form.addEventListener("submit", onSubmit);
+            cancelBtn.addEventListener("click", onCancel);
+            if (resendBtn) resendBtn.addEventListener("click", onResend);
+        });
+    }
+
+
+
+
     async handleSubmit(e) {
         e.preventDefault();
 
@@ -351,67 +519,76 @@ async registerNewUserWithVerification() {
         console.log("Email:", email);
 
         try {
-  console.log("Attempting signInWithEmailAndPassword...");
-  const userCred = await this.signInWithEmailAndPassword(this.auth, email, password);
-  const user = userCred.user;
+            console.log("Attempting signInWithEmailAndPassword...");
+            const userCred = await this.signInWithEmailAndPassword(this.auth, email, password);
+            const user = userCred.user;
 
-  // 👇 נבדוק אם המייל מאומת
-  if (!user.emailVerified) {
-    // אופציונלי – לנסות לשלוח שוב מייל אימות
-    try {
-      await this.sendEmailVerification(user);
-    } catch (e) {
-      console.warn("Could not re-send verification email:", e);
+            // 💌 קודם כל: מוודאים שהמייל מאומת
+            if (!user.emailVerified) {
+                try {
+                    await this.sendEmailVerification(user);
+                } catch (e) {
+                    console.warn("Could not re-send verification email:", e);
+                }
+
+                alert("עליך לאמת את כתובת האימייל לפני כניסה למערכת. בדקי את המייל שלך (כולל ספאם).");
+                await this.auth.signOut();
+                this.setLoading(false);
+                return;
+            }
+
+            // 📂 טוענים את הנתונים של המשתמש מה-Firestore כדי לבדוק אם 2FA מופעלת
+            let userData = await loadUserDataFromFirestore(email);
+            const twoFactorEnabled = !!userData?.twoFactorEnabled;
+
+            // 🔐 אם המשתמש הפעיל אימות דו־שלבי – מפעילים את המודאל
+            if (twoFactorEnabled) {
+                const ok = await this.runTwoFactorFlow(email);
+                if (!ok) {
+                    // ביטלה/נכשלה באימות – לא נכנסים
+                    await this.auth.signOut();
+                    this.setLoading(false);
+                    return;
+                }
+            }
+
+            console.log("Sign in successful:", userCred);
+            await this.finishLogin(email);
+
+        } catch (err) {
+            const code = err.code || "";
+            const msg = err.message || "";
+
+            console.log("Login error code:", code);
+            console.log("Login error message:", msg);
+
+            if (code === "auth/wrong-password") {
+                this.showError("password", "סיסמה שגויה");
+                this.passwordInput.focus();
+                this.setLoading(false);
+                return;
+            }
+
+            if (code === "auth/user-not-found") {
+                this.showError("email", "לא נמצא משתמש עם כתובת האימייל הזו.");
+                this.emailInput.focus();
+                this.setLoading(false);
+                return;
+            }
+
+            if (code === "auth/invalid-email") {
+                this.showError("email", "כתובת האימייל אינה חוקית.");
+                this.emailInput.focus();
+                this.setLoading(false);
+                return;
+            }
+
+            console.error("Login failed (unknown error):", err);
+            this.showError("password", "שגיאה בהתחברות. אנא נסי שוב.");
+            this.setLoading(false);
+        }
     }
 
-    alert("עליך לאמת את כתובת האימייל לפני כניסה למערכת. בדקי את המייל שלך (כולל ספאם).");
-    await this.auth.signOut();
-    this.setLoading(false);
-    return;
-  }
-
-  console.log("Sign in successful:", userCred);
-  await this.finishLogin(email);
-
-} catch (err) {
-  // ... (ה־catch המעודכן מהסעיף הקודם)
-
-
-  const code = err.code || "";
-  const msg = err.message || "";
-
-  console.log("Login error code:", code);
-  console.log("Login error message:", msg);
-
-  // Wrong password
-  if (code === "auth/wrong-password") {
-    this.showError("password", "סיסמה שגויה");
-    this.passwordInput.focus();
-    this.setLoading(false);
-    return;
-  }
-
-  // משתמש לא קיים / קרדנציאל לא תקין / באג פנימי של ספארי
-  if (
-    code === "auth/user-not-found" ||
-    code === "auth/invalid-credential" ||
-    (code === "auth/internal-error" && msg.includes("INVALID_LOGIN_CREDENTIALS"))
-  ) {
-    this.showError(
-      "password",
-      "האימייל או הסיסמה לא נכונים, או שהחשבון לא קיים. אם זו הפעם הראשונה – צרי משתמש חדש."
-    );
-    this.setLoading(false);
-    return;
-  }
-
-  // Fallback
-  console.error("Login failed (unknown error):", err);
-  this.showError("password", "שגיאה בהתחברות. אנא נסי שוב.");
-  this.setLoading(false);
-}
-
-    }
 
      async finishLogin(email, isNewUser = false) {
         try {

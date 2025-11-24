@@ -76,9 +76,7 @@
 
 
                 <div style="text-align:center; margin-top: 0.75rem;">
-  <button type="button" id="signupButton" class="harmony-button secondary">
-    צור משתמש חדש
-  </button>
+
 </div>
 
 
@@ -154,6 +152,48 @@
             </div>
         </div>
     </div>
+
+
+
+
+    <!-- 2FA Modal -->
+<div id="twofaOverlay" class="twofa-overlay" style="display:none;">
+  <div class="twofa-modal">
+    <h2 class="twofa-title">אימות דו־שלבי</h2>
+    <p class="twofa-text">
+      שלחנו אלייך קוד בן 6 ספרות לכתובת המייל שלך.
+      הזיני את הקוד כדי להיכנס.
+    </p>
+
+    <form id="twofaForm" class="twofa-form">
+      <div class="twofa-inputs">
+        <input type="text" maxlength="1" inputmode="numeric" class="twofa-digit" />
+        <input type="text" maxlength="1" inputmode="numeric" class="twofa-digit" />
+        <input type="text" maxlength="1" inputmode="numeric" class="twofa-digit" />
+        <input type="text" maxlength="1" inputmode="numeric" class="twofa-digit" />
+        <input type="text" maxlength="1" inputmode="numeric" class="twofa-digit" />
+        <input type="text" maxlength="1" inputmode="numeric" class="twofa-digit" />
+      </div>
+
+      <div id="twofaError" class="twofa-error"></div>
+
+      <div class="twofa-buttons">
+        <button type="submit" class="harmony-button">אשר קוד</button>
+        <button type="button" id="twofaCancel" class="harmony-button secondary">
+          ביטול
+        </button>
+      </div>
+    </form>
+
+    <div class="twofa-resend">
+      לא קיבלת קוד?
+      <button type="button" id="twofaResend" class="twofa-resend-link">
+        שליחה מחדש
+      </button>
+    </div>
+  </div>
+</div>
+
 
 
 
