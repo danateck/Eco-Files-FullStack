@@ -2397,6 +2397,42 @@ body {
 <script>
   // Around line 1800+ in main.js - AFTER DOMContentLoaded
 
+
+  // ===== Firestore User Data Helpers (Required for 2FA) =====
+async function loadUserDataFromFirestore(email) {
+  try {
+    const db = window.db;
+    const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js");
+
+    const userRef = doc(db, "users", email);
+    const snapshot = await getDoc(userRef);
+
+    if (snapshot.exists()) {
+      return snapshot.data();
+    }
+    return null;
+  } catch (err) {
+    console.error("❌ Error loading user data:", err);
+    return null;
+  }
+}
+
+async function saveUserDataToFirestore(email, data) {
+  try {
+    const db = window.db;
+    const { doc, setDoc } = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js");
+
+    const userRef = doc(db, "users", email);
+    await setDoc(userRef, data, { merge: true });
+    return true;
+  } catch (err) {
+    console.error("❌ Error saving user data:", err);
+    return false;
+  }
+}
+
+
+
 document.addEventListener("DOMContentLoaded", async () => {
   console.log("📄 DOM Content Loaded");
   
