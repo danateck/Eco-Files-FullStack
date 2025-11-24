@@ -468,7 +468,10 @@ return new Promise((resolve) => {
             }
 
             // 3) אם מאומת – ממשיכים כרגיל
-            await this.finishLogin(email);
+           // 3) אם מאומת – ממשיכים כרגיל, תמיד עם מייל במצב lowercase
+const emailKey = email.trim().toLowerCase();
+await this.finishLogin(emailKey);
+
 
         } catch (err) {
             const code = err.code || "";
@@ -544,12 +547,13 @@ return new Promise((resolve) => {
 
 async finishLogin(email, isNewUser = false) {
   try {
-    console.log("=== FINISH LOGIN START ===");
-    console.log("Email:", email);
-    console.log("Is new user:", isNewUser);
-
-    // ננרמל אימייל למפתח התיעוד ב-Firestore
+    // נוודא שתמיד עובדים עם מייל מנורמל
     const emailKey = (email || "").trim().toLowerCase();
+
+    console.log("=== FINISH LOGIN START ===");
+    console.log("Email (raw):", email);
+    console.log("Email (key):", emailKey);
+    console.log("Is new user:", isNewUser);
 
     // לשים את המשתמש הנוכחי בסשן (כמו שהיה לך)
     await setCurrentUser(emailKey);
@@ -608,6 +612,7 @@ async finishLogin(email, isNewUser = false) {
     alert("שגיאה בהתחברות. אנא נסי שוב.");
   }
 }
+
 
 
     showHarmonySuccess() {

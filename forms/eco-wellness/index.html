@@ -155,39 +155,62 @@
 
 
 
+<!-- ===== OTP / 2FA Screen (קוד חד פעמי במייל) ===== -->
+<div id="otpContainer" style="display:none;">
+  <main class="relative min-h-screen flex flex-col justify-center bg-slate-50 overflow-hidden">
+    <div class="w-full max-w-6xl mx-auto px-4 md:px-6 py-24">
+      <div class="flex justify-center">
 
-    <!-- 2FA OTP VERIFICATION SCREEN -->
-<div id="otpContainer" class="otp-screen" style="display:none;">
-    <main class="relative min-h-screen flex flex-col justify-center bg-slate-50 overflow-hidden">
-        <div class="w-full max-w-6xl mx-auto px-4 md:px-6 py-24">
-            <div class="flex justify-center">
-                <div class="max-w-md mx-auto text-center bg-white px-4 sm:px-8 py-10 rounded-xl shadow">
-                    <header class="mb-8">
-                        <h1 class="text-2xl font-bold mb-1">Mobile Phone Verification</h1>
-                        <p class="text-[15px] text-slate-500">Enter the 4-digit verification code that was sent to your phone number.</p>
-                    </header>
+        <div class="max-w-md mx-auto text-center bg-white px-4 sm:px-8 py-10 rounded-xl shadow">
+          <header class="mb-8">
+            <h1 class="text-2xl font-bold mb-1">אימות כניסה</h1>
+            <p class="text-[15px] text-slate-500">
+              הזיני את הקוד בן 4 ספרות שנשלח אלייך למייל.
+            </p>
+          </header>
 
-                    <form id="otp-form">
-                        <div class="flex items-center justify-center gap-3">
-                            <input type="text" maxlength="1" class="otp-input">
-                            <input type="text" maxlength="1" class="otp-input">
-                            <input type="text" maxlength="1" class="otp-input">
-                            <input type="text" maxlength="1" class="otp-input">
-                        </div>
-                        <div class="max-w-[260px] mx-auto mt-4">
-                            <button type="submit" class="otp-btn">Verify Account</button>
-                        </div>
-                    </form>
-
-                    <div class="text-sm text-slate-500 mt-4">
-                        Didn't receive code?
-                        <a id="otpResend" class="font-medium text-indigo-500 hover:text-indigo-600" href="#">Resend</a>
-                    </div>
-                </div>
+          <!-- שימי לב: id="otp-form" והאינפוטים עם class="otp-input" -->
+          <form id="otp-form">
+            <div class="flex items-center justify-center gap-3">
+              <input
+                type="text"
+                maxlength="1"
+                class="otp-input w-14 h-14 text-center text-2xl font-extrabold text-slate-900 bg-slate-100 border border-transparent appearance-none rounded p-4 outline-none" />
+              <input
+                type="text"
+                maxlength="1"
+                class="otp-input w-14 h-14 text-center text-2xl font-extrabold text-slate-900 bg-slate-100 border border-transparent appearance-none rounded p-4 outline-none" />
+              <input
+                type="text"
+                maxlength="1"
+                class="otp-input w-14 h-14 text-center text-2xl font-extrabold text-slate-900 bg-slate-100 border border-transparent appearance-none rounded p-4 outline-none" />
+              <input
+                type="text"
+                maxlength="1"
+                class="otp-input w-14 h-14 text-center text-2xl font-extrabold text-slate-900 bg-slate-100 border border-transparent appearance-none rounded p-4 outline-none" />
             </div>
+
+            <div class="max-w-[260px] mx-auto mt-4">
+              <button type="submit"
+                class="w-full inline-flex justify-center whitespace-nowrap rounded-lg bg-indigo-500 px-3.5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-600 transition-colors duration-150">
+                אימות והמשך
+              </button>
+            </div>
+          </form>
+
+          <div class="text-sm text-slate-500 mt-4">
+            לא קיבלת קוד?
+            <a id="otpResend" class="font-medium text-indigo-500 hover:text-indigo-600" href="#0">
+              שלחי שוב
+            </a>
+          </div>
         </div>
-    </main>
+
+      </div>
+    </div>
+  </main>
 </div>
+
 
 
 
