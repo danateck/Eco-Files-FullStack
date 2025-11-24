@@ -183,6 +183,12 @@ async function initDB() {
       CREATE INDEX IF NOT EXISTS idx_owner ON documents(owner);
       CREATE INDEX IF NOT EXISTS idx_shared ON documents USING GIN(shared_with);
       CREATE INDEX IF NOT EXISTS idx_trashed ON documents(trashed);
+
+      CREATE TABLE IF NOT EXISTS login_codes (
+        email VARCHAR(255) PRIMARY KEY,
+        code VARCHAR(6) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
     `);
     console.log('✅ Database initialized');
   } catch (error) {

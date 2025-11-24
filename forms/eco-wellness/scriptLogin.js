@@ -629,6 +629,157 @@ async finishLogin(email, isNewUser = false) {
         }, 300);
     }
 
+    /**
+     * מריץ זרימת 2FA - שולח קוד למייל ומציג מודל לאימות
+     * @param {string} email - כתובת המייל של המשתמש
+     * @returns {Promise<boolean>} - true אם האימות עבר בהצלחה, false אם לא
+     */
+    async runTwoFactorFlow(email) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                console.log("🔐 Starting 2FA flow for:", email);
+
+                // שליחת קוד למייל דרך השרת
+                const sendResponse = await fetch('https://eco-files-fullstack.onrender.com/api/auth/send-2fa', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+
+                if (!sendResponse.ok) {
+                    throw new Error('Failed to send 2FA code');
+                }
+
+                console.log("✅ 2FA code sent to email");
+
+                // הצגת המודל
+                const overlay = document.getElementById('twofaOverlay');
+                const form = document.getElementById('twofaForm');
+                const inputs = document.querySelectorAll('.twofa-digit');
+                const errorDiv = document.getElementById('twofaError');
+                const cancelBtn = document.getElementById('twofaCancel');
+                const resendBtn = document.getElementById('twofaResend');
+
+                overlay.style.display = 'flex';
+
+                // ניקוי שדות קלט
+                inputs.forEach(input => {
+                    input.value = '';
+                    input.disabled = false;
+                });
+                errorDiv.textContent = '';
+                inputs[0].focus();
+
+                // טיפול בניווט בין השדות
+                inputs.forEach((input, index) => {
+                    input.addEventListener('input', (e) => {
+                        if (e.target.value.length === 1 && index < inputs.length - 1) {
+                            inputs[index + 1].focus();
+                        }
+                    });
+
+                    input.addEventListener('keydown', (e) => {
+                        if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                            inputs[index - 1].focus();
+                        }
+                    });
+                });
+
+                // טיפול בשליחת הטופס
+                const submitHandler = async (e) => {
+                    e.preventDefault();
+                    
+                    const enteredCode = Array.from(inputs).map(i => i.value).join('');
+                    
+                    if (enteredCode.length !== 6) {
+                        errorDiv.textContent = 'נא להזין 6 ספרות';
+                        return;
+                    }
+
+                    // אימות הקוד מול השרת
+                    try {
+                        const verifyResponse = await fetch('https://eco-files-fullstack.onrender.com/api/auth/verify-2fa', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email, code: enteredCode })
+                        });
+
+                        if (verifyResponse.ok) {
+                            console.log("✅ 2FA code verified successfully");
+                            overlay.style.display = 'none';
+                            cleanup();
+                            resolve(true);
+                        } else {
+                            errorDiv.textContent = 'קוד שגוי, נסי שוב';
+                            inputs.forEach(input => {
+                                input.value = '';
+                                input.classList.add('error');
+                            });
+                            inputs[0].focus();
+                            
+                            setTimeout(() => {
+                                inputs.forEach(input => input.classList.remove('error'));
+                            }, 500);
+                        }
+                    } catch (err) {
+                        console.error('Error verifying 2FA code:', err);
+                        errorDiv.textContent = 'שגיאה באימות הקוד';
+                    }
+                };
+
+                // טיפול בביטול
+                const cancelHandler = () => {
+                    console.log("⛔ 2FA cancelled by user");
+                    overlay.style.display = 'none';
+                    cleanup();
+                    resolve(false);
+                };
+
+                // טיפול בשליחה מחדש
+                const resendHandler = async () => {
+                    try {
+                        console.log("🔐 Resending 2FA code");
+                        
+                        const response = await fetch('https://eco-files-fullstack.onrender.com/api/auth/send-2fa', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email })
+                        });
+
+                        if (response.ok) {
+                            alert('הקוד נשלח שוב למייל שלך');
+                            inputs.forEach(input => input.value = '');
+                            errorDiv.textContent = '';
+                            inputs[0].focus();
+                        } else {
+                            alert('שגיאה בשליחת הקוד מחדש');
+                        }
+                    } catch (err) {
+                        console.error('Error resending 2FA code:', err);
+                        alert('שגיאה בשליחת הקוד מחדש');
+                    }
+                };
+
+                // הוספת מאזינים
+                form.addEventListener('submit', submitHandler);
+                cancelBtn.addEventListener('click', cancelHandler);
+                resendBtn.addEventListener('click', resendHandler);
+
+                // פונקציית ניקוי
+                function cleanup() {
+                    form.removeEventListener('submit', submitHandler);
+                    cancelBtn.removeEventListener('click', cancelHandler);
+                    resendBtn.removeEventListener('click', resendHandler);
+                }
+
+            } catch (err) {
+                console.error("❌ Error in 2FA flow:", err);
+                alert("שגיאה באימות דו-שלבי. נסי שוב.");
+                resolve(false);
+            }
+        });
+    }
+
     setupGoogleButton() {
     const googleBtn = document.querySelector(".earth-social");
     if (!googleBtn) return;
