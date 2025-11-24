@@ -574,16 +574,12 @@ async finishLogin(email, isNewUser = false) {
     }
 
     // 🔐 אם אימות דו־שלבי מופעל – מריצים את הזרימה לפני שממשיכים
-    if (userData.twoFactorEnabled) {
-      console.log("🔐 twoFactorEnabled = true, running 2FA flow...");
-      const ok = await this.runTwoFactorFlow(emailKey);
-
-      if (!ok) {
-        console.log("⛔ 2FA לא עבר / בוטל – לא נכנסים לדשבורד");
-        await this.auth.signOut();
-        this.setLoading(false);
-        return;
-      }
+   if (userData.twoFactorEnabled) {
+        const verified = await this.runFirebasePhone2FA(email);
+        if (!verified) {
+            await this.auth.signOut();
+            return;
+        }
     } else {
       console.log("2FA כבוי עבור המשתמש הזה, ממשיכים כרגיל.");
     }
@@ -612,6 +608,173 @@ async finishLogin(email, isNewUser = false) {
     alert("שגיאה בהתחברות. אנא נסי שוב.");
   }
 }
+
+
+
+
+
+
+
+
+
+async runFirebasePhone2FA(email) {
+    try {
+        console.log('📱 Starting Firebase Phone 2FA');
+        
+        // טוען נתונים
+        const userData = await loadUserDataFromFirestore(email);
+        let phoneNumber = userData?.phoneNumber;
+
+        // אם אין מספר - בקש
+        if (!phoneNumber) {
+            phoneNumber = await this.requestPhoneNumber();
+            if (!phoneNumber) return false;
+            
+            // שמור ב-Firestore
+            await saveUserDataToFirestore(email, {
+                ...userData,
+                phoneNumber: phoneNumber
+            });
+        }
+
+        // שלח SMS
+        await window.firebasePhone2FA.sendVerificationCode(phoneNumber);
+        
+        // אמת קוד
+        const verified = await this.showPhoneVerifyModal(phoneNumber);
+        return verified;
+
+    } catch (err) {
+        console.error('❌ Phone 2FA error:', err);
+        alert(err.message);
+        return false;
+    }
+}
+
+async requestPhoneNumber() {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('phoneSetupModal');
+        const form = document.getElementById('phoneSetupForm');
+        const input = document.getElementById('phoneInput');
+        const errorDiv = document.getElementById('phoneError');
+        const skipBtn = document.getElementById('phoneSkip');
+
+        modal.style.display = 'flex';
+        input.value = '';
+        errorDiv.textContent = '';
+
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            const phone = input.value.trim();
+            
+            if (!phone) {
+                errorDiv.textContent = 'נא להזין מספר טלפון';
+                return;
+            }
+
+            const normalized = window.firebasePhone2FA.normalizePhone(phone);
+            
+            if (!window.firebasePhone2FA.isValidPhone(normalized)) {
+                errorDiv.textContent = 'מספר טלפון לא תקין';
+                return;
+            }
+
+            modal.style.display = 'none';
+            resolve(normalized);
+        };
+
+        skipBtn.onclick = () => {
+            modal.style.display = 'none';
+            resolve(null);
+        };
+    });
+}
+
+async showPhoneVerifyModal(phoneNumber) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('phoneVerifyModal');
+        const form = document.getElementById('phoneVerifyForm');
+        const inputs = modal.querySelectorAll('.twofa-digit');
+        const errorDiv = document.getElementById('verifyError');
+        const cancelBtn = document.getElementById('verifyCancel');
+        const resendBtn = document.getElementById('phoneResend');
+        const phoneDisplay = document.getElementById('verifyPhoneDisplay');
+
+        // הצג מספר מוסתר
+        const masked = phoneNumber.replace(/(\+972)(\d{2})(\d{3})(\d{4})/, '$1-$2-XXX-$4');
+        phoneDisplay.textContent = masked;
+
+        modal.style.display = 'flex';
+        inputs.forEach(inp => inp.value = '');
+        errorDiv.textContent = '';
+        inputs[0].focus();
+
+        // ניווט בין שדות
+        inputs.forEach((inp, idx) => {
+            inp.oninput = (e) => {
+                if (e.target.value.length === 1 && idx < inputs.length - 1) {
+                    inputs[idx + 1].focus();
+                }
+            };
+            inp.onkeydown = (e) => {
+                if (e.key === 'Backspace' && !e.target.value && idx > 0) {
+                    inputs[idx - 1].focus();
+                }
+            };
+        });
+
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            const code = Array.from(inputs).map(i => i.value).join('');
+            
+            if (code.length !== 6) {
+                errorDiv.textContent = 'נא להזין 6 ספרות';
+                return;
+            }
+
+            try {
+                await window.firebasePhone2FA.verifyCode(code);
+                console.log('✅ Verified!');
+                modal.style.display = 'none';
+                resolve(true);
+            } catch (err) {
+                errorDiv.textContent = err.message;
+                inputs.forEach(inp => {
+                    inp.value = '';
+                    inp.classList.add('error');
+                });
+                inputs[0].focus();
+                setTimeout(() => {
+                    inputs.forEach(inp => inp.classList.remove('error'));
+                }, 500);
+            }
+        };
+
+        cancelBtn.onclick = () => {
+            modal.style.display = 'none';
+            resolve(false);
+        };
+
+        resendBtn.onclick = async () => {
+            try {
+                await window.firebasePhone2FA.sendVerificationCode(phoneNumber);
+                alert('קוד חדש נשלח!');
+                inputs.forEach(inp => inp.value = '');
+                errorDiv.textContent = '';
+                inputs[0].focus();
+            } catch (err) {
+                alert(err.message);
+            }
+        };
+    });
+}
+
+
+
+
+
+
+
 
 
 
