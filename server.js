@@ -48,13 +48,10 @@ app.post('/api/auth/send-2fa', async (req, res) => {
       return res.status(400).json({ error: 'Missing email' });
     }
 
-    // מוודאים שזה באמת המשתמש שמנסה להתחבר (אופציונלי: להשוות ל־getUserFromRequest)
-
     // קוד 6 ספרות
     const code = (Math.floor(100000 + Math.random() * 900000)).toString();
 
-    // לשמור את הקוד בבסיס נתונים שלך (ב־users או בטבלת login_codes)
-        // שמירה של הקוד בדאטאבייס
+    // שומרות קוד בטבלה כמו קודם
     await pool.query(
       `INSERT INTO login_codes (email, code, created_at)
        VALUES ($1, $2, NOW())
@@ -62,39 +59,17 @@ app.post('/api/auth/send-2fa', async (req, res) => {
       [userEmail, code]
     );
 
-    console.log("📧 2FA code for", userEmail, "is:", code);
+    // ❌ לא שולחים יותר מייל דרך Nodemailer / SMTP
+    // await mailer.sendMail({ ... });
 
-    // שולחים מייל רק אם ה־SMTP מוגדר כמו שצריך
-    if (
-      process.env.SMTP_HOST &&
-      process.env.SMTP_USER &&
-      process.env.SMTP_PASS &&
-      process.env.SMTP_FROM
-    ) {
-      try {
-        await mailer.sendMail({
-          from: process.env.SMTP_FROM,
-          to: userEmail,
-          subject: 'קוד אימות ל-Eco Files',
-          text: `קוד האימות שלך הוא: ${code} (בתוקף ל-10 דקות).`,
-        });
-        console.log("✅ 2FA mail sent to:", userEmail);
-      } catch (mailErr) {
-        console.error("⚠️ Failed to send 2FA mail:", mailErr);
-        // לא מפילים את הבקשה – עדיין מחזירים success, כי הקוד שמור בדאטאבייס
-      }
-    } else {
-      console.log("⚠️ SMTP not configured, mail not sent.");
-    }
-
-    // תמיד מחזירים תשובה מהר לפרונט
-    res.json({ success: true });
-
+    // ✅ שולחים את הקוד לפרונט שישלח אותו במייל דרך EmailJS
+    res.json({ success: true, code });
   } catch (err) {
     console.error('❌ 2FA mail error:', err);
-    res.status(500).json({ error: 'Failed to send 2FA code' });
+    res.status(500).json({ error: 'Failed to generate 2FA code' });
   }
 });
+
 
 
 app.post("/api/auth/verify-2fa", async (req, res) => {

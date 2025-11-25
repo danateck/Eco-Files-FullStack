@@ -834,7 +834,30 @@ async showPhoneVerifyModal(phoneNumber) {
                 }
 
                 const responseData = await sendResponse.json();
-                console.log("✅ 2FA code sent successfully:", responseData);
+console.log("✅ 2FA code generated on server:", responseData);
+
+const code = responseData.code;
+if (!code) {
+  throw new Error("Server did not return 2FA code");
+}
+
+// 📧 שליחת המייל דרך EmailJS
+try {
+  await emailjs.send(
+    "EMAILJS_SERVICE_ID",    // להחליף
+    "EMAILJS_TEMPLATE_ID",   // להחליף
+    {
+      to_email: email,
+      code: code,
+    }
+  );
+  console.log("📧 2FA email sent via EmailJS");
+} catch (e) {
+  console.error("❌ EmailJS error:", e);
+  alert("שגיאה בשליחת המייל עם קוד האימות. נסי שוב.");
+  return resolve(false);
+}
+
 
                 // הצגת המודל
                 const overlay = document.getElementById('twofaOverlay');
@@ -928,29 +951,42 @@ const inputs = overlay.querySelectorAll('.twofa-digit');
 
                 // טיפול בשליחה מחדש
                 const resendHandler = async () => {
-                    try {
-                        console.log("🔐 Resending 2FA code");
-                        
-                        const response = await fetch('https://eco-files.onrender.com/api/auth/send-2fa'
-, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ email })
-                        });
+  try {
+    console.log("🔐 Resending 2FA code");
+    
+    const response = await fetch('https://eco-files.onrender.com/api/auth/send-2fa', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
 
-                        if (response.ok) {
-                            alert('הקוד נשלח שוב למייל שלך');
-                            inputs.forEach(input => input.value = '');
-                            errorDiv.textContent = '';
-                            inputs[0].focus();
-                        } else {
-                            alert('שגיאה בשליחת הקוד מחדש');
-                        }
-                    } catch (err) {
-                        console.error('Error resending 2FA code:', err);
-                        alert('שגיאה בשליחת הקוד מחדש');
-                    }
-                };
+    if (!response.ok) {
+      alert('שגיאה בשליחת הקוד מחדש');
+      return;
+    }
+
+    const data = await response.json();
+    const newCode = data.code;
+
+    await emailjs.send(
+      "EMAILJS_SERVICE_ID",
+      "EMAILJS_TEMPLATE_ID",
+      {
+        to_email: email,
+        code: newCode,
+      }
+    );
+
+    alert('הקוד נשלח שוב למייל שלך');
+    inputs.forEach(input => input.value = '');
+    errorDiv.textContent = '';
+    inputs[0].focus();
+  } catch (err) {
+    console.error('Error resending 2FA code:', err);
+    alert('שגיאה בשליחת הקוד מחדש');
+  }
+};
+
 
                 // הוספת מאזינים
                 form.addEventListener('submit', submitHandler);
