@@ -1190,6 +1190,7 @@ body {
   pointer-events: none;
 }
 
+
 .eco-alert {
   pointer-events: auto;
   margin-top: 25px;
@@ -1294,3 +1295,11 @@ body {
   font-weight: 600;
   cursor: pointer;
 }
+
+
+
+.eco-alert,
+.eco-confirm-backdrop {
+  pointer-events: auto !important;/* הכפתורים בפנים כן קליקים */
+}
+
