@@ -6966,7 +6966,7 @@ async function loadMyProfileInvites() {
 
 
 
-// 🔄 שליחת הזמנת שיתוף פרופיל
+// 🔄 שליחת הזמנת שיתוף פרופיל + שיתוף המסמכים המקושרים
 async function shareProfile(profileId) {
   if (!window.isFirebaseAvailable || !window.isFirebaseAvailable()) {
     alert("שיתוף פרופילים דורש Firebase פעיל");
@@ -7001,6 +7001,7 @@ async function shareProfile(profileId) {
   }
 
   try {
+    // 1️⃣ יצירת בקשה ב-Firestore
     const col = window.fs.collection(window.db, "profileInvites");
 
     await window.fs.addDoc(col, {
@@ -7022,17 +7023,74 @@ async function shareProfile(profileId) {
       createdAt: Date.now()
     });
 
+    // 💬 הודעה למשתמשת
     if (typeof showNotification === "function") {
       showNotification("נשלחה בקשת שיתוף פרופיל ✅");
     } else {
       alert("נשלחה בקשת שיתוף פרופיל ✅");
     }
+
+    // 2️⃣ שיתוף כל המסמכים המקושרים לפרופיל הזה
+    //    כדי שהחבר יראה אותם ב־/api/docs (shared_with ? email)
+    if (Array.isArray(window.allDocsData) && typeof window.updateDocument === "function") {
+      console.log("🔍 מחפשת מסמכים של הפרופיל לשיתוף...");
+
+      // כל המסמכים שאת הבעלים שלהם
+      const ownedDocs = window.allDocsData.filter(d => {
+        const owner = (d.owner || "").toLowerCase();
+        return owner === me;
+      });
+
+      // מסמכים שמקושרים לפרופיל – בדיוק כמו openProfileCategories
+      const docsForProfile = ownedDocs
+        .filter(d => Array.isArray(d.recipient))
+        .filter(d => {
+          const names = d.recipient
+            .map(r => (r || "").trim())
+            .filter(Boolean);
+          return (
+            names.includes(profile.fullName) ||
+            (profile.firstName && names.includes(profile.firstName))
+          );
+        })
+        .filter(d => !d._trashed);
+
+      console.log("📄 נמצאו", docsForProfile.length, "מסמכים קשורים לפרופיל לשיתוף");
+
+      for (const d of docsForProfile) {
+        // current shared_with (מהשרת)
+        const currentShared =
+          Array.isArray(d.shared_with)
+            ? d.shared_with
+            : (Array.isArray(d.sharedWith) ? d.sharedWith : []);
+
+        const lower = currentShared.map(x => (x || "").toLowerCase());
+        if (lower.includes(toEmail)) {
+          // כבר משותף לאותו מייל
+          continue;
+        }
+
+        const newShared = [...currentShared, toEmail];
+
+        console.log("🔗 מעדכן shared_with למסמך", d.id, "=>", newShared);
+
+        try {
+          await window.updateDocument(d.id, { shared_with: newShared });
+
+          // עדכון גם במשתנה המקומי, כדי שהמסך שלך יישאר מסונכרן
+          d.shared_with = newShared;
+        } catch (errDoc) {
+          console.warn("⚠️ שגיאה בעדכון shared_with למסמך", d.id, errDoc);
+        }
+      }
+
+      console.log("✅ סיימתי לעדכן shared_with לכל המסמכים הרלוונטיים");
+    }
   } catch (err) {
-    console.error("❌ Error sending profile invite:", err);
-    alert("שגיאה בשליחת בקשה");
+    console.error("❌ Error sending profile invite / sharing docs:", err);
+    alert("שגיאה בשיתוף הפרופיל או במסמכים");
   }
 }
-
 
 
 
