@@ -655,6 +655,7 @@ select, .btn{
 
 /* the X button */
 .close-btn {
+  display: none; 
   background: transparent;
   border: none;
   font-size: 1.4rem;
@@ -889,6 +890,20 @@ body.dark-mode .sidebar {
     @media (min-width: 761px) {
       .mobile-menu-btn { display: none; }
     }
+
+
+    @media (max-width: 760px) {
+  .close-btn {
+    display: inline-block;  /* במובייל רואים את האיקס */
+  }
+}
+
+@media (min-width: 761px) {
+  .close-btn {
+    display: none;          /* במסכים גדולים האיקס נעלם */
+  }
+}
+
 
     .mobile-logout {
       display: none;
