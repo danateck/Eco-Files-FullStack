@@ -810,9 +810,11 @@ async showPhoneVerifyModal(phoneNumber) {
                 console.log("🔐 Starting 2FA flow for:", email);
 
                 // שליחת קוד למייל דרך השרת
-                console.log("📤 Sending request to:", 'https://eco-files-fullstack.onrender.com/api/auth/send-2fa');
+                console.log("📤 Sending request to:", 'https://eco-files.onrender.com/api/auth/send-2fa'
+);
                 
-                const sendResponse = await fetch('https://eco-files-fullstack.onrender.com/api/auth/send-2fa', {
+                const sendResponse = await fetch('https://eco-files.onrender.com/api/auth/send-2fa'
+, {
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json',
@@ -886,7 +888,8 @@ const inputs = overlay.querySelectorAll('.twofa-digit');
 
                     // אימות הקוד מול השרת
                     try {
-                        const verifyResponse = await fetch('https://eco-files-fullstack.onrender.com/api/auth/verify-2fa', {
+                        const verifyResponse = await fetch('https://eco-files.onrender.com/api/auth/verify-2fa'
+, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ email, code: enteredCode })
@@ -928,7 +931,8 @@ const inputs = overlay.querySelectorAll('.twofa-digit');
                     try {
                         console.log("🔐 Resending 2FA code");
                         
-                        const response = await fetch('https://eco-files-fullstack.onrender.com/api/auth/send-2fa', {
+                        const response = await fetch('https://eco-files.onrender.com/api/auth/send-2fa'
+, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ email })
