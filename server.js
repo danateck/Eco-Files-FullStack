@@ -104,8 +104,6 @@ app.post("/api/auth/verify-2fa", async (req, res) => {
 
 
 
-===== PostgreSQL Connection =====
-
 
 pool.connect((err, client, release) => {
   if (err) {
