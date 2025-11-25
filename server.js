@@ -9,6 +9,25 @@ const app = express();
 const PORT = process.env.PORT || 8787;
 
 
+app.use(cors({
+  origin: ['https://danateck.github.io', 'http://localhost:3000', 'http://127.0.0.1:5500'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Dev-Email', 'X-User-Email', 'X-Folder-Id', 'X-Shared-Access'],
+  exposedHeaders: ['Content-Length', 'Content-Type'],
+  maxAge: 86400
+}));
+
+// Handle preflight OPTIONS requests explicitly
+app.options('*', cors());
+
+app.use(express.json());
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
+
 const nodemailer = require('nodemailer');
 
 const mailer = nodemailer.createTransport({
@@ -85,11 +104,8 @@ app.post("/api/auth/verify-2fa", async (req, res) => {
 
 
 
-// ===== PostgreSQL Connection =====
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
+===== PostgreSQL Connection =====
+
 
 pool.connect((err, client, release) => {
   if (err) {
@@ -100,20 +116,8 @@ pool.connect((err, client, release) => {
   }
 });
 
-// ===== Middleware =====
-app.use(cors({
-  origin: ['https://danateck.github.io', 'http://localhost:3000', 'http://127.0.0.1:5500'],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Dev-Email', 'X-User-Email', 'X-Folder-Id', 'X-Shared-Access'],
-  exposedHeaders: ['Content-Length', 'Content-Type'],
-  maxAge: 86400
-}));
 
-// Handle preflight OPTIONS requests explicitly
-app.options('*', cors());
 
-app.use(express.json());
 
 // ===== Logging middleware =====
 app.use((req, res, next) => {
