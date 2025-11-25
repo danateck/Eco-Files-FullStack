@@ -37,41 +37,31 @@ import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, setPersistence
 
 
 function showConfirm(message, onYes) {
-  const root = document.getElementById("eco-alert-root");
+  const overlay = document.getElementById("eco-confirm-overlay");
+  const msg = document.getElementById("eco-confirm-message");
+  const btnYes = document.getElementById("eco-confirm-yes");
+  const btnNo = document.getElementById("eco-confirm-no");
 
-  const backdrop = document.createElement("div");
-  backdrop.className = "eco-confirm-backdrop";
+  msg.textContent = message;
+  overlay.style.display = "flex";
 
-  const box = document.createElement("div");
-  box.className = "eco-confirm-box";
+  // ביטול קודם כדי לא ליצור כפילויות
+  btnYes.onclick = null;
+  btnNo.onclick = null;
+  overlay.onclick = null;
 
-  box.innerHTML = `
-    <h3 class="eco-confirm-title">האם את בטוחה?</h3>
-    <p style="margin: 8px 0 0">${message}</p>
-
-    <div class="eco-confirm-actions">
-      <button class="eco-btn-yes">כן</button>
-      <button class="eco-btn-no">לא</button>
-    </div>
-  `;
-
-  backdrop.appendChild(box);
-  root.appendChild(backdrop);
-
-  // כפתור כן
-  box.querySelector(".eco-btn-yes").onclick = () => {
-    backdrop.remove();
+  btnYes.onclick = () => {
+    overlay.style.display = "none";
     if (typeof onYes === "function") onYes();
   };
 
-  // כפתור לא
-  box.querySelector(".eco-btn-no").onclick = () => {
-    backdrop.remove();
+  btnNo.onclick = () => {
+    overlay.style.display = "none";
   };
 
   // לחיצה בחוץ → ביטול
-  backdrop.onclick = (e) => {
-    if (e.target === backdrop) backdrop.remove();
+  overlay.onclick = (e) => {
+    if (e.target === overlay) overlay.style.display = "none";
   };
 }
 
