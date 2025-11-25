@@ -1777,6 +1777,83 @@ body {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* OVERLAY */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  z-index: 99999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  animation: fadeIn .25s ease;
+  direction: rtl;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; } 
+  to   { opacity: 1; }
+}
+
+/* POPUP BOX */
+.popup {
+  background: white;
+  padding: 24px 26px;
+  border-radius: 14px;
+  width: min(380px, 90%);
+  text-align: right;
+  animation: dropDown .35s ease;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+}
+
+@keyframes dropDown {
+  0%   { opacity: 0; transform: translateY(-22px) scale(.95); }
+  60%  { opacity: 1; transform: translateY(4px) scale(1.02); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* BUTTONS */
+.buttons {
+  margin-top: 18px;
+  display: flex;
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+.btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: none;
+  font-weight: 600;
+}
+
+.btn-primary {
+  background: #dc2626;
+  color: white;
+}
+
+.btn-cancel {
+  background: #e5e7eb;
+  color: #111;
+}
+
+
+
+
   </style>
 </head>
 
@@ -2753,6 +2830,19 @@ async function updateTwoFactorSetting(email, enabled) {
 <!-- 🔔 ROOT לכל ההודעות היפות -->
 <div id="eco-alert-root"></div>
 
+
+
+
+
+<div id="eco-confirm-overlay" class="overlay" style="display: none;">
+  <div class="popup">
+    <p id="eco-confirm-message"></p>
+    <div class="buttons">
+      <button id="eco-confirm-no" class="btn btn-cancel">לא</button>
+      <button id="eco-confirm-yes" class="btn btn-primary">כן</button>
+    </div>
+  </div>
+</div>
 
 
 </body>
