@@ -1963,6 +1963,25 @@ body::-webkit-scrollbar-thumb:hover,
 
 
 
+/* אנימציית קפיצה */
+@keyframes icon-bounce {
+  0%   { transform: translateY(0); }
+  30%  { transform: translateY(-4px); }
+  60%  { transform: translateY(2px); }
+  100% { transform: translateY(0); }
+}
+
+/* כל האייקונים בתוך כפתורי ניווט */
+.tab-btn img {
+  transition: 0.3s ease;
+}
+
+/* כשהעכבר עובר על הכפתור – האייקון קופץ */
+.tab-btn:hover img {
+  animation: icon-bounce 0.4s ease;
+}
+
+
 
   </style>
 </head>
