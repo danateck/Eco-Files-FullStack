@@ -6,111 +6,6 @@ import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, setPersistence
 
 
 
-  import { doc, getFirestore, updateDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-
-async function sendEmailOTP(email) {
-    const firestore = getFirestore();
-
-    // יצירת קוד אקראי בן 6 ספרות
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-    // תוקף של 5 דקות
-    const expiresAt = Date.now() + 5 * 60 * 1000;
-
-    // שמירה במסמך של המשתמש
-    await updateDoc(doc(firestore, "users", email), {
-        emailOtp: otp,
-        emailOtpExpires: expiresAt
-    });
-
-    return otp;
-}
-
-
-import { sendEmailVerification } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-
-async function sendOTPEmail(user, otp) {
-    const actionCodeSettings = {
-        url: window.location.href,
-        handleCodeInApp: false
-    };
-
-    await sendEmailVerification(user, actionCodeSettings);
-
-    // שולחים את ה-OTP במייל
-    fetch("https://formspree.io/f/xayrqokw", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            email: user.email,
-            message: `Eco Files Verification Code: ${otp}`
-        })
-    });
-
-    return true;
-}
-
-
-
-
-async function requestEmailOTP() {
-    const user = getAuth().currentUser;
-
-    if (!user) {
-        alert("לא נמצא משתמש");
-        return;
-    }
-
-    // 1. יוצרים OTP
-    const otp = await sendEmailOTP(user.email);
-
-    // 2. שולחים למייל
-    await sendOTPEmail(user, otp);
-
-    alert("קוד אימות נשלח למייל ✉️");
-}
-
-
-
-
-async function verifyEmailOTP(inputCode) {
-    const firestore = getFirestore();
-    const user = getAuth().currentUser;
-
-    const ref = doc(firestore, "users", user.email);
-    const snap = await getDoc(ref);
-
-    if (!snap.exists()) return false;
-
-    const data = snap.data();
-
-    if (!data.emailOtp || !data.emailOtpExpires) return false;
-
-    // בדיקת תוקף
-    if (Date.now() > data.emailOtpExpires) {
-        alert("הקוד פג תוקף ❌");
-        return false;
-    }
-
-    // השוואת הקוד
-    if (data.emailOtp !== inputCode) {
-        alert("קוד שגוי ❌");
-        return false;
-    }
-
-    // אם הצליח:
-    return true;
-}
-
-
-const code = document.getElementById("otpInput").value.trim();
-
-if (await verifyEmailOTP(code)) {
-    window.location.href = "/dashboard.html";
-} else {
-    console.error("Verification failed");
-}
-
 
 // Firestore Database functions
 async function loadUserDataFromFirestore(email) {
@@ -678,9 +573,9 @@ async finishLogin(email, isNewUser = false) {
       await saveUserDataToFirestore(emailKey, userData);
     }
 
-    // 🔐 אם אימות דו־שלבי מופעל – מריצים את הזרימה לפני שממשיכים
-   if (userData.twoFactorEnabled) {
-        const verified = await this.runFirebasePhone2FA(email);
+       // 🔐 אם אימות דו־שלבי מופעל – מריצים את זרימת ה־2FA במייל לפני שממשיכים
+    if (userData.twoFactorEnabled) {
+        const verified = await this.runTwoFactorFlow(emailKey);
         if (!verified) {
             await this.auth.signOut();
             return;
@@ -688,6 +583,8 @@ async finishLogin(email, isNewUser = false) {
     } else {
       console.log("2FA כבוי עבור המשתמש הזה, ממשיכים כרגיל.");
     }
+
+
 
     // אנימציית הצלחה
     console.log("Calling showHarmonySuccess...");
@@ -939,8 +836,9 @@ async showPhoneVerifyModal(phoneNumber) {
 
                 // הצגת המודל
                 const overlay = document.getElementById('twofaOverlay');
-                const form = document.getElementById('twofaForm');
-                const inputs = document.querySelectorAll('.twofa-digit');
+const form = document.getElementById('twofaForm');
+const inputs = overlay.querySelectorAll('.twofa-digit');
+
                 const errorDiv = document.getElementById('twofaError');
                 const cancelBtn = document.getElementById('twofaCancel');
                 const resendBtn = document.getElementById('twofaResend');
