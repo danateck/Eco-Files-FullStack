@@ -35,6 +35,48 @@ import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, setPersistence
 
 
 
+
+function showConfirm(message, onYes) {
+  const root = document.getElementById("eco-alert-root");
+
+  const backdrop = document.createElement("div");
+  backdrop.className = "eco-confirm-backdrop";
+
+  const box = document.createElement("div");
+  box.className = "eco-confirm-box";
+
+  box.innerHTML = `
+    <h3 class="eco-confirm-title">האם את בטוחה?</h3>
+    <p style="margin: 8px 0 0">${message}</p>
+
+    <div class="eco-confirm-actions">
+      <button class="eco-btn-yes">כן</button>
+      <button class="eco-btn-no">לא</button>
+    </div>
+  `;
+
+  backdrop.appendChild(box);
+  root.appendChild(backdrop);
+
+  // כפתור כן
+  box.querySelector(".eco-btn-yes").onclick = () => {
+    backdrop.remove();
+    if (typeof onYes === "function") onYes();
+  };
+
+  // כפתור לא
+  box.querySelector(".eco-btn-no").onclick = () => {
+    backdrop.remove();
+  };
+
+  // לחיצה בחוץ → ביטול
+  backdrop.onclick = (e) => {
+    if (e.target === backdrop) backdrop.remove();
+  };
+}
+
+
+
 // Firestore Database functions
 async function loadUserDataFromFirestore(email) {
     try {

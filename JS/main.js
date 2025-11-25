@@ -61,6 +61,48 @@ function showAlert(title, type = "info") {
 
 
 
+function showConfirm(message, onYes) {
+  const root = document.getElementById("eco-alert-root");
+
+  const backdrop = document.createElement("div");
+  backdrop.className = "eco-confirm-backdrop";
+
+  const box = document.createElement("div");
+  box.className = "eco-confirm-box";
+
+  box.innerHTML = `
+    <h3 class="eco-confirm-title">האם את בטוחה?</h3>
+    <p style="margin: 8px 0 0">${message}</p>
+
+    <div class="eco-confirm-actions">
+      <button class="eco-btn-yes">כן</button>
+      <button class="eco-btn-no">לא</button>
+    </div>
+  `;
+
+  backdrop.appendChild(box);
+  root.appendChild(backdrop);
+
+  // כפתור כן
+  box.querySelector(".eco-btn-yes").onclick = () => {
+    backdrop.remove();
+    if (typeof onYes === "function") onYes();
+  };
+
+  // כפתור לא
+  box.querySelector(".eco-btn-no").onclick = () => {
+    backdrop.remove();
+  };
+
+  // לחיצה בחוץ → ביטול
+  backdrop.onclick = (e) => {
+    if (e.target === backdrop) backdrop.remove();
+  };
+}
+
+
+
+
 
 // 🔍 טקסט החיפוש הנוכחי בקטגוריה
 window.currentSearchTerm = "";
@@ -2346,7 +2388,20 @@ if (mode !== "recycle") {
     deleteBtn.textContent = "מחיקה לצמיתות 🗑️";
     deleteBtn.addEventListener("click", async () => {
       const confirmDelete = localStorage.getItem("confirmDelete") !== "false";
-      if (confirmDelete && !confirm("למחוק לצמיתות? אי אפשר לשחזר.")) return;
+      if (confirmDelete) {
+  showConfirm(
+    "למחוק לצמיתות? אי אפשר לשחזר.",
+    () => {
+      // הקוד שהיה אמור לרוץ אם המשתמשת לחצה "כן"
+      continueDelete();
+    }
+  );
+  return;
+}
+
+// אם confirmDelete = false → ממשיכים רגיל
+continueDelete();
+
       try {
         if (window.deleteDocForever && window.deleteDocForever !== deleteDocForever) {
           await window.deleteDocForever(doc.id);
@@ -4402,7 +4457,14 @@ uploadToSharedBtn.addEventListener("click", async () => {
     if (delId) {
       const folder = window.mySharedFolders?.find(f => f.id === delId);
       const fname = folder?.name || me.sharedFolders?.[delId]?.name || "תיקייה";
-      if (!confirm(`למחוק לצמיתות את התיקייה "${fname}"? (המסמכים לא יימחקו, רק ינותק השיוך)`)) return;
+      showConfirm(
+  `למחוק לצמיתות את התיקייה "${fname}"? (המסמכים לא יימחקו, רק ינותק השיוך)`,
+  () => {
+    // הקוד שהיה אמור לרוץ אם "כן"
+    deleteFolder(fname);  // או מה שהפונקציה שלך עושה
+  }
+);
+
       console.log("🗑️ Deleting folder:", { delId, fname });
       showLoading("מוחק תיקייה...");
       try {
@@ -6796,7 +6858,14 @@ function buildProfileCard(profile) {
 
   deleteBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    if (!confirm(`למחוק את הפרופיל "${profile.fullName}"?`)) return;
+    showConfirm(
+  `למחוק את הפרופיל "${profile.fullName}"?`,
+  () => {
+    // מה שהיה אמור לקרות אחרי "כן"
+    deleteProfile(profile.id); // או מה שהקוד שלך עושה
+  }
+);
+
     deleteProfile(profile.id);
     openProfilesView(); // רענון
   });

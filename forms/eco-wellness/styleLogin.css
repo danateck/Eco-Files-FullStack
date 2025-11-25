@@ -1225,3 +1225,72 @@ body {
 .eco-error   { border-right: 4px solid #dc2626; }
 .eco-warning { border-right: 4px solid #d97706; }
 .eco-info    { border-right: 4px solid #2563eb; }
+
+
+
+
+
+
+
+
+
+
+.eco-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(2px);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  z-index: 9999;
+  animation: fadeIn .25s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; } to { opacity: 1; }
+}
+
+.eco-confirm-box {
+  direction: rtl;
+  background: white;
+  margin-top: 40px;
+  padding: 22px 24px;
+  border-radius: 16px;
+  width: min(360px, 90%);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+  animation: dropDown .35s ease;
+}
+
+.eco-confirm-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.eco-confirm-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.eco-btn-yes {
+  flex: 1;
+  padding: 10px;
+  background: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.eco-btn-no {
+  flex: 1;
+  padding: 10px;
+  background: #e5e7eb;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
