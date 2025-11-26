@@ -320,78 +320,8 @@ console.log("✅ bootFromCloud defined globally");
 // ===============================
 // 📦 WIDGET אחסון – חישוב ועדכון
 // ===============================
-function updateStorageUsageWidget() {
-  const barFill   = document.getElementById("storageUsageBarFill");
-  const textEl    = document.getElementById("storageUsageText");
-  const percentEl = document.getElementById("storageUsagePercent");
-
-  if (!barFill || !textEl || !percentEl) {
-    console.warn("⚠️ Storage widget elements not found");
-    return;
-  }
-
-  const GB       = 1024 * 1024 * 1024;
-  const TOTAL_GB = 5; // כאן משנים אם בעתיד Free/Pro/Premium
-
-  const docs = Array.isArray(window.allDocsData) ? window.allDocsData : [];
-
-  const me = (typeof getCurrentUserEmail === "function")
-    ? getCurrentUserEmail()
-    : null;
-
-  // אין משתמש – מציגים הכל פנוי
-  if (!me) {
-    barFill.style.width   = "0%";
-    percentEl.textContent = "0%";
-    textEl.textContent    = `אחסון פנוי: ${TOTAL_GB.toFixed(1)}GB מתוך ${TOTAL_GB.toFixed(1)}GB`;
-    console.log("💾 Storage widget: no user");
-    return;
-  }
-
-  const meNorm = me.toLowerCase();
-
-  // מסמכים ששייכים למשתמשת, לא בסל מחזור
-  const myDocs = docs.filter(d =>
-    d &&
-    d.owner &&
-    d.owner.toLowerCase() === meNorm &&
-    !d._trashed
-  );
-
-  let usedBytes = 0;
-  for (const d of myDocs) {
-    // מנסה גודל אמיתי מהשרת
-    let size = Number(d.fileSize ?? d.file_size ?? d.size);
-
-    // אם אין גודל – נניח 300KB כדי שהפס יזוז
-    if (!Number.isFinite(size) || size <= 0) {
-      size = 300 * 1024;
-    }
-
-    usedBytes += size;
-  }
-
-  const usedGB = usedBytes / GB;
-  const freeGB = Math.max(0, TOTAL_GB - usedGB);
-
-  let usedPct = TOTAL_GB > 0 ? (usedGB / TOTAL_GB) * 100 : 0;
-  if (!Number.isFinite(usedPct) || usedPct < 0) usedPct = 0;
-  if (usedPct > 100) usedPct = 100;
-
-  barFill.style.width   = usedPct.toFixed(1) + "%";
-  percentEl.textContent = Math.round(usedPct) + "%";
-  textEl.textContent    = `אחסון פנוי: ${freeGB.toFixed(1)}GB מתוך ${TOTAL_GB.toFixed(1)}GB`;
-
-  console.log("💾 Storage widget updated:", {
-    totalDocs: docs.length,
-    myDocs: myDocs.length,
-    usedBytes,
-    usedPct
-  });
-}
-
-// שיהיה גלובלי כדי ש-api-bridge.js יוכל לקרוא לזה
-window.updateStorageUsageWidget = updateStorageUsageWidget;
+// הפונקציה updateStorageUsageWidget מוגדרת ב-api-bridge.js
+// היא כבר זמינה כ-window.updateStorageUsageWidget
 
 
 // ============================================
@@ -542,6 +472,12 @@ async function bootFromCloud() {
     }
     // Render the home view
     if (typeof renderHome === "function") renderHome();
+    
+    // 💾 עדכון תצוגת האחסון אחרי טעינה ראשונית
+    if (typeof window.updateStorageUsageWidget === "function") {
+      window.updateStorageUsageWidget();
+    }
+    
     console.log("✅ Boot from cloud complete:", allDocsData.length, "documents loaded");
   } catch (error) {
     console.error("❌ Boot from cloud failed:", error);
@@ -2356,6 +2292,12 @@ if (mode !== "recycle") {
       showNotification("שגיאה בהעברה לסל מחזור", true);
       return;
     }
+    
+    // 💾 עדכון תצוגת האחסון (למרות שמסמכים בסל עדיין תופסים מקום)
+    if (typeof window.updateStorageUsageWidget === "function") {
+      window.updateStorageUsageWidget();
+    }
+    
     const categoryTitle = document.getElementById("categoryTitle");
     const currentCat = categoryTitle?.textContent || "";
     if (!currentCat || currentCat === "ראשי" || currentCat === "הכל") {
@@ -2645,6 +2587,12 @@ window.renderHome = function() {
   });
   homeView.classList.remove("hidden");
   if (categoryView) categoryView.classList.add("hidden");
+  
+  // 💾 עדכון תצוגת האחסון בכל פעם שחוזרים למסך הבית
+  if (typeof window.updateStorageUsageWidget === "function") {
+    window.updateStorageUsageWidget();
+  }
+  
   console.log("✅ renderHome complete");
 };
 // 2. CATEGORY VIEW
@@ -6094,6 +6042,12 @@ async function deleteDocForever(id) {
       setUserDocs(userNow, allDocsData, allUsersData);
     }
     showNotification("הקובץ נמחק לצמיתות");
+    
+    // 💾 עדכון תצוגת האחסון אחרי מחיקה
+    if (typeof window.updateStorageUsageWidget === "function") {
+      window.updateStorageUsageWidget();
+    }
+    
     // Refresh view
     if (typeof openRecycleView === 'function') {
       openRecycleView();
@@ -6107,6 +6061,12 @@ async function deleteDocForever(id) {
 async function restoreDocument(id) {
   console.log("♻️ Restoring:", id);
   await markDocTrashed(id, false);
+  
+  // 💾 עדכון תצוגת האחסון אחרי שחזור
+  if (typeof window.updateStorageUsageWidget === "function") {
+    window.updateStorageUsageWidget();
+  }
+  
   if (typeof openRecycleView === 'function') {
     openRecycleView();
   }
