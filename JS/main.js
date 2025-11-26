@@ -282,6 +282,10 @@ window.bootFromCloud = async function() {
     const docs = await loadDocuments();
     console.log("📦 Loaded", docs.length, "documents from Firestore");
     window.allDocsData = docs || [];
+
+    if (typeof window.updateStorageUsageWidget === "function") {
+  window.updateStorageUsageWidget();
+} 
     const userNow = me;
     if (typeof setUserDocs === "function") {
       // make sure allUsersData exists
@@ -308,6 +312,65 @@ window.bootFromCloud = async function() {
   // }
 };
 console.log("✅ bootFromCloud defined globally");
+
+
+
+// ===== STORAGE WIDGET (SIDEBAR) =====
+function updateStorageUsageWidget() {
+  const barFill   = document.getElementById("storageUsageBarFill");
+  const textEl    = document.getElementById("storageUsageText");
+  const percentEl = document.getElementById("storageUsagePercent");
+
+  if (!barFill || !textEl || !percentEl) return;
+
+  const docs = Array.isArray(window.allDocsData) ? window.allDocsData : [];
+  const me = (typeof getCurrentUserEmail === "function")
+    ? getCurrentUserEmail()
+    : null;
+
+  // אם אין משתמש – להראות כאילו הכל פנוי
+  const GB = 1024 * 1024 * 1024;
+  const TOTAL_GB = 5; // 👈 כאן אפשר לשנות לפי תוכנית (Free/Pro/Premium)
+
+  if (!me) {
+    barFill.style.width = "0%";
+    percentEl.textContent = "0%";
+    textEl.textContent = `אחסון פנוי: ${TOTAL_GB.toFixed(1)}GB מתוך ${TOTAL_GB}GB`;
+    return;
+  }
+
+  // נספור רק מסמכים של המשתמשת, לא משותפים של אחרים
+  const ownerDocs = docs.filter(d =>
+    d &&
+    d.owner &&
+    d.owner.toLowerCase() === me.toLowerCase() &&
+    !d._trashed
+  );
+
+  let usedBytes = 0;
+  for (const d of ownerDocs) {
+    const size = Number(d.fileSize || d.file_size || 0);
+    if (!Number.isNaN(size) && size > 0) {
+      usedBytes += size;
+    }
+  }
+
+  const usedGB  = usedBytes / GB;
+  const freeGB  = Math.max(0, TOTAL_GB - usedGB);
+  let usedPct   = TOTAL_GB > 0 ? (usedGB / TOTAL_GB) * 100 : 0;
+
+  if (!Number.isFinite(usedPct) || usedPct < 0) usedPct = 0;
+  if (usedPct > 100) usedPct = 100;
+
+  barFill.style.width = usedPct.toFixed(1) + "%";
+  percentEl.textContent = Math.round(usedPct) + "%";
+  textEl.textContent = `אחסון פנוי: ${freeGB.toFixed(1)}GB מתוך ${TOTAL_GB}GB`;
+}
+
+// שיהיה נגיש גם מקבצים אחרים (api-bridge וכו')
+window.updateStorageUsageWidget = updateStorageUsageWidget;
+
+
 // ============================================
 // FIX 2: Upload document with owner info
 // ============================================

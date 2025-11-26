@@ -245,11 +245,16 @@ async function uploadDocument(file, metadata = {}) {
     }
     
     // Update local cache
-    if (Array.isArray(window.allDocsData)) {
-      window.allDocsData.push(doc);
-    }
-    
-    return doc;
+if (Array.isArray(window.allDocsData)) {
+  window.allDocsData.push(doc);
+}
+
+if (typeof window.updateStorageUsageWidget === "function") {
+  window.updateStorageUsageWidget();
+}
+
+return doc;
+
     
   } catch (error) {
     console.error('❌ Upload error:', error);
@@ -413,16 +418,20 @@ async function markDocTrashed(docId, trashed) {
     }
   }
 
-  // Update local cache
   if (Array.isArray(window.allDocsData)) {
-    const idx = window.allDocsData.findIndex((d) => d.id === docId);
-    if (idx >= 0) {
-      window.allDocsData[idx]._trashed = !!trashed;
-      window.allDocsData[idx].lastModified = Date.now();
-    }
+  const idx = window.allDocsData.findIndex((d) => d.id === docId);
+  if (idx >= 0) {
+    window.allDocsData[idx]._trashed = !!trashed;
+    window.allDocsData[idx].lastModified = Date.now();
   }
+}
 
-  return { backendOk };
+if (typeof window.updateStorageUsageWidget === "function") {
+  window.updateStorageUsageWidget();
+}
+
+return { backendOk };
+
 }
 
 
@@ -485,15 +494,19 @@ async function deleteDocForever(docId) {
     }
   }
 
-  // cache לוקאלי
   if (Array.isArray(window.allDocsData)) {
-    const idx = window.allDocsData.findIndex((d) => d.id === docId);
-    if (idx >= 0) {
-      window.allDocsData.splice(idx, 1);
-    }
+  const idx = window.allDocsData.findIndex((d) => d.id === docId);
+  if (idx >= 0) {
+    window.allDocsData.splice(idx, 1);
   }
+}
 
-  return { backendOk };
+if (typeof window.updateStorageUsageWidget === "function") {
+  window.updateStorageUsageWidget();
+}
+
+return { backendOk };
+
 }
 
 
