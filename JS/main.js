@@ -268,7 +268,7 @@ function isFirebaseAvailable() {
 window.bootFromCloud = async function() {
   console.log("🚀 bootFromCloud called");
   // ❌ REMOVE THIS – it can block forever
-  // await waitForFirebase(כ);
+  // await waitForFirebase();
   const me = getCurrentUserEmail();
   console.log("👤 Boot user:", me);
   if (!me || !isFirebaseAvailable()) {
@@ -282,10 +282,6 @@ window.bootFromCloud = async function() {
     const docs = await loadDocuments();
     console.log("📦 Loaded", docs.length, "documents from Firestore");
     window.allDocsData = docs || [];
-
-    if (typeof window.updateStorageUsageWidget === "function") {
-  window.updateStorageUsageWidget();
-} 
     const userNow = me;
     if (typeof setUserDocs === "function") {
       // make sure allUsersData exists
@@ -312,75 +308,6 @@ window.bootFromCloud = async function() {
   // }
 };
 console.log("✅ bootFromCloud defined globally");
-
-
-
-// ===== STORAGE WIDGET (SIDEBAR) =====
-function updateStorageUsageWidget() {
-  const barFill   = document.getElementById("storageUsageBarFill");
-  const textEl    = document.getElementById("storageUsageText");
-  const percentEl = document.getElementById("storageUsagePercent");
-
-  if (!barFill || !textEl || !percentEl) return;
-
-  const docs = Array.isArray(window.allDocsData) ? window.allDocsData : [];
-  const me = (typeof getCurrentUserEmail === "function")
-    ? getCurrentUserEmail()
-    : null;
-
-  // אם אין משתמש – להראות כאילו הכל פנוי
-  const GB = 1024 * 1024 * 1024;
-  const TOTAL_GB = 5; // 👈 כאן אפשר לשנות לפי תוכנית (Free/Pro/Premium)
-
-  if (!me) {
-    barFill.style.width = "0%";
-    percentEl.textContent = "0%";
-    textEl.textContent = `אחסון פנוי: ${TOTAL_GB.toFixed(1)}GB מתוך ${TOTAL_GB}GB`;
-    return;
-  }
-
-  // נספור רק מסמכים של המשתמשת, לא משותפים של אחרים
-  const ownerDocs = docs.filter(d =>
-    d &&
-    d.owner &&
-    d.owner.toLowerCase() === me.toLowerCase() &&
-    !d._trashed
-  );
-
-    let usedBytes = 0;
-  for (const d of ownerDocs) {
-    // ננסה לקחת גודל אמיתי מהשרת
-    let size = Number(
-      d.fileSize ??
-      d.file_size ??
-      d.size
-    );
-
-    // אם אין גודל אמיתי → נניח בערך 200KB כדי שהפס יזוז
-    if (!Number.isFinite(size) || size <= 0) {
-      size = 200 * 1024; // 200KB ברירת מחדל
-    }
-
-    usedBytes += size;
-  }
-
-
-  const usedGB  = usedBytes / GB;
-  const freeGB  = Math.max(0, TOTAL_GB - usedGB);
-  let usedPct   = TOTAL_GB > 0 ? (usedGB / TOTAL_GB) * 100 : 0;
-
-  if (!Number.isFinite(usedPct) || usedPct < 0) usedPct = 0;
-  if (usedPct > 100) usedPct = 100;
-
-  barFill.style.width = usedPct.toFixed(1) + "%";
-  percentEl.textContent = Math.round(usedPct) + "%";
-  textEl.textContent = `אחסון פנוי: ${freeGB.toFixed(1)}GB מתוך ${TOTAL_GB}GB`;
-}
-
-// שיהיה נגיש גם מקבצים אחרים (api-bridge וכו')
-window.updateStorageUsageWidget = updateStorageUsageWidget;
-
-
 // ============================================
 // FIX 2: Upload document with owner info
 // ============================================
@@ -2447,50 +2374,45 @@ if (mode !== "recycle") {
       }
     });
     const deleteBtn = document.createElement("button");
-deleteBtn.className = "doc-action-btn danger";
-deleteBtn.textContent = "מחיקה לצמיתות 🗑️";
-deleteBtn.addEventListener("click", async () => {
-  // פונקציה פנימית שעושה את מחיקת האמת
-  const doDelete = async () => {
-    try {
-      if (window.deleteDocForever && window.deleteDocForever !== deleteDocForever) {
-        await window.deleteDocForever(doc.id);
-      } else if (typeof deleteDocForever === "function") {
-        await deleteDocForever(doc.id);
-      } else {
-        console.error("❌ deleteDocForever function not found");
-        return;
-      }
-
-      if (typeof openRecycleView === "function") {
-        openRecycleView();
-      } else {
-        window.location.reload();
-      }
-    } catch (err) {
-      console.error("❌ Delete forever failed:", err);
-      if (typeof showNotification === "function") {
-        showNotification("שגיאה במחיקת המסמך", true);
-      }
+    deleteBtn.className = "doc-action-btn danger";
+    deleteBtn.textContent = "מחיקה לצמיתות 🗑️";
+    deleteBtn.addEventListener("click", async () => {
+      const confirmDelete = localStorage.getItem("confirmDelete") !== "false";
+      if (confirmDelete) {
+  showConfirm(
+    "למחוק לצמיתות? אי אפשר לשחזר.",
+    () => {
+      // הקוד שהיה אמור לרוץ אם המשתמשת לחצה "כן"
+      continueDelete();
     }
-  };
+  );
+  return;
+}
 
-  const confirmDelete = localStorage.getItem("confirmDelete") !== "false";
+// אם confirmDelete = false → ממשיכים רגיל
+continueDelete();
 
-  if (confirmDelete) {
-    showConfirm(
-      "למחוק לצמיתות? אי אפשר לשחזר.",
-      () => {
-        // כאן אין async, אבל זה בסדר לקרוא לפונקציה אסינכרונית בלי await
-        doDelete();
+      try {
+        if (window.deleteDocForever && window.deleteDocForever !== deleteDocForever) {
+          await window.deleteDocForever(doc.id);
+        } else if (typeof deleteDocForever === "function") {
+          await deleteDocForever(doc.id);
+        } else {
+          console.error("❌ deleteDocForever function not found");
+          return;
+        }
+        if (typeof openRecycleView === "function") {
+          openRecycleView();
+        } else {
+          window.location.reload();
+        }
+      } catch (err) {
+        console.error("❌ Delete forever failed:", err);
+        if (typeof showNotification === "function") {
+          showNotification("שגיאה במחיקת המסמך", true);
+        }
       }
-    );
-  } else {
-    // אם ביטלת את ההודעה בהגדרות – מוחק ישר
-    await doDelete();
-  }
-});
-
+    });
     actions.appendChild(restoreBtn);
     actions.appendChild(deleteBtn);
   }
@@ -7837,8 +7759,3 @@ async function resizeImageToDataUrl(file, maxSize = 256) {
     reader.readAsDataURL(file);
   });
 }
-
-
-
-
-
