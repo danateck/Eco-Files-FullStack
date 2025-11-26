@@ -221,7 +221,7 @@ async function uploadDocument(file, metadata = {}) {
    subCategory: metadata.subCategory || null,
   year: metadata.year ?? String(new Date().getFullYear()),
   org: metadata.org ?? '',
-  recipient: metadata.recipient || [],
+  recipient: metadata.Srecipient || [],
   sharedWith: metadata.sharedWith || [],
   owner: me,
   uploadedAt: result.uploaded_at || new Date().toISOString(),
@@ -245,11 +245,16 @@ async function uploadDocument(file, metadata = {}) {
     }
     
     // Update local cache
-    if (Array.isArray(window.allDocsData)) {
-      window.allDocsData.push(doc);
-    }
-    
-    return doc;
+if (Array.isArray(window.allDocsData)) {
+  window.allDocsData.push(doc);
+}
+
+if (typeof window.updateStorageUsageWidget === "function") {
+  window.updateStorageUsageWidget();
+}
+
+return doc;
+
     
   } catch (error) {
     console.error('❌ Upload error:', error);
@@ -413,16 +418,20 @@ async function markDocTrashed(docId, trashed) {
     }
   }
 
-  // Update local cache
   if (Array.isArray(window.allDocsData)) {
-    const idx = window.allDocsData.findIndex((d) => d.id === docId);
-    if (idx >= 0) {
-      window.allDocsData[idx]._trashed = !!trashed;
-      window.allDocsData[idx].lastModified = Date.now();
-    }
+  const idx = window.allDocsData.findIndex((d) => d.id === docId);
+  if (idx >= 0) {
+    window.allDocsData[idx]._trashed = !!trashed;
+    window.allDocsData[idx].lastModified = Date.now();
   }
+}
 
-  return { backendOk };
+if (typeof window.updateStorageUsageWidget === "function") {
+  window.updateStorageUsageWidget();
+}
+
+return { backendOk };
+
 }
 
 
@@ -485,15 +494,19 @@ async function deleteDocForever(docId) {
     }
   }
 
-  // cache לוקאלי
   if (Array.isArray(window.allDocsData)) {
-    const idx = window.allDocsData.findIndex((d) => d.id === docId);
-    if (idx >= 0) {
-      window.allDocsData.splice(idx, 1);
-    }
+  const idx = window.allDocsData.findIndex((d) => d.id === docId);
+  if (idx >= 0) {
+    window.allDocsData.splice(idx, 1);
   }
+}
 
-  return { backendOk };
+if (typeof window.updateStorageUsageWidget === "function") {
+  window.updateStorageUsageWidget();
+}
+
+return { backendOk };
+
 }
 
 
@@ -593,3 +606,78 @@ window.testAuth = async function() {
 
 console.log('✅ API Bridge (ULTIMATE FIX) loaded!');
 console.log('💡 Debug: Run testAuth() to check authentication');
+
+
+
+
+
+// ===============================
+// 📦 STORAGE WIDGET – חישוב אחסון
+// ===============================
+
+// כמה אחסון יש למשתמשת (ב־GB)
+const STORAGE_LIMIT_GB = 5;
+const STORAGE_LIMIT_BYTES = STORAGE_LIMIT_GB * 1024 * 1024 * 1024;
+
+function computeStorageUsage() {
+  const docs = Array.isArray(window.allDocsData) ? window.allDocsData : [];
+  const me = getCurrentUser();
+  if (!me) {
+    return { usedBytes: 0, percent: 0, totalBytes: STORAGE_LIMIT_BYTES };
+  }
+
+  const myEmail = (me.email || me).trim().toLowerCase();
+  let usedBytes = 0;
+
+  for (const d of docs) {
+    if (!d) continue;
+    if (d._trashed) continue;
+
+    const owner = (d.owner || "").trim().toLowerCase();
+    if (owner !== myEmail) continue;
+
+    // מנסה לקחת גודל אמיתי, ואם אין – נותן ברירת מחדל
+    let size = Number(d.fileSize ?? d.file_size ?? d.size);
+    if (!Number.isFinite(size) || size <= 0) {
+      size = 200 * 1024; // 200KB דיפולט למסמך
+    }
+
+    usedBytes += size;
+  }
+
+  const percent = Math.min(
+    100,
+    Math.round((usedBytes / STORAGE_LIMIT_BYTES) * 100)
+  );
+
+  return { usedBytes, percent, totalBytes: STORAGE_LIMIT_BYTES };
+}
+
+function updateStorageUsageWidget() {
+  const barEl = document.getElementById("storageUsageBarFill");
+  const percentEl = document.getElementById("storageUsagePercent");
+  const textEl = document.getElementById("storageUsageText");
+
+  if (!barEl || !percentEl || !textEl) {
+    console.warn("⚠️ Storage widget elements not found in DOM");
+    return;
+  }
+
+  const { usedBytes, percent, totalBytes } = computeStorageUsage();
+  const usedGB = usedBytes / (1024 * 1024 * 1024);
+  const totalGB = totalBytes / (1024 * 1024 * 1024);
+
+  barEl.style.width = percent + "%";
+  percentEl.textContent = percent + "%";
+  textEl.textContent =
+    `אחסון בשימוש: ${usedGB.toFixed(1)}GB מתוך ${totalGB.toFixed(1)}GB`;
+
+  console.log("📦 Storage widget updated:", {
+    docs: Array.isArray(window.allDocsData) ? window.allDocsData.length : 0,
+    usedBytes,
+    percent
+  });
+}
+
+// שיהיה גלובלי, כדי שמודולים אחרים יוכלו להשתמש בזה
+window.updateStorageUsageWidget = updateStorageUsageWidget;
