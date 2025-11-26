@@ -167,7 +167,7 @@ html {
     .brand-name {
       font-size: .9rem;
       font-weight: 600;
-      color: #fff;
+      color: #1f2717;
       letter-spacing: .03em;
       line-height: 1.2;
     }
@@ -175,7 +175,7 @@ html {
     .brand-sub {
       font-size: .7rem;
       font-weight: 400;
-      color: rgba(255,255,255,.7);
+      color: #1f2717;
       line-height: 1.4;
     }
 
@@ -195,12 +195,12 @@ html {
 
     .user-panel-name {
       font-weight: 500;
-      color: #fff;
+      color: #1f2717;
       font-size: .8rem;
     }
 
     .user-panel-mail {
-      color: rgba(255,255,255,.7);
+      color: rgba(78, 86, 76, 0.7);
       font-size: .7rem;
       direction: ltr;
       unicode-bidi: plaintext;
@@ -1991,6 +1991,25 @@ body::-webkit-scrollbar-thumb:hover,
 
 
 
+.brand-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.brand-left {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* רווח בין הלוגו לטקסט */
+}
+
+.brand-logo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+
 
   </style>
 </head>
@@ -2059,9 +2078,14 @@ body::-webkit-scrollbar-thumb:hover,
       <div>
         <div class="brand-block">
   <div class="brand-row">
+  <div class="brand-left">
+    <img src="assests/icons/logo.png" alt="EcoDocs Logo" class="brand-logo">
     <div class="brand-name">EcoDocs</div>
-    <button id="closeMenuBtn" class="close-btn" aria-label="סגור">✕</button>
   </div>
+  
+  <button id="closeMenuBtn" class="close-btn" aria-label="סגור">✕</button>
+</div>
+
 
   <div class="brand-sub">ארכיון חכם • שמור • אישי</div>
 </div>
