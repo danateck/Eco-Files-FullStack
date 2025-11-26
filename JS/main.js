@@ -6808,22 +6808,117 @@ function getProfilesStorageKey() {
 }
 
 function loadProfiles() {
+  // ⚠️ פונקציה סינכרונית ישנה - משתמשת ב-localStorage בלבד
+  // השתמשו ב-loadProfilesFromFirestore() עבור סנכרון מלא!
+  return loadProfilesFromLocalStorage();
+}
+
+// 🔥 גרסה אסינכרונית חדשה שמסנכרנת עם Firestore
+async function loadProfilesAsync() {
+  return await loadProfilesFromFirestore();
+}
+
+function saveProfiles(list) {
+  try {
+    localStorage.setItem(getProfilesStorageKey(), JSON.stringify(list || []));
+    // 🔥 סנכרון ל-Firestore
+    saveProfilesToFirestore(list).catch(err => {
+      console.warn("⚠️ Failed to sync profiles to Firestore:", err);
+    });
+  } catch (e) {
+    console.warn("⚠️ Failed to save profiles:", e);
+  }
+}
+
+// ===============================
+// 🔥 סנכרון פרופילים עם Firestore
+// ===============================
+
+async function saveProfilesToFirestore(profiles) {
+  if (!isFirebaseAvailable()) {
+    console.warn("⚠️ Firebase not available, profiles not synced");
+    return;
+  }
+
+  const user = getCurrentUserEmail();
+  if (!user) {
+    console.warn("⚠️ No user, profiles not synced");
+    return;
+  }
+
+  try {
+    const userEmail = user.toLowerCase();
+    const docRef = window.fs.doc(window.db, "userProfiles", userEmail);
+    
+    await window.fs.setDoc(docRef, {
+      email: userEmail,
+      profiles: profiles || [],
+      updatedAt: new Date().toISOString()
+    });
+    
+    console.log("✅ Profiles synced to Firestore:", profiles.length);
+  } catch (error) {
+    console.error("❌ Error saving profiles to Firestore:", error);
+    throw error;
+  }
+}
+
+async function loadProfilesFromFirestore() {
+  if (!isFirebaseAvailable()) {
+    console.warn("⚠️ Firebase not available, loading from localStorage only");
+    return loadProfilesFromLocalStorage();
+  }
+
+  const user = getCurrentUserEmail();
+  if (!user) {
+    console.warn("⚠️ No user, loading from localStorage only");
+    return loadProfilesFromLocalStorage();
+  }
+
+  try {
+    const userEmail = user.toLowerCase();
+    const docRef = window.fs.doc(window.db, "userProfiles", userEmail);
+    const docSnap = await window.fs.getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      const firestoreProfiles = data.profiles || [];
+      
+      console.log("✅ Loaded profiles from Firestore:", firestoreProfiles.length);
+      
+      // שמירה גם ב-localStorage לגיבוי
+      localStorage.setItem(getProfilesStorageKey(), JSON.stringify(firestoreProfiles));
+      
+      return firestoreProfiles;
+    } else {
+      console.log("📝 No profiles in Firestore, checking localStorage");
+      // אם אין ב-Firestore, נסה מlocalStorage
+      const localProfiles = loadProfilesFromLocalStorage();
+      
+      // אם יש משהו ב-localStorage, העלה ל-Firestore
+      if (localProfiles.length > 0) {
+        console.log("📤 Uploading local profiles to Firestore");
+        await saveProfilesToFirestore(localProfiles);
+      }
+      
+      return localProfiles;
+    }
+  } catch (error) {
+    console.error("❌ Error loading profiles from Firestore:", error);
+    // במקרה של שגיאה, נסה מlocalStorage
+    return loadProfilesFromLocalStorage();
+  }
+}
+
+function loadProfilesFromLocalStorage() {
   try {
     const raw = localStorage.getItem(getProfilesStorageKey());
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
-    console.warn("⚠️ Failed to load profiles:", e);
+    console.warn("⚠️ Failed to load profiles from localStorage:", e);
     return [];
-  }
-}
-
-function saveProfiles(list) {
-  try {
-    localStorage.setItem(getProfilesStorageKey(), JSON.stringify(list || []));
-  } catch (e) {
-    console.warn("⚠️ Failed to save profiles:", e);
   }
 }
 
@@ -7392,7 +7487,7 @@ async function handleProfileInvite(invite, accepted) {
 
 
 // 🔹 מסך רשימת פרופילים (הטאב "פרופילים")
-window.openProfilesView = function() {
+window.openProfilesView = async function() {
   const categoryTitle = document.getElementById("categoryTitle");
   const docsList      = document.getElementById("docsList");
   const homeView      = document.getElementById("homeView");
@@ -7412,8 +7507,9 @@ window.openProfilesView = function() {
     window.currentSearchTerm = "";           // מנקה את החיפוש הגלובלי
   }
 
-
-  const profiles = loadProfiles();
+  // 🔥 טעינה מFirestore (מסונכרן!)
+  console.log("📥 Loading profiles from Firestore...");
+  const profiles = await loadProfilesFromFirestore();
 
   // 🔔 אזור לבקשות שיתוף פרופילים
   let invitesArea = document.getElementById("profileInvitesArea");
