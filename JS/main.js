@@ -325,9 +325,10 @@ function updateStorageUsageWidget() {
   if (!barFill || !textEl || !percentEl) return;
 
   const docs = Array.isArray(window.allDocsData) ? window.allDocsData : [];
-  const me = (typeof getCurrentUserEmail === "function")
-    ? getCurrentUserEmail()
-    : null;
+  const me =
+    (typeof getCurrentUserEmail === "function" && getCurrentUserEmail()) ||
+    (typeof getCurrentUser === "function" && getCurrentUser()) ||
+    (window.userNow || "").toLowerCase();
 
   const GB       = 1024 * 1024 * 1024;
   const TOTAL_GB = 5; // כאן משנים לפי תוכנית (חינם / פרו / פרימיום)
@@ -5820,13 +5821,25 @@ document.addEventListener("click", async (ev) => {
   }
 
   // אם אין קובץ מקומי – נסה מענן אם יש URL
-  if (!dataUrl) {
-    const url = docObj.fileUrl || docObj.downloadURL;
-    if (url) {
-      window.open(url, "_blank");
+   if (!dataUrl) {
+    // ✅ לפתוח דרך ה־backend עם authentication
+    try {
+      if (typeof viewDocument === "function") {
+        viewDocument(docObj);
+      } else if (typeof downloadDocument === "function") {
+        downloadDocument(docObj);
+      } else {
+        const url = docObj.fileUrl || docObj.downloadURL;
+        if (url) window.open(url, "_blank");
+      }
+    } catch (e) {
+      console.error("❌ Error opening document:", e);
+      const url = docObj.fileUrl || docObj.downloadURL;
+      if (url) window.open(url, "_blank");
     }
     return;
   }
+
 
   const a = document.createElement("a");
   a.href = dataUrl;
