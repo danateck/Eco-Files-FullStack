@@ -2159,10 +2159,13 @@ function buildDocCard(doc, mode) {
       <span>הועלה ב: ${doc.uploadedAt || "-"}</span>
     `;
   const openFileButtonHtml = `
-    <button class="doc-open-link" data-open-id="${doc.id}">
-      👁️ פתיחת קובץ
-    </button>
-  `;
+  <button class="doc-open-link" data-open-id="${doc.id}">
+    <img src="assets/icons/open.png" 
+         style="width:16px;height:16px;vertical-align:middle;margin-left:6px;">
+    פתיחת קובץ
+  </button>
+`;
+
   const displayTitle = doc.title || doc.fileName || doc.originalFileName || "מסמך";
   card.innerHTML = `
     <p class="doc-card-title">${displayTitle}</p>
