@@ -640,7 +640,7 @@ console.log('💡 Debug: Run testAuth() to check authentication');
 // ===============================
 
 // כמה אחסון יש למשתמשת (ב־GB)
-const STORAGE_LIMIT_GB = 5;
+const STORAGE_LIMIT_GB = 0.5;
 const STORAGE_LIMIT_BYTES = STORAGE_LIMIT_GB * 1024 * 1024 * 1024;
 
 function computeStorageUsage() {
@@ -696,7 +696,7 @@ function updateStorageUsageWidget() {
   }
 
   const GB       = 1024 * 1024 * 1024;
-  const TOTAL_GB = 5; // כאן משנים אם בעתיד Free/Pro/Premium
+  const TOTAL_GB = 0.5; // כאן משנים אם בעתיד Free/Pro/Premium
 
   const docs = Array.isArray(window.allDocsData) ? window.allDocsData : [];
 
