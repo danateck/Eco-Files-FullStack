@@ -316,6 +316,7 @@ console.log("✅ bootFromCloud defined globally");
 
 
 // ===== STORAGE WIDGET (SIDEBAR) =====
+// ===== STORAGE WIDGET (SIDEBAR) =====
 function updateStorageUsageWidget() {
   const barFill   = document.getElementById("storageUsageBarFill");
   const textEl    = document.getElementById("storageUsageText");
@@ -328,53 +329,55 @@ function updateStorageUsageWidget() {
     ? getCurrentUserEmail()
     : null;
 
-  // אם אין משתמש – להראות כאילו הכל פנוי
-  const GB = 1024 * 1024 * 1024;
-  const TOTAL_GB = 5; // 👈 כאן אפשר לשנות לפי תוכנית (Free/Pro/Premium)
+  const GB       = 1024 * 1024 * 1024;
+  const TOTAL_GB = 5; // כאן משנים לפי תוכנית (חינם / פרו / פרימיום)
 
+  // אין משתמש – מציגים הכל פנוי
   if (!me) {
-    barFill.style.width = "0%";
-    percentEl.textContent = "0%";
-    textEl.textContent = `אחסון פנוי: ${TOTAL_GB.toFixed(1)}GB מתוך ${TOTAL_GB}GB`;
+    barFill.style.width       = "0%";
+    percentEl.textContent     = "0%";
+    textEl.textContent        = `אחסון פנוי: ${TOTAL_GB.toFixed(1)}GB מתוך ${TOTAL_GB}GB`;
+    console.log("💾 Storage widget: no user, show all free");
     return;
   }
 
-  // נספור רק מסמכים של המשתמשת, לא משותפים של אחרים
+  // נספור רק מסמכים שלי, שלא בסל מחזור, ושבאמת יש להם קובץ
   const ownerDocs = docs.filter(d =>
     d &&
     d.owner &&
     d.owner.toLowerCase() === me.toLowerCase() &&
-    !d._trashed
+    !d._trashed &&
+    d.hasFile !== false
   );
 
-    let usedBytes = 0;
+  let usedBytes = 0;
   for (const d of ownerDocs) {
-    // ננסה לקחת גודל אמיתי מהשרת
-    let size = Number(
-      d.fileSize ??
-      d.file_size ??
-      d.size
-    );
+    let size = Number(d.fileSize ?? d.file_size ?? 0);
 
-    // אם אין גודל אמיתי → נניח בערך 200KB כדי שהפס יזוז
+    // אם אין גודל מהשרת (0 או NaN) – נניח גודל ממוצע כדי שהפס יזוז
     if (!Number.isFinite(size) || size <= 0) {
-      size = 200 * 1024; // 200KB ברירת מחדל
+      size = 300 * 1024; // בערך 300KB למסמך
     }
 
     usedBytes += size;
   }
 
-
-  const usedGB  = usedBytes / GB;
-  const freeGB  = Math.max(0, TOTAL_GB - usedGB);
-  let usedPct   = TOTAL_GB > 0 ? (usedGB / TOTAL_GB) * 100 : 0;
+  const usedGB = usedBytes / GB;
+  const freeGB = Math.max(0, TOTAL_GB - usedGB);
+  let usedPct  = TOTAL_GB > 0 ? (usedGB / TOTAL_GB) * 100 : 0;
 
   if (!Number.isFinite(usedPct) || usedPct < 0) usedPct = 0;
   if (usedPct > 100) usedPct = 100;
 
-  barFill.style.width = usedPct.toFixed(1) + "%";
+  barFill.style.width   = usedPct.toFixed(1) + "%";
   percentEl.textContent = Math.round(usedPct) + "%";
-  textEl.textContent = `אחסון פנוי: ${freeGB.toFixed(1)}GB מתוך ${TOTAL_GB}GB`;
+  textEl.textContent    = `אחסון פנוי: ${freeGB.toFixed(1)}GB מתוך ${TOTAL_GB}GB`;
+
+  console.log("💾 Storage widget:",
+    "totalDocs=", docs.length,
+    "myDocs=", ownerDocs.length,
+    "usedBytes=", usedBytes
+  );
 }
 
 // שיהיה נגיש גם מקבצים אחרים (api-bridge וכו')
