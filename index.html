@@ -2110,28 +2110,15 @@ body::-webkit-scrollbar-thumb:hover,
 
 
 /* ====== MODERN SEARCH BOX ====== */
+/* ====== MODERN SEARCH BOX ====== */
 .search-wrapper {
   display: flex;
   align-items: center;
-  width: 240px;
+  width: 260px;
   background: #f3f3f1;
   border-radius: 30px;
   border: 1px solid #d3d3d3;
-  direction: rtl;
-  box-shadow: #4433334d;
-  flex-direction: row-reverse;
   overflow: hidden;
-}
-
-.search-input {
-  flex: 1;
-  padding: 10px 14px;
-  border: none;
-  color: #797979;
-  outline: none;
-  background: transparent;
-  font-size: 14px;
-  font-family: "Rubik", system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 .search-btn {
@@ -2148,8 +2135,24 @@ body::-webkit-scrollbar-thumb:hover,
 .search-btn img {
   width: 18px;
   height: 18px;
-
 }
+
+.search-input {
+  flex: 1;
+  padding: 10px 14px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+  color: #333;
+  font-family: "Rubik", system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* צבע ברור ל־placeholder "חיפוש..." */
+.search-input::placeholder {
+  color: #999;
+}
+
 
 
 
@@ -2379,15 +2382,16 @@ body::-webkit-scrollbar-thumb:hover,
 
             <!-- שורת חיפוש במסמכים -->
 <div class="search-wrapper">
+  <button class="search-btn">
+    <img src="assests/icons/search.png" alt="search" />
+  </button>
+
   <input
     id="categorySearch"
     type="text"
     placeholder="חיפוש..."
     class="search-input"
   />
-  <button class="search-btn">
-    <img src="assests/icons/search.png" alt="search" />
-  </button>
 </div>
 
     <!-- חיפוש לפי שייך ל
