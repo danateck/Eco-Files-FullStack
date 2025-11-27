@@ -9,8 +9,8 @@ import {
 const auth = getAuth();
 
 // -------- PATHS ON GITHUB PAGES --------
-const ROOT_PATH = "/Eco-Files-FullStack/";
-const LOGIN_PATH = "/Eco-Files-FullStack/forms/eco-wellness/";
+const ROOT_PATH = "/DanDanLon/";
+const LOGIN_PATH = "/DanDanLon/forms/eco-wellness/";
 
 function isOnLoginPage() {
   const path = window.location.pathname;

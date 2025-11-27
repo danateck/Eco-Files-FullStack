@@ -220,7 +220,7 @@ async registerNewUserWithVerification() {
     // שליחת מייל אימות
     await this.sendEmailVerification(cred.user, {
       // אפשר להשאיר ריק או לשים URL חזרה ללוגין שלך
-      url: "https://danateck.github.io/Eco-Files-FullStack/forms/eco-wellness/",
+      url: "https://danateck.github.io/DanDanLon/forms/eco-wellness/",
       handleCodeInApp: false
     });
 
@@ -514,7 +514,7 @@ return new Promise((resolve) => {
                 try {
                     // שולחים שוב מייל אימות, עם חזרה לעמוד הלוגין שלך
                     await this.sendEmailVerification(user, {
-                        url: "https://danateck.github.io/Eco-Files-FullStack/forms/eco-wellness/",
+                        url: "https://danateck.github.io/DanDanLon/forms/eco-wellness/",
                         handleCodeInApp: false,
                     });
                 } catch (e) {
@@ -560,7 +560,7 @@ await this.finishLogin(emailKey);
 
                     // שולחים מייל אימות למשתמש החדש
                     await this.sendEmailVerification(cred.user, {
-                        url: "https://danateck.github.io/Eco-Files-FullStack/forms/eco-wellness/",
+                        url: "https://danateck.github.io/DanDanLon/forms/eco-wellness/",
                         handleCodeInApp: false,
                     });
 
@@ -656,10 +656,10 @@ async finishLogin(email, isNewUser = false) {
       onAuthStateChanged(this.auth, (user) => {
         if (user) {
           // Dashboard (repo root)
-          window.location.replace("/Eco-Files-FullStack/");
+          window.location.replace("/DanDanLon/");
         } else {
           // Login page (folder with index.html)
-          window.location.replace("/Eco-Files-FullStack/forms/eco-wellness/");
+          window.location.replace("/DanDanLon/forms/eco-wellness/");
         }
       });
     }, 1500);
@@ -1130,7 +1130,7 @@ const inputs = overlay.querySelectorAll('.twofa-digit');
         await setCurrentUser(emailKey);
         this.showHarmonySuccess();
         setTimeout(() => {
-            window.location.replace("/Eco-Files-FullStack/");
+            window.location.replace("/DanDanLon/");
         }, 1500);
 
     } catch (err) {
