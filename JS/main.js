@@ -2357,7 +2357,7 @@ if (mode !== "recycle") {
                     <button 
                       class="folder-select-btn" 
                       data-folder-id="${folder.id}"
-                      style="padding: 1rem; border: 1px solid #ddd; border-radius: 8px; background: #fff; cursor: pointer; text-align: right;"
+                      style="padding: 1rem; border: 1px solid #ddd; border-radius: 8px; background: #e1dbcf; cursor: pointer; text-align: right;"
                       onmouseover="this.style.borderColor='#4CAF50'"
                       onmouseout="this.style.borderColor='#ddd'"
                     >
