@@ -2644,6 +2644,10 @@ window.openCategoryView = function(categoryName, subfolderName = null) {
   if (searchInput) {
     searchInput.style.display = "inline-block";
   }
+  const searchWrapper = document.querySelector(".search-wrapper");
+  if (searchWrapper) {
+    searchWrapper.style.display = "flex";
+  }
 
 
   // כותרת
@@ -2771,8 +2775,6 @@ window.openRecycleView = function () {
   const docsList = document.getElementById("docsList");
   const homeView = document.getElementById("homeView");
   const categoryView = document.getElementById("categoryView");
-  const subfoldersBar = document.getElementById("subfoldersBar");
-
   if (!categoryTitle || !docsList) {
     console.error("❌ Recycle view elements not found");
     return;
@@ -2791,38 +2793,34 @@ window.openRecycleView = function () {
   }
   if (homeView) homeView.classList.add("hidden");
   if (categoryView) categoryView.classList.remove("hidden");
+  const searchInput = document.getElementById("categorySearch");
+  if (searchInput) searchInput.style.display = "inline-block";
+  const searchWrapper = document.querySelector(".search-wrapper");
+  if (searchWrapper) searchWrapper.style.display = "flex";
+  const subfoldersBar = document.getElementById("subfoldersBar");
+  if (subfoldersBar) subfoldersBar.style.display = "none";
   console.log("✅ Recycle view opened with", trashedDocs.length, "documents");
 };
 // 4. SHARED VIEW
 window.openSharedView = function() {
+  const searchInput = document.getElementById("categorySearch");
+  if (searchInput) {
+    // באחסון משותף לא רוצים חיפוש במסמכים
+    searchInput.style.display = "none";
+  }
   console.log("🤝 Opening shared view");
-
   const categoryTitle = document.getElementById("categoryTitle");
-  const docsList      = document.getElementById("docsList");
-  const homeView      = document.getElementById("homeView");
-  const categoryView  = document.getElementById("categoryView");
-  const searchBar     = document.getElementById("categorySearch");
-  const subfoldersBar = document.getElementById("subfoldersBar");
+  const docsList = document.getElementById("docsList");
+  const homeView = document.getElementById("homeView");
+  const categoryView = document.getElementById("categoryView");
 
-  // באחסון משותף לא רוצים חיפוש במסמכים
-  if (searchBar) {
-    searchBar.value = "";
-    searchBar.style.display = "none";
-  }
-
-  // להעלים את שורת תתי־התיקיות
-  if (subfoldersBar) {
-    subfoldersBar.innerHTML = "";
-    subfoldersBar.classList.add("hidden");
-    // אם את משתמשת ב-style.display במקום hidden:
-    // subfoldersBar.style.display = "none";
-  }
+   const searchBar = document.getElementById("categorySearch");
+  if (searchBar) searchBar.style.display = "none";
 
   if (!categoryTitle || !docsList) {
     console.error("❌ Shared view elements not found");
     return;
   }
-
   docsList.classList.remove("shared-mode");
   categoryTitle.textContent = "אחסון משותף";
   docsList.innerHTML = "";
@@ -4053,6 +4051,14 @@ openSharedView = function() {
     // באחסון משותף לא רוצים חיפוש במסמכים
     searchInput.style.display = "none";
   }
+  const searchWrapper = document.querySelector(".search-wrapper");
+  if (searchWrapper) {
+    searchWrapper.style.display = "none";
+  }
+  const subfoldersBar = document.getElementById("subfoldersBar");
+  if (subfoldersBar) {
+    subfoldersBar.style.display = "none";
+  }
   docsList.classList.remove("shared-mode");
   categoryTitle.textContent = "אחסון משותף";
   docsList.innerHTML = "";
@@ -4234,8 +4240,12 @@ async function renderPending() {
 
 
        const searchBar = document.getElementById("categorySearch");
-      if (searchBar) searchBar.style.display = "none";
+      if (searchBar) searchBar.style.display = "inline-block";
 
+      const searchWrapper = document.querySelector(".search-wrapper");
+      if (searchWrapper) searchWrapper.style.display = "flex";
+      const subfoldersBar = document.getElementById("subfoldersBar");
+      if (subfoldersBar) subfoldersBar.style.display = "none";
       
       // 🧭 עדכן URL עם ?sharedFolder=...
       try {
@@ -7575,6 +7585,10 @@ window.openProfilesView = async function() {
     searchInput.style.display = "none";      // מסתיר
     window.currentSearchTerm = "";           // מנקה את החיפוש הגלובלי
   }
+  const searchWrapper = document.querySelector(".search-wrapper");
+  if (searchWrapper) searchWrapper.style.display = "none";
+  const subfoldersBar = document.getElementById("subfoldersBar");
+  if (subfoldersBar) subfoldersBar.style.display = "none";
 
   // 🔥 טעינה מFirestore (מסונכרן!)
   console.log("📥 Loading profiles from Firestore...");
@@ -7665,8 +7679,12 @@ function openProfileCategories(profileId) {
  const searchInput = document.getElementById("categorySearch");
   if (searchInput) {
     // בפרופילים לא רוצים חיפוש במסמכים
-    searchInput.style.display = "none";
+    searchInput.style.display = "inline-block";
   }
+    const searchWrapper = document.querySelector(".search-wrapper");
+    if (searchWrapper) searchWrapper.style.display = "flex";
+    const subfoldersBar = document.getElementById("subfoldersBar");
+    if (subfoldersBar) subfoldersBar.style.display = "none";
 
   categoryTitle.textContent = `פרופיל: ${profile.fullName}`;
   docsList.classList.remove("shared-mode");
