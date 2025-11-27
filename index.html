@@ -2,7 +2,7 @@
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>EcoDocs Dashboard</title>
   <base href="/Eco-Files-FullStack/">
   
@@ -2231,7 +2231,8 @@ body::-webkit-scrollbar-thumb:hover,
   .sidebar {
     display: flex !important;
     flex-direction: column !important;
-    height: 100vh !important;
+    height: 100dvh !important;     /* ✅ dvh במקום vh - מתחשב בUI של הדפדפן */
+    max-height: 100dvh !important;
     overflow: hidden !important;
   }
 
@@ -2239,6 +2240,7 @@ body::-webkit-scrollbar-thumb:hover,
     flex: 1 !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
+    padding-bottom: 1rem !important; /* מרווח נוסף */
   }
 
   .sidebar-bottom {
@@ -2246,6 +2248,7 @@ body::-webkit-scrollbar-thumb:hover,
     bottom: auto !important;
     margin-top: 0 !important;
     padding: 0.75rem 1rem !important;
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom)) !important; /* ✅ safe area ל-iOS */
     background: linear-gradient(180deg, var(--bg-sidebar-from) 0%, var(--bg-sidebar-to) 100%);
     flex-shrink: 0 !important;
     z-index: 10;
