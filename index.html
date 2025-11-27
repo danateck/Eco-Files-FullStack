@@ -2225,25 +2225,25 @@ body::-webkit-scrollbar-thumb:hover,
 
 
 
+/* ✅ שהאחסון יופיע תמיד במובייל בתוך הגלילה */
 @media (max-width: 760px) {
   .sidebar {
-    display: flex !important;
-    flex-direction: column !important;
+    display: block !important;
     height: 100vh !important;
-    overflow-y: auto !important; /* גלילה כן */
+    overflow-y: auto !important;   /* כל הצד גולל */
   }
 
   .sidebar-content {
-    flex: 1 1 auto !important; /* שיתפוס את כל המקום הזמין */
-    overflow-y: auto !important; 
+    flex: none !important;         /* לא "תופס" את כל הגובה לבד */
+    max-height: none !important;
+    overflow: visible !important;  /* שאר הדברים (כולל האחסון) יהיו ברצף */
   }
 
   .sidebar-bottom {
-    position: sticky !important;
-    bottom: 0 !important;
-    background: #aaab84;
-    padding-bottom: 14px;
-    margin-top: 0 !important;
+    position: static !important;   /* לא מודבק לתחתית */
+    margin-top: 16px !important;
+    padding-bottom: 24px !important;  /* קצת מקום לפני הקצה של המסך */
+    background: inherit;
   }
 }
 
