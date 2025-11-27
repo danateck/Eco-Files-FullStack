@@ -2781,8 +2781,16 @@ window.openRecycleView = function () {
   }
   categoryTitle.textContent = "סל מחזור";
   // לוקחים רק מסמכים שמסומנים כ־_trashed = true
-  const trashedDocs = (window.allDocsData || []).filter(d => d._trashed === true);
   docsList.innerHTML = "";
+  const trashedDocs = (window.allDocsData || [])
+    .filter(d => d._trashed === true)
+    .filter(d => {
+      const searchTerm = (window.currentSearchTerm || "").toLowerCase().trim();
+      if (!searchTerm) return true;
+      const title = (d.title || "").toLowerCase();
+      const org = (d.organization || "").toLowerCase();
+      return title.includes(searchTerm) || org.includes(searchTerm);
+    });
   if (trashedDocs.length === 0) {
     docsList.innerHTML = `<div style="padding:2rem;text-align:center;opacity:0.6;">סל המחזור ריק</div>`;
   } else {
@@ -4246,6 +4254,7 @@ async function renderPending() {
       if (searchWrapper) searchWrapper.style.display = "flex";
       const subfoldersBar = document.getElementById("subfoldersBar");
       if (subfoldersBar) subfoldersBar.style.display = "none";
+      window.currentSharedFolderId = openId;
       
       // 🧭 עדכן URL עם ?sharedFolder=...
       try {
@@ -4454,9 +4463,17 @@ uploadToSharedBtn.addEventListener("click", async () => {
             }
           });
         } else {
-          const docs = collectSharedFolderDocs(allUsersData, openId);
-          const sorted = sortDocs(docs);
           docsBox.innerHTML = "";
+          let docs = collectSharedFolderDocs(allUsersData, openId);
+          const searchTerm = (window.currentSearchTerm || "").toLowerCase().trim();
+          if (searchTerm) {
+            docs = docs.filter(d => {
+              const title = (d.title || "").toLowerCase();
+              const org = (d.organization || "").toLowerCase();
+              return title.includes(searchTerm) || org.includes(searchTerm);
+            });
+          }
+          const sorted = sortDocs(docs);
           if (sorted.length === 0) {
             docsBox.innerHTML = "<div style='opacity:.7;padding:20px;text-align:center'>אין עדיין מסמכים בתיקייה זו (מצב לא מקוון)</div>";
           } else {
@@ -5796,10 +5813,43 @@ if (scanModal) {
 
       // רק אם מסך קטגוריה פתוח – נרענן את הרשימה
       if (!categoryView.classList.contains("hidden") && categoryTitle) {
-        window.openCategoryView(
-          categoryTitle.textContent,
-          window.currentSubfolderFilter || null
-        );
+        const title = categoryTitle.textContent;
+        
+        // זיהוי איזה מסך פתוח לפי הכותרת
+        if (title === "סל מחזור") {
+          window.openRecycleView();
+        } else if (title.includes("–") && title.startsWith("פרופיל:")) {
+          // פרופיל עם קטגוריה ספציפית
+          const profileId = window.currentProfileId;
+          const categoryName = window.currentProfileCategoryName;
+          if (profileId && categoryName) {
+            const profiles = loadProfiles();
+            const profile = profiles.find(p => p.id === profileId);
+            if (profile) {
+              openProfileCategoryDocs(profile, categoryName);
+            }
+          }
+        } else if (title.startsWith("פרופיל:")) {
+          // פרופיל ללא קטגוריה ספציפית (מסך הקטגוריות)
+          const profileId = window.currentProfileId;
+          if (profileId && typeof openProfileCategories === "function") {
+            openProfileCategories(profileId);
+          }
+        } else if (window.currentSharedFolderId) {
+          // תיקייה משותפת
+          const folderId = window.currentSharedFolderId;
+          window.openSharedView();
+          setTimeout(() => {
+            const btn = document.querySelector(`[data-open="${folderId}"]`);
+            if (btn) btn.click();
+          }, 100);
+        } else {
+          // קטגוריה רגילה
+          window.openCategoryView(
+            title,
+            window.currentSubfolderFilter || null
+          );
+        }
       }
     });
   }
@@ -7675,14 +7725,15 @@ function openProfileCategories(profileId) {
   const homeView      = document.getElementById("homeView");
   const categoryView  = document.getElementById("categoryView");
   if (!categoryTitle || !docsList) return;
+  window.currentProfileId = profileId;
 
  const searchInput = document.getElementById("categorySearch");
   if (searchInput) {
     // בפרופילים לא רוצים חיפוש במסמכים
-    searchInput.style.display = "inline-block";
+    searchInput.style.display = "none";
   }
     const searchWrapper = document.querySelector(".search-wrapper");
-    if (searchWrapper) searchWrapper.style.display = "flex";
+    if (searchWrapper) searchWrapper.style.display = "none";
     const subfoldersBar = document.getElementById("subfoldersBar");
     if (subfoldersBar) subfoldersBar.style.display = "none";
 
@@ -7790,6 +7841,14 @@ function openProfileCategoryDocs(profile, categoryName) {
   categoryTitle.textContent = `פרופיל: ${profile.fullName} – ${categoryName}`;
   docsList.classList.remove("shared-mode");
   docsList.innerHTML = "";
+  const searchInput = document.getElementById("categorySearch");
+  if (searchInput) searchInput.style.display = "inline-block";
+  const searchWrapper = document.querySelector(".search-wrapper");
+  if (searchWrapper) searchWrapper.style.display = "flex";
+  const subfoldersBar = document.getElementById("subfoldersBar");
+  if (subfoldersBar) subfoldersBar.style.display = "none";
+  window.currentProfileCategoryName = categoryName;
+
 
   const docs = (window.allDocsData || [])
     .filter(d => d.category === categoryName)
@@ -7801,8 +7860,15 @@ function openProfileCategoryDocs(profile, categoryName) {
         names.includes(profile.firstName)
       );
     })
-    .filter(d => !d._trashed);
 
+    .filter(d => !d._trashed)
+    .filter(d => {
+      const searchTerm = (window.currentSearchTerm || "").toLowerCase().trim();
+      if (!searchTerm) return true;
+      const title = (d.title || "").toLowerCase();
+      const org = (d.organization || "").toLowerCase();
+      return title.includes(searchTerm) || org.includes(searchTerm);
+    });
   if (!docs.length) {
     docsList.innerHTML =
       `<div style="padding:2rem;text-align:center;opacity:0.6;">אין מסמכים בקטגוריה הזו</div>`;
