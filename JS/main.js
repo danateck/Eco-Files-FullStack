@@ -7079,7 +7079,7 @@ function buildProfileCard(profile) {
   shareBtn.style.bottom = "6px";
   shareBtn.style.left = "6px";
   shareBtn.style.border = "none";
-  shareBtn.style.background = "rgba(75,107,251,0.12)";
+  shareBtn.style.background = "rgba(75, 251, 154, 0.12)";
   shareBtn.style.borderRadius = "8px";
   shareBtn.style.fontSize = "0.70rem";
   shareBtn.style.padding = "2px 6px";
