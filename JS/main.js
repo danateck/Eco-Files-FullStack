@@ -2771,6 +2771,8 @@ window.openRecycleView = function () {
   const docsList = document.getElementById("docsList");
   const homeView = document.getElementById("homeView");
   const categoryView = document.getElementById("categoryView");
+  const subfoldersBar = document.getElementById("subfoldersBar");
+
   if (!categoryTitle || !docsList) {
     console.error("❌ Recycle view elements not found");
     return;
@@ -2806,6 +2808,14 @@ window.openSharedView = function() {
 
    const searchBar = document.getElementById("categorySearch");
   if (searchBar) searchBar.style.display = "none";
+
+
+  if (subfoldersBar) {
+  subfoldersBar.innerHTML = "";
+  subfoldersBar.classList.add("hidden");
+}
+
+
 
   if (!categoryTitle || !docsList) {
     console.error("❌ Shared view elements not found");
