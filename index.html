@@ -2114,16 +2114,26 @@ body::-webkit-scrollbar-thumb:hover,
 .search-wrapper {
   display: flex;
   align-items: center;
-  /* רספונסיבי: עד 260px, אבל לא יותר מ־80% מרוחב המסך */
-  width: min(260px, 80vw);
+  flex: 1;
   max-width: 100%;
+  width: 100%;
   background: #f3f3f1;
   border-radius: 30px;
   border: 1px solid #d3d3d3;
   flex-direction: row-reverse;
   overflow: hidden;
-  margin-inline: auto; /* שיישב יפה באמצע */
 }
+
+
+
+.top-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  flex-wrap: wrap; /* חשוב!! מאפשר להתכווץ */
+}
+
 
 
 @media (max-width: 480px) {
@@ -2141,6 +2151,24 @@ body::-webkit-scrollbar-thumb:hover,
     height: 32px;
   }
 }
+
+@media (max-width: 600px) {
+  .search-wrapper {
+    width: 80%;
+    max-width: 80%;
+  }
+
+  .search-input {
+    font-size: 14px;
+    padding: 8px 10px;
+  }
+
+  .search-btn {
+    width: 36px;
+    height: 36px;
+  }
+}
+
 
 
 
