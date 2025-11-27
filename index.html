@@ -2114,13 +2114,30 @@ body::-webkit-scrollbar-thumb:hover,
 .search-wrapper {
   display: flex;
   align-items: center;
-  width: 200px;
+  width: clamp(150px, 60vw, 260px); /* במקום width: 260px; */
   background: #f3f3f1;
   border-radius: 30px;
   border: 1px solid #d3d3d3;
   flex-direction: row-reverse;
   overflow: hidden;
 }
+
+@media (max-width: 480px) {
+  .search-wrapper {
+    width: 80vw;          /* 80% מרוחב המסך */
+  }
+
+  .search-input {
+    font-size: 12px;
+    padding: 8px 10px;
+  }
+
+  .search-btn {
+    width: 34px;
+    height: 32px;
+  }
+}
+
 
 .search-btn {
   background: #15310a;
