@@ -2240,11 +2240,12 @@ body::-webkit-scrollbar-thumb:hover,
   }
 
   .sidebar-bottom {
-    position: static !important;   /* לא מודבק לתחתית */
-    margin-top: 160px !important;
-    padding-bottom: -14px !important;  /* קצת מקום לפני הקצה של המסך */
+    position: sticky !important;   /* ✅ sticky במקום static */
+    bottom: 0 !important;          /* ✅ מודבק לתחתית */
+    margin-top: auto !important;   /* ✅ דוחף לתחתית */
+    padding-bottom: 0.75rem !important;
     background: inherit;
-  }
+    z-index: 10;                   /* ✅ מעל תוכן אחר */
 }
 
 
