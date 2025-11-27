@@ -2380,7 +2380,12 @@ if (mode !== "recycle") {
     // מצב סל מחזור
     const restoreBtn = document.createElement("button");
     restoreBtn.className = "doc-action-btn restore";
-    restoreBtn.textContent = "שחזור ♻️";
+    restoreBtn.innerHTML = `
+  <img src="assests/icons/restore.png"
+       style="width:16px;height:16px;vertical-align:middle;margin-left:6px;">
+  שחזור
+`;
+
     restoreBtn.addEventListener("click", async () => {
       console.log("♻️ Restore clicked for:", doc.id);
       try {
@@ -2406,7 +2411,12 @@ if (mode !== "recycle") {
     });
     const deleteBtn = document.createElement("button");
 deleteBtn.className = "doc-action-btn danger";
-deleteBtn.textContent = "מחיקה לצמיתות 🗑️";
+deleteBtn.innerHTML = `
+  מחיקה לצמיתות
+  <img src="assests/icons/trash.png"
+       style="width:16px;height:16px;vertical-align:middle;margin-right:6px;">
+`;
+
 deleteBtn.addEventListener("click", async () => {
   // פונקציה פנימית שעושה את מחיקת האמת
   const doDelete = async () => {
