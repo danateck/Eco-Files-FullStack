@@ -311,7 +311,7 @@ select, .btn{
 
 /* Dark theme specific overrides */
 .theme-dark .sidebar {
-  background: linear-gradient(180deg, var(--bg-sidebar-from) 0%, var(--bg-sidebar-to) 100%);
+  background: #1d1f1e;
   color: #d1d4db;
   box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
 }
@@ -360,7 +360,7 @@ select, .btn{
 }
 
 .theme-dark .menu-item {
-  color: #b8bcc5;
+  color: #b0b0b0;
 }
 
 .theme-dark .menu-item:hover,
@@ -960,7 +960,7 @@ body.dark-mode .close-btn:hover { background: rgba(255,255,255,0.06); color: #ff
 
 /* optional dark mode support */
 body.dark-mode .sidebar {
-  background: #181a1b;
+  background: #1d1f1e;
   color: #eee;
 }
 
@@ -2647,7 +2647,13 @@ body::-webkit-scrollbar-thumb:hover,
 
           <button class="menu-item active" data-view="home">
   <div class="menu-item-icon">
-    <img src="assests/icons/home.png" alt="Home Icon" class="menu-icon">
+    <img 
+      src="assests/icons/home.png"
+      data-light="assests/icons/home.png"
+      data-dark="assests/icons/homeDark.png"
+      alt="Home Icon" 
+      class="menu-icon"
+    >
   </div>
   <span>דף הבית</span>
 </button>
@@ -3513,36 +3519,65 @@ if (topLogoutBtn) {
     });
   }
 
-  // Theme switcher
-  const themeLight = document.getElementById("themeLight");
-  const themeDark = document.getElementById("themeDark");
-  
-  if (themeLight && themeDark) {
-    // Load saved theme
-    const savedTheme = localStorage.getItem("theme") || "light";
-    if (savedTheme === "dark") {
-      themeDark.checked = true;
-      document.documentElement.classList.add("theme-dark");
+
+
+
+function updateMenuIconsForTheme() {
+  const isDark = document.documentElement.classList.contains("theme-dark"); // במקום body
+
+  document.querySelectorAll(".menu-icon").forEach(icon => {
+    const lightSrc = icon.getAttribute("data-light");
+    const darkSrc  = icon.getAttribute("data-dark");
+
+    if (isDark) {
+      if (darkSrc) icon.src = darkSrc;
     } else {
-      themeLight.checked = true;
-      document.documentElement.classList.remove("theme-dark");
+      if (lightSrc) icon.src = lightSrc;
     }
-    
-    // Theme change handlers
-    themeLight.addEventListener("change", () => {
-      if (themeLight.checked) {
-        document.documentElement.classList.remove("theme-dark");
-        localStorage.setItem("theme", "light");
-      }
-    });
-    
-    themeDark.addEventListener("change", () => {
-      if (themeDark.checked) {
-        document.documentElement.classList.add("theme-dark");
-        localStorage.setItem("theme", "dark");
-      }
-    });
+  });
+}
+
+
+
+
+
+  // Theme switcher
+const themeLight = document.getElementById("themeLight");
+const themeDark = document.getElementById("themeDark");
+
+if (themeLight && themeDark) {
+
+  // Load saved theme
+  const savedTheme = localStorage.getItem("theme") || "light";
+  
+  if (savedTheme === "dark") {
+    themeDark.checked = true;
+    document.documentElement.classList.add("theme-dark");
+  } else {
+    themeLight.checked = true;
+    document.documentElement.classList.remove("theme-dark");
   }
+
+  // ⭐ ALWAYS update icons on load
+  updateMenuIconsForTheme();
+
+  // Theme change handlers
+  themeLight.addEventListener("change", () => {
+    if (themeLight.checked) {
+      document.documentElement.classList.remove("theme-dark");
+      localStorage.setItem("theme", "light");
+      updateMenuIconsForTheme(); // ⭐ update icons
+    }
+  });
+
+  themeDark.addEventListener("change", () => {
+    if (themeDark.checked) {
+      document.documentElement.classList.add("theme-dark");
+      localStorage.setItem("theme", "dark");
+      updateMenuIconsForTheme(); // ⭐ update icons
+    }
+  });
+}
 
   // Confirm delete toggle
   const toggleConfirmDelete = document.getElementById("toggleConfirmDelete");
