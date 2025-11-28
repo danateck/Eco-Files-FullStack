@@ -2357,12 +2357,9 @@ if (mode !== "recycle") {
                     <button 
                       class="folder-select-btn" 
                       data-folder-id="${folder.id}"
-                      style="padding: 1rem; border: 1px solid #ddd; border-radius: 8px; background: #e1dbcf; cursor: pointer; text-align: right;"
-                      onmouseover="this.style.borderColor='#4CAF50'"
-                      onmouseout="this.style.borderColor='#ddd'"
                     >
                       <div style="font-weight: 600;">📁 ${folder.name}</div>
-                      <div style="font-size: 0.85rem; color: #666;">${folder.members?.length || 0} חברים</div>
+                      <div style="font-size: 0.85rem; opacity: 0.7;">${folder.members?.length || 0} חברים</div>
                     </button>
                   `).join('')}
                 </div>

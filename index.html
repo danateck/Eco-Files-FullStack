@@ -511,6 +511,22 @@ html {
       border-color: rgba(82, 152, 115, 0.4);
     }
     
+    /* כפתורי בחירת תיקייה - סגנון בסיסי */
+    .folder-select-btn {
+      padding: 1rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: #e1e3d5;
+      cursor: pointer;
+      text-align: right;
+      transition: all 0.25s ease;
+    }
+    
+    .folder-select-btn:hover {
+      border-color: #4CAF50;
+      transform: translateY(-2px);
+    }
+    
     .theme-dark .folder-select-btn {
       background: rgba(18, 24, 22, 0.7) !important;
       border: 1px solid rgba(82, 152, 115, 0.3) !important;
@@ -520,6 +536,7 @@ html {
     .theme-dark .folder-select-btn:hover {
       background: rgba(45, 90, 67, 0.5) !important;
       border-color: rgba(82, 152, 115, 0.5) !important;
+      transform: translateY(-2px);
     }
     
     /* מודל עריכת מסמך */
