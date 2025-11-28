@@ -623,6 +623,12 @@ textarea {
       flex-direction: column;
     }
 
+     .theme-dark .top-left {
+      display: flex;
+      flex-direction: column;
+      color: #dbdcdc;
+    }
+
     .page-title {
       margin: 0;
       font-size: .95rem;
@@ -980,7 +986,7 @@ body.dark-mode .sidebar {
   color: #1e1e1e;
   font-weight: bold;
   padding: 8px 14px;
-  border-radius: 10px;
+  border-radius: 21px;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -1808,6 +1814,27 @@ element.style {
   border-color: #e8d4b4;
 }
 
+
+.theme-dark .storage-widget {
+  background: rgba(0, 0, 0, 0.169);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.75rem;
+  color: #6f716f;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+
+.theme-dark .storage-bar-fill {
+  position: absolute;
+  inset: 0;
+  /* width מוגדר ב-JavaScript דינמית */
+  border-radius: inherit;
+  background: linear-gradient(90deg, #c7d39d, #aab4ae);
+  transition: width 0.3s ease;
+}
 
 /* ========== תיקון גלילה רוחבית וריכוז - גרסה סופית ========== */
 
@@ -2661,7 +2688,13 @@ body::-webkit-scrollbar-thumb:hover,
 
           <button class="menu-item" data-view="shared">
   <div class="menu-item-icon">
-    <img src="assests/icons/share.png" alt="Shared Storage Icon" class="menu-icon">
+    <img
+     src="assests/icons/share.png"
+     data-light="assests/icons/share.png"
+     data-dark="assests/icons/shareDark.png"
+     alt="Shared Storage Icon" 
+     class="menu-icon"
+     >
   </div>
   <span>אחסון משותף</span>
 </button>
@@ -2669,7 +2702,12 @@ body::-webkit-scrollbar-thumb:hover,
 
           <button class="menu-item" data-view="profiles">
   <div class="menu-item-icon">
-    <img src="assests/icons/profile.png" alt="Profiles Icon" class="menu-icon">
+    <img 
+    src="assests/icons/profile.png" 
+    data-light="assests/icons/profile.png"
+     data-dark="assests/icons/profileDark.png"
+    alt="Profiles Icon" 
+    class="menu-icon">
   </div>
   <span>פרופילים</span>
 </button>
@@ -2677,14 +2715,24 @@ body::-webkit-scrollbar-thumb:hover,
 
           <button class="menu-item" data-view="recycle">
   <div class="menu-item-icon">
-    <img src="assests/icons/trash.png" alt="Recycle Icon" class="menu-icon">
+    <img 
+    src="assests/icons/trash.png" 
+    data-light="assests/icons/trash.png"
+     data-dark="assests/icons/trashDark.png"
+    alt="Recycle Icon" 
+    class="menu-icon">
   </div>
   <span>סל מחזור</span>
 </button>
 
           <button class="menu-item" data-view="settings">
   <div class="menu-item-icon">
-    <img src="assests/icons/settings.png" alt="Settings Icon" class="menu-icon">
+    <img 
+    src="assests/icons/settings.png" 
+    data-light="assests/icons/settings.png"
+     data-dark="assests/icons/settingsDark.png"
+    alt="Settings Icon" 
+    class="menu-icon">
   </div>
   <span>הגדרות</span>
 </button>
